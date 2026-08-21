@@ -1,0 +1,60 @@
+# Visual Studio and IDE state
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# .NET build and publish output
+[Bb]in/
+[Oo]bj/
+[Aa]rtifacts/
+artifacts/
+[Dd]ist/
+dist/
+[Pp]ublish/
+TestResults/
+BenchmarkDotNet.Artifacts/
+*.pdb
+*.nupkg
+*.snupkg
+
+# NuGet
+packages/
+*.nuget.props
+*.nuget.targets
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.cache
+*.bak
+*.swp
+*.pid
+
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example
+secrets.json
+appsettings.*.local.json
+*.pfx
+*.p12
+*.key
+*.pem
+
+# AIUsageMonitor runtime data and provider credentials/configuration
+**/.credentials.json
+**/usage-cache.json
+**/window-placement.json
+**/hooks.json
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/

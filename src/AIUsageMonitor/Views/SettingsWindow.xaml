@@ -1,0 +1,247 @@
+<Window x:Class="AIUsageMonitor.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AI Usage Monitor Settings"
+        Width="780"
+        Height="700"
+        MinWidth="700"
+        MinHeight="500"
+        Background="#FFF7F8FA"
+        Foreground="#FF20252B"
+        Icon="/AIUsageMonitor;component/Assets/AIUsageMonitor.ico"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterOwner">
+    <Window.Resources>
+        <Style TargetType="Button" BasedOn="{StaticResource MahApps.Styles.Button}">
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Background" Value="#FFFFFFFF" />
+            <Setter Property="Foreground" Value="#FF20252B" />
+            <Setter Property="BorderBrush" Value="#FFC6CCD3" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FFE5F4F2" />
+                    <Setter Property="Foreground" Value="#FF173A37" />
+                    <Setter Property="BorderBrush" Value="#FF62A9A1" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#FFCBE8E4" />
+                    <Setter Property="Foreground" Value="#FF102C29" />
+                    <Setter Property="BorderBrush" Value="#FF31877D" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#FF20252B" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#FFFFFFFF" />
+            <Setter Property="Foreground" Value="#FF20252B" />
+            <Setter Property="BorderBrush" Value="#FFC6CCD3" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="Padding" Value="6,3" />
+            <Setter Property="Background" Value="#FFFFFFFF" />
+            <Setter Property="Foreground" Value="#FF20252B" />
+            <Setter Property="BorderBrush" Value="#FFC6CCD3" />
+        </Style>
+    </Window.Resources>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <Grid Margin="18,12,18,8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" FontSize="16" FontWeight="SemiBold" Text="Window" />
+        <Border Grid.Row="1"
+                Margin="0,8,0,10"
+                Padding="10"
+                Background="#FFFFFFFF"
+                BorderBrush="#FFD6DBE1"
+                BorderThickness="1"
+                CornerRadius="6">
+            <StackPanel>
+                <CheckBox IsChecked="{Binding IsWindowLocked, Mode=TwoWay}"
+                          FontWeight="SemiBold"
+                          Content="Lock window position and size" />
+                <TextBlock Margin="22,4,0,0"
+                           Foreground="#FF65717D"
+                           Text="When unlocked, drag the widget body to move it and drag any edge or corner to resize it." />
+                <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+                    <CheckBox IsChecked="{Binding IsHorizontalLayout, Mode=TwoWay}"
+                              FontWeight="SemiBold"
+                              Content="Side-by-side layout" />
+                    <TextBlock Margin="52,0,12,0"
+                               VerticalAlignment="Center"
+                               FontWeight="SemiBold"
+                               Text="Visible:" />
+                    <CheckBox IsChecked="{Binding ShowCodex, Mode=TwoWay}" Content="Codex" />
+                    <CheckBox Margin="18,0,0,0"
+                              IsChecked="{Binding ShowClaude, Mode=TwoWay}"
+                              Content="Claude" />
+                </StackPanel>
+                <CheckBox Margin="0,12,0,0"
+                          IsChecked="{Binding AutoRefreshEnabled, Mode=TwoWay}"
+                          FontWeight="SemiBold"
+                          Content="Automatic refresh" />
+                <StackPanel Margin="22,7,0,0"
+                            IsEnabled="{Binding AutoRefreshEnabled}"
+                            Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" Text="Codex every" />
+                    <TextBox Width="58"
+                             Margin="8,0,4,0"
+                             Padding="7,3"
+                             HorizontalContentAlignment="Right"
+                             Background="#FFFFFFFF"
+                             BorderBrush="#FFBFC7D1"
+                             Foreground="#FF20252B"
+                             Text="{Binding CodexRefreshIntervalMinutes, Mode=TwoWay}" />
+                    <TextBlock VerticalAlignment="Center" Text="min" />
+                    <TextBlock Margin="28,0,0,0" VerticalAlignment="Center" Text="Claude every" />
+                    <TextBox Width="58"
+                             Margin="8,0,4,0"
+                             Padding="7,3"
+                             HorizontalContentAlignment="Right"
+                             Background="#FFFFFFFF"
+                             BorderBrush="#FFBFC7D1"
+                             Foreground="#FF20252B"
+                             Text="{Binding ClaudeRefreshIntervalMinutes, Mode=TwoWay}" />
+                    <TextBlock VerticalAlignment="Center" Text="min" />
+                </StackPanel>
+                <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text size" />
+                    <ComboBox Width="130"
+                              Margin="16,0,0,0"
+                              ItemsSource="{Binding FontSizePresets}"
+                              SelectedItem="{Binding FontSizePreset, Mode=TwoWay}" />
+                </StackPanel>
+                <TextBlock Margin="0,14,0,4" FontWeight="SemiBold" Text="Usage colour stages" />
+                <UniformGrid Columns="2">
+                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 1" />
+                        <TextBox Width="90" Text="{Binding GreenColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding Stage1MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 2" />
+                        <TextBox Width="90" Text="{Binding LimeColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding Stage2MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 3" />
+                        <TextBox Width="90" Text="{Binding YellowColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding Stage3MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 4" />
+                        <TextBox Width="90" Text="{Binding OrangeColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding Stage4MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 5" />
+                        <TextBox Width="90" Text="{Binding RedColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding Stage5MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                </UniformGrid>
+                <Button Width="112"
+                        Margin="0,8,0,0"
+                        HorizontalAlignment="Left"
+                        Command="{Binding ApplyUsageColorsCommand}"
+                        Content="Apply Stages" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Row="2" FontSize="16" FontWeight="SemiBold" Text="Integrations" />
+        <Border Grid.Row="3"
+                Margin="0,8,0,6"
+                Padding="10"
+                Background="#FFFFFFFF"
+                BorderBrush="#FFD6DBE1"
+                BorderThickness="1"
+                CornerRadius="6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock FontWeight="SemiBold" Text="Codex" />
+                    <StackPanel Margin="0,4,12,0" Orientation="Horizontal">
+                        <TextBlock Text="Hook status: " />
+                        <TextBlock Text="{Binding CodexHookStatus, Mode=OneWay}" />
+                    </StackPanel>
+                    <TextBlock Margin="0,3,12,0"
+                               FontSize="10"
+                               Foreground="#FF65717D"
+                               Text="{Binding CodexHookPath}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
+                    <Button Margin="8,0,6,0" Command="{Binding InstallCodexHookCommand}" Content="Install / Repair Hook" />
+                    <Button Margin="0,0,6,0" Command="{Binding UninstallCodexHookCommand}" Content="Uninstall Hook" />
+                    <Button Margin="0,0,6,0" Command="{Binding TestCodexHookCommand}" Content="Test Hook" />
+                    <Button Command="{Binding OpenCodexHookFileCommand}" Content="Open Hook File" ToolTip="{Binding CodexHookPath}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+        <Border Grid.Row="4"
+                Padding="10"
+                Background="#FFFFFFFF"
+                BorderBrush="#FFD6DBE1"
+                BorderThickness="1"
+                CornerRadius="6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock FontWeight="SemiBold" Text="Claude Code" />
+                    <StackPanel Margin="0,4,12,0" Orientation="Horizontal">
+                        <TextBlock Text="Hook status: " />
+                        <TextBlock Text="{Binding ClaudeHookStatus, Mode=OneWay}" />
+                    </StackPanel>
+                    <TextBlock Margin="0,3,12,0"
+                               FontSize="10"
+                               Foreground="#FF65717D"
+                               Text="{Binding ClaudeHookPath}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
+                    <Button Margin="8,0,6,0" Command="{Binding InstallClaudeHookCommand}" Content="Install / Repair Hook" />
+                    <Button Margin="0,0,6,0" Command="{Binding UninstallClaudeHookCommand}" Content="Uninstall Hook" />
+                    <Button Margin="0,0,6,0" Command="{Binding TestClaudeHookCommand}" Content="Test Hook" />
+                    <Button Command="{Binding OpenClaudeHookFileCommand}" Content="Open Hook File" ToolTip="{Binding ClaudeHookPath}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <TextBlock Grid.Row="5"
+                   Margin="0,8,0,0"
+                   Foreground="#FF4E5964"
+                   Text="{Binding TestResult}"
+                   TextWrapping="Wrap" />
+        <StackPanel Grid.Row="6" HorizontalAlignment="Right" Orientation="Horizontal">
+            <Button MinWidth="76" IsCancel="True" IsDefault="True" Content="Close" />
+        </StackPanel>
+    </Grid>
+    </ScrollViewer>
+</Window>
