@@ -83,6 +83,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" FontSize="16" FontWeight="SemiBold" Text="Window" />
@@ -98,6 +99,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <CheckBox Grid.Column="0"
                               IsChecked="{Binding IsWindowLocked, Mode=TwoWay}"
@@ -107,6 +109,10 @@
                               IsChecked="{Binding IsHorizontalLayout, Mode=TwoWay}"
                               FontWeight="SemiBold"
                               Content="Side-by-side layout" />
+                    <CheckBox Grid.Column="2"
+                              IsChecked="{Binding AlwaysOnTop, Mode=TwoWay}"
+                              FontWeight="SemiBold"
+                              Content="Always on top" />
                 </Grid>
                 <TextBlock Margin="22,4,0,0"
                            Foreground="#FF65717D"
@@ -123,6 +129,9 @@
                     <CheckBox Margin="18,0,0,0"
                               IsChecked="{Binding ShowAntigravity, Mode=TwoWay}"
                               Content="Antigravity" />
+                    <CheckBox Margin="18,0,0,0"
+                              IsChecked="{Binding ShowCursor, Mode=TwoWay}"
+                              Content="Cursor" />
                 </StackPanel>
                 <CheckBox Margin="0,12,0,0"
                           IsChecked="{Binding AutoRefreshEnabled, Mode=TwoWay}"
@@ -159,6 +168,16 @@
                              BorderBrush="#FFBFC7D1"
                              Foreground="#FF20252B"
                              Text="{Binding AntigravityRefreshIntervalMinutes, Mode=TwoWay}" />
+                    <TextBlock VerticalAlignment="Center" Text="min" />
+                    <TextBlock Margin="28,0,0,0" VerticalAlignment="Center" Text="Cursor every" />
+                    <TextBox Width="58"
+                             Margin="8,0,4,0"
+                             Padding="7,3"
+                             HorizontalContentAlignment="Right"
+                             Background="#FFFFFFFF"
+                             BorderBrush="#FFBFC7D1"
+                             Foreground="#FF20252B"
+                             Text="{Binding CursorRefreshIntervalMinutes, Mode=TwoWay}" />
                     <TextBlock VerticalAlignment="Center" Text="min" />
                 </WrapPanel>
                 <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
@@ -322,12 +341,44 @@
             </Grid>
         </Border>
 
-        <TextBlock Grid.Row="6"
+        <Border Grid.Row="6"
+                Margin="0,6,0,0"
+                Padding="10"
+                Background="#FFFFFFFF"
+                BorderBrush="#FFD6DBE1"
+                BorderThickness="1"
+                CornerRadius="6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock FontWeight="SemiBold" Text="Cursor" />
+                    <StackPanel Margin="0,4,12,0" Orientation="Horizontal">
+                        <TextBlock Text="Hook status: " />
+                        <TextBlock Text="{Binding CursorHookStatus, Mode=OneWay}" />
+                    </StackPanel>
+                    <TextBlock Margin="0,3,12,0"
+                               FontSize="10"
+                               Foreground="#FF65717D"
+                               Text="{Binding CursorHookPath}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
+                    <Button Margin="8,0,6,0" Command="{Binding InstallCursorHookCommand}" Content="Install / Repair Hook" />
+                    <Button Margin="0,0,6,0" Command="{Binding UninstallCursorHookCommand}" Content="Uninstall Hook" />
+                    <Button Margin="0,0,6,0" Command="{Binding TestCursorHookCommand}" Content="Test Hook" />
+                    <Button Command="{Binding OpenCursorHookFileCommand}" Content="Open Hook File" ToolTip="{Binding CursorHookPath}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <TextBlock Grid.Row="7"
                    Margin="0,8,0,0"
                    Foreground="#FF4E5964"
                    Text="{Binding TestResult}"
                    TextWrapping="Wrap" />
-        <StackPanel Grid.Row="7" HorizontalAlignment="Right" Orientation="Horizontal">
+        <StackPanel Grid.Row="8" HorizontalAlignment="Right" Orientation="Horizontal">
             <Button MinWidth="76" IsCancel="True" IsDefault="True" Content="Close" />
         </StackPanel>
     </Grid>

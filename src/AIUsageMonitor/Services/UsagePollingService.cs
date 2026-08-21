@@ -30,12 +30,14 @@ public sealed class UsagePollingService : IDisposable
             await Task.WhenAll(
                 _refreshService.RequestRefreshAsync(ProviderKind.Codex, RefreshReason.Startup),
                 _refreshService.RequestRefreshAsync(ProviderKind.Claude, RefreshReason.Startup),
-                _refreshService.RequestRefreshAsync(ProviderKind.Antigravity, RefreshReason.Startup));
+                _refreshService.RequestRefreshAsync(ProviderKind.Antigravity, RefreshReason.Startup),
+                _refreshService.RequestRefreshAsync(ProviderKind.Cursor, RefreshReason.Startup));
         }
 
         _pollingTasks.Add(PollAsync(ProviderKind.Codex, _lifetime.Token));
         _pollingTasks.Add(PollAsync(ProviderKind.Claude, _lifetime.Token));
         _pollingTasks.Add(PollAsync(ProviderKind.Antigravity, _lifetime.Token));
+        _pollingTasks.Add(PollAsync(ProviderKind.Cursor, _lifetime.Token));
     }
 
     private async Task PollAsync(ProviderKind provider, CancellationToken cancellationToken)

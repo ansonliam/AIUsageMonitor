@@ -44,10 +44,11 @@ public sealed class ExistingProviderRegressionTests
     {
         var options = new AutoRefreshOptions();
 
-        options.Update(true, 15, 20, 25);
+        options.Update(true, 15, 20, 25, 30);
 
         Assert.AreEqual(TimeSpan.FromMinutes(15), options.GetInterval(ProviderKind.Codex));
         Assert.AreEqual(TimeSpan.FromMinutes(20), options.GetInterval(ProviderKind.Claude));
         Assert.AreEqual(TimeSpan.FromMinutes(25), options.GetInterval(ProviderKind.Antigravity));
+        Assert.AreEqual(TimeSpan.FromMinutes(30), options.GetInterval(ProviderKind.Cursor));
     }
 }

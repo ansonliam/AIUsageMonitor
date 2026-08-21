@@ -4,5 +4,6 @@ public enum ProviderKind
 {
     Codex,
     Claude,
-    Antigravity
+    Antigravity,
+    Cursor
 }

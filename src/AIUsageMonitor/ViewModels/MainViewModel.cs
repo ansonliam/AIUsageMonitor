@@ -15,9 +15,10 @@ public sealed class MainViewModel
         var codex = new ProviderViewModel(ProviderKind.Codex, "Codex", refreshService);
         var claude = new ProviderViewModel(ProviderKind.Claude, "Claude", refreshService);
         var antigravity = new ProviderViewModel(ProviderKind.Antigravity, "Antigravity", refreshService);
-        Providers = new ObservableCollection<ProviderViewModel> { codex, claude, antigravity };
+        var cursor = new ProviderViewModel(ProviderKind.Cursor, "Cursor", refreshService);
+        Providers = new ObservableCollection<ProviderViewModel> { codex, claude, antigravity, cursor };
         _providers = Providers.ToDictionary(provider => provider.Kind);
-        _providerOrder = [codex, claude, antigravity];
+        _providerOrder = [codex, claude, antigravity, cursor];
         foreach (var provider in _providerOrder)
         {
             provider.UsageWindows.CollectionChanged += (_, _) => LayoutChanged?.Invoke();
@@ -36,6 +37,7 @@ public sealed class MainViewModel
             {
                 "Claude Code" => ProviderKind.Claude,
                 "Google Antigravity" => ProviderKind.Antigravity,
+                "Cursor" => ProviderKind.Cursor,
                 _ => ProviderKind.Codex
             };
             if (_providers.TryGetValue(provider, out var viewModel))

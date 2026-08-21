@@ -105,6 +105,16 @@ public sealed class UsageMetricViewModel(string label) : ObservableObject
             return "C";
         }
 
+        if (label.Contains("Cursor", StringComparison.OrdinalIgnoreCase))
+        {
+            return "C";
+        }
+
+        if (label.Contains("Other", StringComparison.OrdinalIgnoreCase))
+        {
+            return "O";
+        }
+
         return label;
     }
 }

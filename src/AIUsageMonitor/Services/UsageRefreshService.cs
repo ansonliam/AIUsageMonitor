@@ -7,7 +7,16 @@ namespace AIUsageMonitor.Services;
 public sealed class UsageRefreshService : IDisposable
 {
     private static readonly TimeSpan HookDebounce = TimeSpan.FromMilliseconds(1500);
-    private static readonly TimeSpan MinRefreshInterval = TimeSpan.FromMinutes(5);
+
+    // Floor between refreshes for non-manual reasons (hook/scheduled), tuned per provider from the same
+    // research backing AutoRefreshOptions' per-provider defaults - see the constants there for citations.
+    private static readonly Dictionary<ProviderKind, TimeSpan> MinRefreshIntervals = new()
+    {
+        [ProviderKind.Codex] = TimeSpan.FromMinutes(3),
+        [ProviderKind.Claude] = TimeSpan.FromMinutes(15),
+        [ProviderKind.Antigravity] = TimeSpan.FromMinutes(10),
+        [ProviderKind.Cursor] = TimeSpan.FromMinutes(5)
+    };
     private readonly Dictionary<ProviderKind, IUsageProvider> _providers;
     private readonly Dictionary<ProviderKind, ProviderRefreshState> _states;
     private readonly UsageCacheStore _cacheStore;
@@ -193,7 +202,8 @@ public sealed class UsageRefreshService : IDisposable
             snapshot = state.LastSnapshot;
         }
 
-        if (lastAttempt is null || DateTimeOffset.Now - lastAttempt >= MinRefreshInterval)
+        var minInterval = MinRefreshIntervals[provider];
+        if (lastAttempt is null || DateTimeOffset.Now - lastAttempt >= minInterval)
         {
             return false;
         }

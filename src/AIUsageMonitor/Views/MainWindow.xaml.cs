@@ -38,9 +38,11 @@ public partial class MainWindow : Window
 
     public bool IsWindowLocked { get; private set; }
     public bool IsHorizontalLayout { get; private set; }
+    public bool AlwaysOnTop { get; private set; } = true;
     public bool ShowCodex { get; private set; } = true;
     public bool ShowClaude { get; private set; } = true;
     public bool ShowAntigravity { get; private set; } = true;
+    public bool ShowCursor { get; private set; } = true;
     public string FontSizePreset { get; private set; } = "Normal";
     public string GreenColorHex { get; private set; } = "#2ECC71";
     public string LimeColorHex { get; private set; } = "#9ACD32";
@@ -53,9 +55,10 @@ public partial class MainWindow : Window
     public double Stage4MaxPercent { get; private set; } = 95;
     public double Stage5MaxPercent { get; private set; } = 100;
     public bool AutoRefreshEnabled { get; private set; }
-    public double CodexRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.DefaultIntervalMinutes;
-    public double ClaudeRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.DefaultIntervalMinutes;
-    public double AntigravityRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.DefaultIntervalMinutes;
+    public double CodexRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.CodexDefaultIntervalMinutes;
+    public double ClaudeRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
+    public double AntigravityRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
+    public double CursorRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.CursorDefaultIntervalMinutes;
 
     public MainWindow(
         MainViewModel viewModel,
@@ -136,9 +139,11 @@ public partial class MainWindow : Window
 
             IsWindowLocked = placement.IsLocked;
             IsHorizontalLayout = placement.IsHorizontalLayout;
+            AlwaysOnTop = placement.AlwaysOnTop;
             ShowCodex = placement.ShowCodex;
             ShowClaude = placement.ShowClaude;
             ShowAntigravity = placement.ShowAntigravity;
+            ShowCursor = placement.ShowCursor;
             FontSizePreset = NormalizeFontSizePreset(placement.FontSizePreset);
             GreenColorHex = placement.GreenColorHex;
             LimeColorHex = placement.LimeColorHex;
@@ -157,6 +162,8 @@ public partial class MainWindow : Window
                 placement.ClaudeRefreshIntervalMinutes);
             AntigravityRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(
                 placement.AntigravityRefreshIntervalMinutes);
+            CursorRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(
+                placement.CursorRefreshIntervalMinutes);
             Opacity = Math.Clamp(placement.Opacity, 0.6, 1.0);
         }
         else
@@ -174,6 +181,7 @@ public partial class MainWindow : Window
         ApplyFontSizePreset();
         ApplyProviderLayout();
         ApplyProviderVisibility();
+        Topmost = AlwaysOnTop;
     }
 
     public void SetWindowLocked(bool isLocked)
@@ -200,6 +208,18 @@ public partial class MainWindow : Window
         SavePlacement();
     }
 
+    public void SetAlwaysOnTop(bool alwaysOnTop)
+    {
+        if (AlwaysOnTop == alwaysOnTop)
+        {
+            return;
+        }
+
+        AlwaysOnTop = alwaysOnTop;
+        Topmost = AlwaysOnTop;
+        SavePlacement();
+    }
+
     public void SetProviderVisibility(ProviderKind provider, bool isVisible)
     {
         if (provider == ProviderKind.Codex)
@@ -210,9 +230,13 @@ public partial class MainWindow : Window
         {
             ShowClaude = isVisible;
         }
-        else
+        else if (provider == ProviderKind.Antigravity)
         {
             ShowAntigravity = isVisible;
+        }
+        else
+        {
+            ShowCursor = isVisible;
         }
 
         ApplyProviderVisibility();
@@ -256,9 +280,13 @@ public partial class MainWindow : Window
         {
             ClaudeRefreshIntervalMinutes = normalized;
         }
-        else
+        else if (provider == ProviderKind.Antigravity)
         {
             AntigravityRefreshIntervalMinutes = normalized;
+        }
+        else
+        {
+            CursorRefreshIntervalMinutes = normalized;
         }
 
         ApplyAutoRefreshOptions();
@@ -270,7 +298,8 @@ public partial class MainWindow : Window
             AutoRefreshEnabled,
             CodexRefreshIntervalMinutes,
             ClaudeRefreshIntervalMinutes,
-            AntigravityRefreshIntervalMinutes);
+            AntigravityRefreshIntervalMinutes,
+            CursorRefreshIntervalMinutes);
 
     public bool TrySetUsageColors(
         string green,
@@ -409,6 +438,7 @@ public partial class MainWindow : Window
         _viewModel.SetProviderVisibility(ProviderKind.Codex, ShowCodex);
         _viewModel.SetProviderVisibility(ProviderKind.Claude, ShowClaude);
         _viewModel.SetProviderVisibility(ProviderKind.Antigravity, ShowAntigravity);
+        _viewModel.SetProviderVisibility(ProviderKind.Cursor, ShowCursor);
         ApplyProviderLayout();
     }
 
@@ -458,7 +488,8 @@ public partial class MainWindow : Window
         var visibleProviderCount =
             (ShowCodex ? 1 : 0) +
             (ShowClaude ? 1 : 0) +
-            (ShowAntigravity ? 1 : 0);
+            (ShowAntigravity ? 1 : 0) +
+            (ShowCursor ? 1 : 0);
         if (visibleProviderCount <= 1)
         {
             return GetVerticalMinWidth();
@@ -479,6 +510,7 @@ public partial class MainWindow : Window
     private void WidgetContextMenu_Opened(object sender, RoutedEventArgs e)
     {
         LockWindowMenuItem.Header = IsWindowLocked ? "Unlock window" : "Lock window";
+        AlwaysOnTopMenuItem.IsChecked = AlwaysOnTop;
         foreach (var item in OpacityMenuItem.Items.OfType<System.Windows.Controls.MenuItem>())
         {
             item.IsCheckable = true;
@@ -517,6 +549,9 @@ public partial class MainWindow : Window
 
     private void LockWindowMenuItem_Click(object sender, RoutedEventArgs e) =>
         SetWindowLocked(!IsWindowLocked);
+
+    private void AlwaysOnTopMenuItem_Click(object sender, RoutedEventArgs e) =>
+        SetAlwaysOnTop(!AlwaysOnTop);
 
     private static bool TryGetOpacity(System.Windows.Controls.MenuItem item, out double opacity) =>
         double.TryParse(
@@ -632,9 +667,11 @@ public partial class MainWindow : Window
                 Height = ActualHeight,
                 IsLocked = IsWindowLocked,
                 IsHorizontalLayout = IsHorizontalLayout,
+                AlwaysOnTop = AlwaysOnTop,
                 ShowCodex = ShowCodex,
                 ShowClaude = ShowClaude,
                 ShowAntigravity = ShowAntigravity,
+                ShowCursor = ShowCursor,
                 FontSizePreset = FontSizePreset,
                 GreenColorHex = GreenColorHex,
                 LimeColorHex = LimeColorHex,
@@ -650,6 +687,7 @@ public partial class MainWindow : Window
                 CodexRefreshIntervalMinutes = CodexRefreshIntervalMinutes,
                 ClaudeRefreshIntervalMinutes = ClaudeRefreshIntervalMinutes,
                 AntigravityRefreshIntervalMinutes = AntigravityRefreshIntervalMinutes,
+                CursorRefreshIntervalMinutes = CursorRefreshIntervalMinutes,
                 Opacity = Opacity
             };
             File.WriteAllText(temporaryPath, JsonSerializer.Serialize(placement));
@@ -686,9 +724,11 @@ public partial class MainWindow : Window
         public double Height { get; init; } = 230;
         public bool IsLocked { get; init; }
         public bool IsHorizontalLayout { get; init; }
+        public bool AlwaysOnTop { get; init; } = true;
         public bool ShowCodex { get; init; } = true;
         public bool ShowClaude { get; init; } = true;
         public bool ShowAntigravity { get; init; } = true;
+        public bool ShowCursor { get; init; } = true;
         public string FontSizePreset { get; init; } = "Normal";
         public string GreenColorHex { get; init; } = "#2ECC71";
         public string LimeColorHex { get; init; } = "#9ACD32";
@@ -701,9 +741,10 @@ public partial class MainWindow : Window
         public double Stage4MaxPercent { get; init; } = 95;
         public double Stage5MaxPercent { get; init; } = 100;
         public bool AutoRefreshEnabled { get; init; }
-        public double CodexRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.DefaultIntervalMinutes;
-        public double ClaudeRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.DefaultIntervalMinutes;
-        public double AntigravityRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.DefaultIntervalMinutes;
+        public double CodexRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.CodexDefaultIntervalMinutes;
+        public double ClaudeRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
+        public double AntigravityRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
+        public double CursorRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.CursorDefaultIntervalMinutes;
         public double Opacity { get; init; } = 1.0;
     }
 

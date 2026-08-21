@@ -14,21 +14,26 @@ public sealed class SettingsViewModel : ObservableObject
     private readonly CodexHookInstaller _codexHookInstaller;
     private readonly ClaudeHookInstaller _claudeHookInstaller;
     private readonly AntigravityHookInstaller _antigravityHookInstaller;
+    private readonly CursorHookInstaller _cursorHookInstaller;
     private readonly IApplicationController _applicationController;
     private readonly MainWindow _mainWindow;
     private string _codexHookStatus = "Checking…";
     private string _claudeHookStatus = "Checking…";
     private string _antigravityHookStatus = "Checking…";
+    private string _cursorHookStatus = "Checking…";
     private string _testResult = string.Empty;
     private bool _isWindowLocked;
     private bool _isHorizontalLayout;
+    private bool _alwaysOnTop = true;
     private bool _showCodex = true;
     private bool _showClaude = true;
     private bool _showAntigravity = true;
+    private bool _showCursor = true;
     private bool _autoRefreshEnabled;
-    private double _codexRefreshIntervalMinutes = AutoRefreshOptions.DefaultIntervalMinutes;
-    private double _claudeRefreshIntervalMinutes = AutoRefreshOptions.DefaultIntervalMinutes;
-    private double _antigravityRefreshIntervalMinutes = AutoRefreshOptions.DefaultIntervalMinutes;
+    private double _codexRefreshIntervalMinutes = AutoRefreshOptions.CodexDefaultIntervalMinutes;
+    private double _claudeRefreshIntervalMinutes = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
+    private double _antigravityRefreshIntervalMinutes = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
+    private double _cursorRefreshIntervalMinutes = AutoRefreshOptions.CursorDefaultIntervalMinutes;
     private string _fontSizePreset = "Normal";
     private string _greenColorHex = "#2ECC71";
     private string _limeColorHex = "#9ACD32";
@@ -45,23 +50,28 @@ public sealed class SettingsViewModel : ObservableObject
         CodexHookInstaller codexHookInstaller,
         ClaudeHookInstaller claudeHookInstaller,
         AntigravityHookInstaller antigravityHookInstaller,
+        CursorHookInstaller cursorHookInstaller,
         MainWindow mainWindow,
         IApplicationController applicationController)
     {
         _codexHookInstaller = codexHookInstaller;
         _claudeHookInstaller = claudeHookInstaller;
         _antigravityHookInstaller = antigravityHookInstaller;
+        _cursorHookInstaller = cursorHookInstaller;
         _mainWindow = mainWindow;
         _applicationController = applicationController;
         _isWindowLocked = mainWindow.IsWindowLocked;
         _isHorizontalLayout = mainWindow.IsHorizontalLayout;
+        _alwaysOnTop = mainWindow.AlwaysOnTop;
         _showCodex = mainWindow.ShowCodex;
         _showClaude = mainWindow.ShowClaude;
         _showAntigravity = mainWindow.ShowAntigravity;
+        _showCursor = mainWindow.ShowCursor;
         _autoRefreshEnabled = mainWindow.AutoRefreshEnabled;
         _codexRefreshIntervalMinutes = mainWindow.CodexRefreshIntervalMinutes;
         _claudeRefreshIntervalMinutes = mainWindow.ClaudeRefreshIntervalMinutes;
         _antigravityRefreshIntervalMinutes = mainWindow.AntigravityRefreshIntervalMinutes;
+        _cursorRefreshIntervalMinutes = mainWindow.CursorRefreshIntervalMinutes;
         _fontSizePreset = mainWindow.FontSizePreset;
         RefreshUsageColorState();
         InstallCodexHookCommand = new AsyncRelayCommand(InstallCodexHookAsync);
@@ -77,6 +87,11 @@ public sealed class SettingsViewModel : ObservableObject
         TestAntigravityHookCommand = new AsyncRelayCommand(TestAntigravityHookAsync);
         OpenAntigravityHookFileCommand = new RelayCommand(() =>
             OpenHookFile(_antigravityHookInstaller.ConfigurationPath, "Antigravity"));
+        InstallCursorHookCommand = new AsyncRelayCommand(InstallCursorHookAsync);
+        UninstallCursorHookCommand = new AsyncRelayCommand(UninstallCursorHookAsync);
+        TestCursorHookCommand = new AsyncRelayCommand(TestCursorHookAsync);
+        OpenCursorHookFileCommand = new RelayCommand(() =>
+            OpenHookFile(_cursorHookInstaller.ConfigurationPath, "Cursor"));
         ApplyUsageColorsCommand = new RelayCommand(ApplyUsageColors);
         OpenIconPreviewCommand = new RelayCommand(_applicationController.ShowIconPreview);
         RefreshStatus();
@@ -89,6 +104,11 @@ public sealed class SettingsViewModel : ObservableObject
     {
         get => _antigravityHookStatus;
         private set => SetProperty(ref _antigravityHookStatus, value);
+    }
+    public string CursorHookStatus
+    {
+        get => _cursorHookStatus;
+        private set => SetProperty(ref _cursorHookStatus, value);
     }
     public bool IsWindowLocked
     {
@@ -109,6 +129,17 @@ public sealed class SettingsViewModel : ObservableObject
             if (SetProperty(ref _isHorizontalLayout, value))
             {
                 _mainWindow.SetHorizontalLayout(value);
+            }
+        }
+    }
+    public bool AlwaysOnTop
+    {
+        get => _alwaysOnTop;
+        set
+        {
+            if (SetProperty(ref _alwaysOnTop, value))
+            {
+                _mainWindow.SetAlwaysOnTop(value);
             }
         }
     }
@@ -142,6 +173,17 @@ public sealed class SettingsViewModel : ObservableObject
             if (SetProperty(ref _showAntigravity, value))
             {
                 _mainWindow.SetProviderVisibility(ProviderKind.Antigravity, value);
+            }
+        }
+    }
+    public bool ShowCursor
+    {
+        get => _showCursor;
+        set
+        {
+            if (SetProperty(ref _showCursor, value))
+            {
+                _mainWindow.SetProviderVisibility(ProviderKind.Cursor, value);
             }
         }
     }
@@ -192,6 +234,18 @@ public sealed class SettingsViewModel : ObservableObject
             }
         }
     }
+    public double CursorRefreshIntervalMinutes
+    {
+        get => _cursorRefreshIntervalMinutes;
+        set
+        {
+            var normalized = AutoRefreshOptions.NormalizeInterval(value);
+            if (SetProperty(ref _cursorRefreshIntervalMinutes, normalized))
+            {
+                _mainWindow.SetRefreshInterval(ProviderKind.Cursor, normalized);
+            }
+        }
+    }
     public IReadOnlyList<string> FontSizePresets { get; } =
         ["Compact", "Small", "Normal", "Large", "Extra Large"];
     public string FontSizePreset
@@ -227,26 +281,34 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand UninstallAntigravityHookCommand { get; }
     public ICommand TestAntigravityHookCommand { get; }
     public ICommand OpenAntigravityHookFileCommand { get; }
+    public ICommand InstallCursorHookCommand { get; }
+    public ICommand UninstallCursorHookCommand { get; }
+    public ICommand TestCursorHookCommand { get; }
+    public ICommand OpenCursorHookFileCommand { get; }
     public ICommand ApplyUsageColorsCommand { get; }
     public ICommand OpenIconPreviewCommand { get; }
     public string CodexHookPath => _codexHookInstaller.ConfigurationPath;
     public string ClaudeHookPath => _claudeHookInstaller.ConfigurationPath;
     public string AntigravityHookPath => _antigravityHookInstaller.ConfigurationPath;
+    public string CursorHookPath => _cursorHookInstaller.ConfigurationPath;
 
     public void RefreshStatus()
     {
         CodexHookStatus = FormatStatus(_codexHookInstaller.GetStatus());
         ClaudeHookStatus = FormatStatus(_claudeHookInstaller.GetStatus());
         AntigravityHookStatus = FormatStatus(_antigravityHookInstaller.GetStatus());
+        CursorHookStatus = FormatStatus(_cursorHookInstaller.GetStatus());
     }
 
     public void RefreshWindowState()
     {
         SetProperty(ref _isWindowLocked, _mainWindow.IsWindowLocked, nameof(IsWindowLocked));
         SetProperty(ref _isHorizontalLayout, _mainWindow.IsHorizontalLayout, nameof(IsHorizontalLayout));
+        SetProperty(ref _alwaysOnTop, _mainWindow.AlwaysOnTop, nameof(AlwaysOnTop));
         SetProperty(ref _showCodex, _mainWindow.ShowCodex, nameof(ShowCodex));
         SetProperty(ref _showClaude, _mainWindow.ShowClaude, nameof(ShowClaude));
         SetProperty(ref _showAntigravity, _mainWindow.ShowAntigravity, nameof(ShowAntigravity));
+        SetProperty(ref _showCursor, _mainWindow.ShowCursor, nameof(ShowCursor));
         SetProperty(ref _autoRefreshEnabled, _mainWindow.AutoRefreshEnabled, nameof(AutoRefreshEnabled));
         SetProperty(
             ref _codexRefreshIntervalMinutes,
@@ -260,6 +322,10 @@ public sealed class SettingsViewModel : ObservableObject
             ref _antigravityRefreshIntervalMinutes,
             _mainWindow.AntigravityRefreshIntervalMinutes,
             nameof(AntigravityRefreshIntervalMinutes));
+        SetProperty(
+            ref _cursorRefreshIntervalMinutes,
+            _mainWindow.CursorRefreshIntervalMinutes,
+            nameof(CursorRefreshIntervalMinutes));
         SetProperty(ref _fontSizePreset, _mainWindow.FontSizePreset, nameof(FontSizePreset));
         RefreshUsageColorState();
     }
@@ -405,6 +471,38 @@ public sealed class SettingsViewModel : ObservableObject
     }
 
     private Task TestAntigravityHookAsync() => TestHookAsync("antigravity", "Antigravity");
+
+    private async Task InstallCursorHookAsync()
+    {
+        try
+        {
+            await _cursorHookInstaller.InstallOrRepairAsync();
+            RefreshStatus();
+            TestResult = "Cursor stop hook installed. Existing Cursor hooks were preserved.";
+        }
+        catch (Exception)
+        {
+            CursorHookStatus = "Invalid configuration";
+            TestResult = "The Cursor hook could not be installed without changing existing configuration.";
+        }
+    }
+
+    private async Task UninstallCursorHookAsync()
+    {
+        try
+        {
+            await _cursorHookInstaller.UninstallAsync();
+            RefreshStatus();
+            TestResult = "AI Usage Monitor's Cursor hook was removed. Unrelated hooks were preserved.";
+        }
+        catch (Exception)
+        {
+            CursorHookStatus = "Invalid configuration";
+            TestResult = "The Cursor hook could not be removed without changing unrelated configuration.";
+        }
+    }
+
+    private Task TestCursorHookAsync() => TestHookAsync("cursor", "Cursor");
 
     private void OpenHookFile(string path, string provider)
     {

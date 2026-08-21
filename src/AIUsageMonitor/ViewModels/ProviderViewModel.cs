@@ -116,7 +116,7 @@ public sealed class ProviderViewModel : ObservableObject
 
         if (snapshot.Status == UsageStatus.Available)
         {
-            if (Kind == ProviderKind.Antigravity && snapshot.Windows.Count > 0)
+            if ((Kind == ProviderKind.Antigravity || Kind == ProviderKind.Cursor) && snapshot.Windows.Count > 0)
             {
                 UsageWindows.Clear();
                 foreach (var window in snapshot.Windows)
@@ -156,6 +156,12 @@ public sealed class ProviderViewModel : ObservableObject
         if (Kind == ProviderKind.Antigravity)
         {
             StatusText = "Open Antigravity and sign in, then Retry";
+            return;
+        }
+
+        if (Kind == ProviderKind.Cursor)
+        {
+            StatusText = "Open Cursor and sign in, then Retry";
             return;
         }
 

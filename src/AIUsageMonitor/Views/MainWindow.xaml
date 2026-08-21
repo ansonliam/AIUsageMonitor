@@ -17,7 +17,6 @@
         Icon="/AIUsageMonitor;component/Assets/AIUsageMonitor.ico"
         ResizeMode="CanResize"
         ShowInTaskbar="False"
-        Topmost="True"
         WindowStartupLocation="Manual"
         WindowStyle="None"
         PreviewMouseLeftButtonDown="Window_PreviewMouseLeftButtonDown"
@@ -174,6 +173,10 @@
                     <MenuItem Header="Extra Large" Tag="Extra Large" Click="FontSizeMenuItem_Click" />
                 </MenuItem>
                 <Separator />
+                <MenuItem x:Name="AlwaysOnTopMenuItem"
+                          Click="AlwaysOnTopMenuItem_Click"
+                          Header="Always on Top"
+                          IsCheckable="True" />
                 <MenuItem x:Name="LockWindowMenuItem" Click="LockWindowMenuItem_Click" />
             </ContextMenu>
         </Border.ContextMenu>

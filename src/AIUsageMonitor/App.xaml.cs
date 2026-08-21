@@ -48,6 +48,7 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddHttpClient("Codex");
         services.AddHttpClient("Claude", client => client.Timeout = TimeSpan.FromSeconds(15));
         services.AddHttpClient("ClaudeAuth", client => client.Timeout = TimeSpan.FromSeconds(15));
+        services.AddHttpClient("Cursor", client => client.Timeout = TimeSpan.FromSeconds(15));
         services.AddSingleton<IApplicationController>(this);
         services.AddSingleton(_singleInstance);
         services.AddSingleton<CodexAppServerClient>();
@@ -60,6 +61,9 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<AntigravityLanguageServerClient>();
         services.AddSingleton<AntigravityUsageProvider>();
         services.AddSingleton<IUsageProvider>(sp => sp.GetRequiredService<AntigravityUsageProvider>());
+        services.AddSingleton<CursorAuthentication>();
+        services.AddSingleton<CursorUsageProvider>();
+        services.AddSingleton<IUsageProvider>(sp => sp.GetRequiredService<CursorUsageProvider>());
         services.AddSingleton<UsageCacheStore>();
         services.AddSingleton<AutoRefreshOptions>();
         services.AddSingleton<UsageRefreshService>();
@@ -68,6 +72,7 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<CodexHookInstaller>();
         services.AddSingleton<ClaudeHookInstaller>();
         services.AddSingleton<AntigravityHookInstaller>();
+        services.AddSingleton<CursorHookInstaller>();
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<MainWindow>();
@@ -155,7 +160,8 @@ public partial class App : System.Windows.Application, IApplicationController
         return Task.WhenAll(
             refreshService.RequestRefreshAsync(ProviderKind.Codex, RefreshReason.Manual),
             refreshService.RequestRefreshAsync(ProviderKind.Claude, RefreshReason.Manual),
-            refreshService.RequestRefreshAsync(ProviderKind.Antigravity, RefreshReason.Manual));
+            refreshService.RequestRefreshAsync(ProviderKind.Antigravity, RefreshReason.Manual),
+            refreshService.RequestRefreshAsync(ProviderKind.Cursor, RefreshReason.Manual));
     }
 
     public async Task ExitAsync()
@@ -200,6 +206,7 @@ public partial class App : System.Windows.Application, IApplicationController
         var codexInstaller = _services.GetRequiredService<CodexHookInstaller>();
         var claudeInstaller = _services.GetRequiredService<ClaudeHookInstaller>();
         var antigravityInstaller = _services.GetRequiredService<AntigravityHookInstaller>();
+        var cursorInstaller = _services.GetRequiredService<CursorHookInstaller>();
         var missingHooks = new List<(string Name, Func<Task> Install)>();
 
         if (NeedsInstall(codexInstaller.GetStatus()))
@@ -215,6 +222,11 @@ public partial class App : System.Windows.Application, IApplicationController
         if (NeedsInstall(antigravityInstaller.GetStatus()))
         {
             missingHooks.Add(("Google Antigravity", () => antigravityInstaller.InstallOrRepairAsync()));
+        }
+
+        if (NeedsInstall(cursorInstaller.GetStatus()))
+        {
+            missingHooks.Add(("Cursor", () => cursorInstaller.InstallOrRepairAsync()));
         }
 
         if (missingHooks.Count == 0)
