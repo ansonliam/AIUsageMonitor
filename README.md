@@ -21,7 +21,7 @@ The release is a self-contained single-file application and does not require a s
 - Compact reset-time labels with exact reset times in tooltips
 - Manual refresh plus optional scheduled and hook-triggered refresh
 - Optional Codex and Claude Code Stop hooks for automatic refresh after a session
-- Automatic refresh disabled by default, with independent Codex and Claude intervals
+- Scheduled refresh disabled by default, with independent Codex and Claude intervals
 - Five-minute non-manual refresh throttle to reduce rate-limit errors
 - Cached last-known usage and update times across restarts
 - Vertical or side-by-side provider layout with a 2 px horizontal gap
@@ -84,7 +84,7 @@ dotnet publish .\src\AIUsageMonitor\AIUsageMonitor.csproj `
 2. Start AI Usage Monitor.
 3. When prompted, choose whether to install the missing automatic-refresh hooks.
 4. Right-click the widget or tray icon to open **Settings**.
-5. Enable **Automatic refresh** if wanted and choose separate Codex and Claude intervals.
+5. Enable **Scheduled refresh** if wanted and choose separate Codex and Claude intervals.
 6. Use Settings to install, repair, uninstall, test, or inspect each provider hook.
 7. Choose the provider layout, visible cards, text size, colours, cutoff percentages, opacity, and window lock state.
 
@@ -126,8 +126,9 @@ Approved screenshots and icons are content-hash allowlisted in `scripts/privacy-
 ## Refresh behavior
 
 - **Manual refresh** always requests fresh data.
-- **Automatic refresh** is disabled by default.
+- **Scheduled refresh** is disabled by default.
 - **Scheduled refresh intervals** are configured separately for Codex and Claude from 5 to 1440 minutes.
+- **Installed hooks** request a provider refresh independently of the scheduled-refresh setting.
 - **Hook and scheduled refreshes** are limited to one provider request per five minutes.
 - Claude `429 Too Many Requests` responses respect `Retry-After` when present and otherwise use capped exponential backoff.
 

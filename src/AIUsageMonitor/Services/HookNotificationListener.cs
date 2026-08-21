@@ -10,19 +10,16 @@ public sealed class HookNotificationListener : IAsyncDisposable
 {
     private readonly UsageRefreshService _refreshService;
     private readonly IApplicationController _applicationController;
-    private readonly AutoRefreshOptions _autoRefreshOptions;
     private readonly ILogger<HookNotificationListener> _logger;
     private readonly CancellationTokenSource _lifetime = new();
     private Task? _listenerTask;
 
     public HookNotificationListener(
         UsageRefreshService refreshService,
-        AutoRefreshOptions autoRefreshOptions,
         IApplicationController applicationController,
         ILogger<HookNotificationListener> logger)
     {
         _refreshService = refreshService;
-        _autoRefreshOptions = autoRefreshOptions;
         _applicationController = applicationController;
         _logger = logger;
     }
@@ -77,10 +74,7 @@ public sealed class HookNotificationListener : IAsyncDisposable
                 else if (TryParseProvider(message, out var provider))
                 {
                     await writer.WriteLineAsync("ok".AsMemory(), cancellationToken);
-                    if (_autoRefreshOptions.Enabled)
-                    {
-                        _ = _refreshService.RequestRefreshAsync(provider, RefreshReason.Hook);
-                    }
+                    _ = _refreshService.RequestRefreshAsync(provider, RefreshReason.Hook);
                 }
                 else
                 {
