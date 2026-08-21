@@ -29,6 +29,7 @@ The release is a self-contained single-file application and does not require a s
 - Five text-size presets from Compact to Extra Large
 - Developer-only 512 × 512 icon screenshot preview with large text and reset labels hidden (`Ctrl+Alt+D` in Settings)
 - Borderless, translucent, always-on-top widget
+- Tray-only operation without a taskbar button
 - Movable and resizable window with a shared lock setting
 - Remembered position, size, opacity, layout, visibility, typography, and usage stages
 - System-tray and widget context menus for Settings, Refresh All, and window controls

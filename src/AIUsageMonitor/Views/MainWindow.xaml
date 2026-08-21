@@ -16,7 +16,7 @@
         Foreground="#F2F5F8"
         Icon="/AIUsageMonitor;component/Assets/AIUsageMonitor.ico"
         ResizeMode="CanResize"
-        ShowInTaskbar="True"
+        ShowInTaskbar="False"
         Topmost="True"
         WindowStartupLocation="Manual"
         WindowStyle="None"
