@@ -44,6 +44,9 @@ public partial class MainWindow : Window
     public bool ShowAntigravity { get; private set; } = true;
     public bool ShowCursor { get; private set; } = true;
     public string FontSizePreset { get; private set; } = "Normal";
+    public string WidgetFont { get; private set; } = "Segoe UI Variable Text";
+    public string WidgetAppearance { get; private set; } = "Default";
+    public string WidgetTextWeight { get; private set; } = "Regular";
     public string GreenColorHex { get; private set; } = "#2ECC71";
     public string LimeColorHex { get; private set; } = "#9ACD32";
     public string YellowColorHex { get; private set; } = "#FFD21E";
@@ -149,6 +152,11 @@ public partial class MainWindow : Window
             ShowAntigravity = placement.ShowAntigravity;
             ShowCursor = placement.ShowCursor;
             FontSizePreset = NormalizeFontSizePreset(placement.FontSizePreset);
+            WidgetFont = NormalizeWidgetFont(
+                placement.WidgetFont ?? ExtractWidgetFont(placement.WidgetStyle));
+            WidgetAppearance = NormalizeWidgetAppearance(
+                placement.WidgetAppearance ?? ExtractWidgetAppearance(placement.WidgetStyle));
+            WidgetTextWeight = NormalizeWidgetTextWeight(placement.WidgetTextWeight);
             GreenColorHex = placement.GreenColorHex;
             LimeColorHex = placement.LimeColorHex;
             YellowColorHex = placement.YellowColorHex;
@@ -191,6 +199,7 @@ public partial class MainWindow : Window
         ApplyAutoRefreshOptions();
         ApplyThrottleOptions();
         ApplySavedUsageColors();
+        ApplyWidgetPresentation();
         ApplyFontSizePreset();
         ApplyProviderLayout();
         ApplyProviderVisibility();
@@ -269,6 +278,133 @@ public partial class MainWindow : Window
         ApplyProviderLayout();
         SavePlacement();
     }
+
+    public void SetWidgetFont(string font)
+    {
+        var normalized = NormalizeWidgetFont(font);
+        if (WidgetFont == normalized)
+        {
+            return;
+        }
+
+        WidgetFont = normalized;
+        ApplyWidgetPresentation();
+        SavePlacement();
+    }
+
+    public void SetWidgetAppearance(string appearance)
+    {
+        var normalized = NormalizeWidgetAppearance(appearance);
+        if (WidgetAppearance == normalized)
+        {
+            return;
+        }
+
+        WidgetAppearance = normalized;
+        ApplyWidgetPresentation();
+        SavePlacement();
+    }
+
+    public void SetWidgetTextWeight(string weight)
+    {
+        var normalized = NormalizeWidgetTextWeight(weight);
+        if (WidgetTextWeight == normalized)
+        {
+            return;
+        }
+
+        WidgetTextWeight = normalized;
+        ApplyWidgetPresentation();
+        SavePlacement();
+    }
+
+    private void ApplyWidgetPresentation()
+    {
+        var usesOriginalFont = WidgetFont == "Segoe UI Variable Text";
+        var usesRetroRendering = WidgetAppearance == "Retro";
+        var embeddedFontFamilyName = WidgetFont switch
+        {
+            "VT323" => "VT323",
+            "Silkscreen" => "Silkscreen",
+            "Tiny5" => "Tiny5",
+            "Space Mono" => "Space Mono",
+            "Chakra Petch" => "Chakra Petch",
+            "IBM Plex Mono" => "IBM Plex Mono",
+            "DotGothic16" => "DotGothic16",
+            "Handjet" => "Handjet",
+            "Rajdhani" => "Rajdhani",
+            "Oxanium" => "Oxanium",
+            "Kode Mono" => "Kode Mono",
+            _ => "Pixelify Sans"
+        };
+
+        Resources["WidgetFontFamily"] = usesOriginalFont
+            ? new System.Windows.Media.FontFamily("Segoe UI Variable Text")
+            : new System.Windows.Media.FontFamily(
+                new Uri("pack://application:,,,/"),
+                $"./Assets/fonts/#{embeddedFontFamilyName}");
+
+        Resources["MetricFontWeight"] = WidgetTextWeight switch
+        {
+            "Bold" => FontWeights.Bold,
+            "SemiBold" => FontWeights.SemiBold,
+            _ => FontWeights.Normal
+        };
+        Resources["ProviderCardBackground"] = usesRetroRendering
+            ? new SolidColorBrush(System.Windows.Media.Color.FromArgb(0xF2, 0x18, 0x1D, 0x24))
+            : new SolidColorBrush(System.Windows.Media.Color.FromArgb(0xE6, 0x2A, 0x2F, 0x38));
+        Resources["ProviderCardBorderBrush"] = usesRetroRendering
+            ? new SolidColorBrush(System.Windows.Media.Color.FromArgb(0xCC, 0x7F, 0x91, 0xA3))
+            : System.Windows.Media.Brushes.Transparent;
+        Resources["ProviderCardBorderThickness"] = new Thickness(usesRetroRendering ? 1 : 0);
+        Resources["ProviderCardCornerRadius"] = new CornerRadius(usesRetroRendering ? 0 : 10);
+        Resources["ProgressCornerRadius"] = new CornerRadius(usesRetroRendering ? 0 : 3);
+        TextOptions.SetTextRenderingMode(
+            this,
+            usesRetroRendering ? TextRenderingMode.Aliased : TextRenderingMode.ClearType);
+        TextOptions.SetTextHintingMode(
+            this,
+            usesRetroRendering ? TextHintingMode.Fixed : TextHintingMode.Auto);
+    }
+
+    private static string NormalizeWidgetFont(string? font) => font switch
+    {
+        "Segoe UI Variable Text" or
+        "VT323" or
+        "Pixelify Sans" or
+        "Silkscreen" or
+        "Tiny5" or
+        "Space Mono" or
+        "Chakra Petch" or
+        "IBM Plex Mono" or
+        "DotGothic16" or
+        "Handjet" or
+        "Rajdhani" or
+        "Oxanium" or
+        "Kode Mono" => font,
+        _ => "Segoe UI Variable Text"
+    };
+
+    private static string NormalizeWidgetAppearance(string? appearance) =>
+        appearance == "Retro" ? "Retro" : "Default";
+
+    private static string NormalizeWidgetTextWeight(string? weight) => weight switch
+    {
+        "SemiBold" or "Bold" => weight,
+        _ => "Regular"
+    };
+
+    private static string ExtractWidgetFont(string? combinedStyle) => combinedStyle switch
+    {
+        string value when value.StartsWith("VT323", StringComparison.Ordinal) => "VT323",
+        string value when value.StartsWith("Pixelify Sans", StringComparison.Ordinal) => "Pixelify Sans",
+        _ => "Segoe UI Variable Text"
+    };
+
+    private static string ExtractWidgetAppearance(string? combinedStyle) =>
+        combinedStyle?.EndsWith(" - Retro", StringComparison.Ordinal) == true || combinedStyle == "Retro"
+            ? "Retro"
+            : "Default";
 
     public void SetAutoRefreshEnabled(bool enabled)
     {
@@ -579,7 +715,7 @@ public partial class MainWindow : Window
 
     private void WidgetContextMenu_Opened(object sender, RoutedEventArgs e)
     {
-        LockWindowMenuItem.Header = IsWindowLocked ? "Unlock window" : "Lock window";
+        LockWindowMenuItem.Header = IsWindowLocked ? "Unlock widget" : "Lock widget";
         AlwaysOnTopMenuItem.IsChecked = AlwaysOnTop;
         foreach (var item in OpacityMenuItem.Items.OfType<System.Windows.Controls.MenuItem>())
         {
@@ -743,6 +879,10 @@ public partial class MainWindow : Window
                 ShowAntigravity = ShowAntigravity,
                 ShowCursor = ShowCursor,
                 FontSizePreset = FontSizePreset,
+                WidgetFont = WidgetFont,
+                WidgetAppearance = WidgetAppearance,
+                WidgetTextWeight = WidgetTextWeight,
+                WidgetStyle = $"{WidgetFont} - {WidgetAppearance}",
                 GreenColorHex = GreenColorHex,
                 LimeColorHex = LimeColorHex,
                 YellowColorHex = YellowColorHex,
@@ -804,6 +944,10 @@ public partial class MainWindow : Window
         public bool ShowAntigravity { get; init; } = true;
         public bool ShowCursor { get; init; } = true;
         public string FontSizePreset { get; init; } = "Normal";
+        public string? WidgetFont { get; init; }
+        public string? WidgetAppearance { get; init; }
+        public string? WidgetTextWeight { get; init; }
+        public string? WidgetStyle { get; init; }
         public string GreenColorHex { get; init; } = "#2ECC71";
         public string LimeColorHex { get; init; } = "#9ACD32";
         public string YellowColorHex { get; init; } = "#FFD21E";

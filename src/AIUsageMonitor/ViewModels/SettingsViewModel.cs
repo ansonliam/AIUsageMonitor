@@ -39,6 +39,9 @@ public sealed class SettingsViewModel : ObservableObject
     private double _antigravityThrottleIntervalMinutes = AutoRefreshOptions.AntigravityDefaultThrottleMinutes;
     private double _cursorThrottleIntervalMinutes = AutoRefreshOptions.CursorDefaultThrottleMinutes;
     private string _fontSizePreset = "Normal";
+    private string _widgetFont = "Segoe UI Variable Text";
+    private string _widgetAppearance = "Default";
+    private string _widgetTextWeight = "Regular";
     private string _greenColorHex = "#2ECC71";
     private string _limeColorHex = "#9ACD32";
     private string _yellowColorHex = "#FFD21E";
@@ -81,6 +84,9 @@ public sealed class SettingsViewModel : ObservableObject
         _antigravityThrottleIntervalMinutes = mainWindow.AntigravityThrottleIntervalMinutes;
         _cursorThrottleIntervalMinutes = mainWindow.CursorThrottleIntervalMinutes;
         _fontSizePreset = mainWindow.FontSizePreset;
+        _widgetFont = mainWindow.WidgetFont;
+        _widgetAppearance = mainWindow.WidgetAppearance;
+        _widgetTextWeight = mainWindow.WidgetTextWeight;
         RefreshUsageColorState();
         InstallCodexHookCommand = new AsyncRelayCommand(InstallCodexHookAsync);
         UninstallCodexHookCommand = new AsyncRelayCommand(UninstallCodexHookAsync);
@@ -333,6 +339,60 @@ public sealed class SettingsViewModel : ObservableObject
             }
         }
     }
+    // Font choices, in the order shown in the font dropdown. Segoe UI Variable Text is the
+    // built-in system font; every other name is an embedded font family.
+    private static readonly IReadOnlyList<string> FontChoices =
+        [
+            "Segoe UI Variable Text",
+            "VT323",
+            "Pixelify Sans",
+            "Silkscreen",
+            "Tiny5",
+            "Space Mono",
+            "Chakra Petch",
+            "IBM Plex Mono",
+            "DotGothic16",
+            "Handjet",
+            "Rajdhani",
+            "Oxanium",
+            "Kode Mono"
+        ];
+    public IReadOnlyList<string> WidgetFonts => FontChoices;
+    public string WidgetFont
+    {
+        get => _widgetFont;
+        set
+        {
+            if (SetProperty(ref _widgetFont, value))
+            {
+                _mainWindow.SetWidgetFont(value);
+            }
+        }
+    }
+    public IReadOnlyList<string> WidgetAppearances { get; } = ["Default", "Retro"];
+    public string WidgetAppearance
+    {
+        get => _widgetAppearance;
+        set
+        {
+            if (SetProperty(ref _widgetAppearance, value))
+            {
+                _mainWindow.SetWidgetAppearance(value);
+            }
+        }
+    }
+    public IReadOnlyList<string> WidgetTextWeights { get; } = ["Regular", "SemiBold", "Bold"];
+    public string WidgetTextWeight
+    {
+        get => _widgetTextWeight;
+        set
+        {
+            if (SetProperty(ref _widgetTextWeight, value))
+            {
+                _mainWindow.SetWidgetTextWeight(value);
+            }
+        }
+    }
     public string GreenColorHex { get => _greenColorHex; set => SetProperty(ref _greenColorHex, value); }
     public string LimeColorHex { get => _limeColorHex; set => SetProperty(ref _limeColorHex, value); }
     public string YellowColorHex { get => _yellowColorHex; set => SetProperty(ref _yellowColorHex, value); }
@@ -420,6 +480,9 @@ public sealed class SettingsViewModel : ObservableObject
             _mainWindow.CursorThrottleIntervalMinutes,
             nameof(CursorThrottleIntervalMinutes));
         SetProperty(ref _fontSizePreset, _mainWindow.FontSizePreset, nameof(FontSizePreset));
+        SetProperty(ref _widgetFont, _mainWindow.WidgetFont, nameof(WidgetFont));
+        SetProperty(ref _widgetAppearance, _mainWindow.WidgetAppearance, nameof(WidgetAppearance));
+        SetProperty(ref _widgetTextWeight, _mainWindow.WidgetTextWeight, nameof(WidgetTextWeight));
         RefreshUsageColorState();
     }
 

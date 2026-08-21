@@ -59,7 +59,12 @@ try
         @(Invoke-Git -Arguments @("ls-files", "--cached", "--others", "--exclude-standard"))
     }
 
-    $files = @($files | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
+    $files = @($files |
+        Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_) -and
+            ($Scope -eq "Staged" -or (Test-Path -LiteralPath $_ -PathType Leaf))
+        } |
+        Sort-Object -Unique)
     $findings = [System.Collections.Generic.List[object]]::new()
 
     $allowlistPath = Join-Path $repositoryRoot "scripts/privacy-allowlist.json"
@@ -78,8 +83,8 @@ try
     $binaryExtensions = @(
         ".7z", ".appx", ".appxbundle", ".bmp", ".db", ".dll", ".dmp", ".docx",
         ".exe", ".gif", ".ico", ".jpeg", ".jpg", ".msi", ".msix", ".nupkg",
-        ".p12", ".pdf", ".pdb", ".pem", ".pfx", ".png", ".pptx", ".sqlite",
-        ".sqlite3", ".snupkg", ".webp", ".xlsx", ".zip"
+        ".otf", ".p12", ".pdf", ".pdb", ".pem", ".pfx", ".png", ".pptx", ".sqlite",
+        ".sqlite3", ".snupkg", ".ttf", ".webp", ".xlsx", ".zip"
     )
 
     $sensitivePathPatterns = @(
