@@ -4,10 +4,12 @@ public sealed class UsageMetricViewModel(string label) : ObservableObject
 {
     private double? _usedPercent;
     private string _resetText = "Reset unavailable";
-    private string? _resetToolTip;
+    private string? _resetSummary;
     private bool _isStale;
 
     public string Label { get; } = label;
+    public string ShortLabel { get; } = AbbreviateLabel(label);
+    public string HoverText => ResetSummary is null ? Label : $"{Label}\n{ResetSummary}";
     public double ProgressValue => Math.Clamp(UsedPercent ?? 0, 0, 100);
     public string PercentText => UsedPercent is null ? "—" : $"{UsedPercent:0.#}%";
     public double? UsedPercent
@@ -24,7 +26,17 @@ public sealed class UsageMetricViewModel(string label) : ObservableObject
     }
 
     public string ResetText { get => _resetText; private set => SetProperty(ref _resetText, value); }
-    public string? ResetToolTip { get => _resetToolTip; private set => SetProperty(ref _resetToolTip, value); }
+    public string? ResetSummary
+    {
+        get => _resetSummary;
+        private set
+        {
+            if (SetProperty(ref _resetSummary, value))
+            {
+                OnPropertyChanged(nameof(HoverText));
+            }
+        }
+    }
     public bool IsStale { get => _isStale; set => SetProperty(ref _isStale, value); }
 
     public void RefreshUsageColor() => OnPropertyChanged(nameof(UsedPercent));
@@ -39,7 +51,7 @@ public sealed class UsageMetricViewModel(string label) : ObservableObject
         if (resetAt is null)
         {
             ResetText = "Reset unavailable";
-            ResetToolTip = null;
+            ResetSummary = null;
             return;
         }
 
@@ -57,6 +69,42 @@ public sealed class UsageMetricViewModel(string label) : ObservableObject
             ResetText = $"Resets {local:ddd HH:mm}";
         }
 
-        ResetToolTip = local.ToString("d MMMM yyyy h:mm tt");
+        ResetSummary = $"Reset in {FormatDuration(remaining)}, on {local:d MMM yyyy h:mm tt}";
+    }
+
+    private static string FormatDuration(TimeSpan remaining)
+    {
+        if (remaining < TimeSpan.Zero)
+        {
+            remaining = TimeSpan.Zero;
+        }
+
+        if (remaining.TotalDays >= 1)
+        {
+            var days = (int)remaining.TotalDays;
+            return $"{days} day{(days == 1 ? "" : "s")}";
+        }
+
+        if (remaining.TotalHours >= 1)
+        {
+            return $"{(int)remaining.TotalHours}h {remaining.Minutes}m";
+        }
+
+        return $"{remaining.Minutes}m";
+    }
+
+    private static string AbbreviateLabel(string label)
+    {
+        if (label.Contains("Gemini", StringComparison.OrdinalIgnoreCase))
+        {
+            return "G";
+        }
+
+        if (label.Contains("Claude", StringComparison.OrdinalIgnoreCase))
+        {
+            return "C";
+        }
+
+        return label;
     }
 }

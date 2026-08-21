@@ -40,6 +40,7 @@ public partial class MainWindow : Window
     public bool IsHorizontalLayout { get; private set; }
     public bool ShowCodex { get; private set; } = true;
     public bool ShowClaude { get; private set; } = true;
+    public bool ShowAntigravity { get; private set; } = true;
     public string FontSizePreset { get; private set; } = "Normal";
     public string GreenColorHex { get; private set; } = "#2ECC71";
     public string LimeColorHex { get; private set; } = "#9ACD32";
@@ -54,6 +55,7 @@ public partial class MainWindow : Window
     public bool AutoRefreshEnabled { get; private set; }
     public double CodexRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.DefaultIntervalMinutes;
     public double ClaudeRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.DefaultIntervalMinutes;
+    public double AntigravityRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.DefaultIntervalMinutes;
 
     public MainWindow(
         MainViewModel viewModel,
@@ -65,6 +67,7 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         _applicationController = applicationController;
         _autoRefreshOptions = autoRefreshOptions;
+        _viewModel.LayoutChanged += () => Dispatcher.BeginInvoke(ApplyProviderLayout);
         Loaded += MainWindow_Loaded;
         SourceInitialized += MainWindow_SourceInitialized;
     }
@@ -135,6 +138,7 @@ public partial class MainWindow : Window
             IsHorizontalLayout = placement.IsHorizontalLayout;
             ShowCodex = placement.ShowCodex;
             ShowClaude = placement.ShowClaude;
+            ShowAntigravity = placement.ShowAntigravity;
             FontSizePreset = NormalizeFontSizePreset(placement.FontSizePreset);
             GreenColorHex = placement.GreenColorHex;
             LimeColorHex = placement.LimeColorHex;
@@ -151,6 +155,8 @@ public partial class MainWindow : Window
                 placement.CodexRefreshIntervalMinutes);
             ClaudeRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(
                 placement.ClaudeRefreshIntervalMinutes);
+            AntigravityRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(
+                placement.AntigravityRefreshIntervalMinutes);
             Opacity = Math.Clamp(placement.Opacity, 0.6, 1.0);
         }
         else
@@ -200,9 +206,13 @@ public partial class MainWindow : Window
         {
             ShowCodex = isVisible;
         }
-        else
+        else if (provider == ProviderKind.Claude)
         {
             ShowClaude = isVisible;
+        }
+        else
+        {
+            ShowAntigravity = isVisible;
         }
 
         ApplyProviderVisibility();
@@ -242,9 +252,13 @@ public partial class MainWindow : Window
         {
             CodexRefreshIntervalMinutes = normalized;
         }
-        else
+        else if (provider == ProviderKind.Claude)
         {
             ClaudeRefreshIntervalMinutes = normalized;
+        }
+        else
+        {
+            AntigravityRefreshIntervalMinutes = normalized;
         }
 
         ApplyAutoRefreshOptions();
@@ -255,7 +269,8 @@ public partial class MainWindow : Window
         _autoRefreshOptions.Update(
             AutoRefreshEnabled,
             CodexRefreshIntervalMinutes,
-            ClaudeRefreshIntervalMinutes);
+            ClaudeRefreshIntervalMinutes,
+            AntigravityRefreshIntervalMinutes);
 
     public bool TrySetUsageColors(
         string green,
@@ -393,6 +408,7 @@ public partial class MainWindow : Window
     {
         _viewModel.SetProviderVisibility(ProviderKind.Codex, ShowCodex);
         _viewModel.SetProviderVisibility(ProviderKind.Claude, ShowClaude);
+        _viewModel.SetProviderVisibility(ProviderKind.Antigravity, ShowAntigravity);
         ApplyProviderLayout();
     }
 
@@ -411,9 +427,14 @@ public partial class MainWindow : Window
 
     private void ApplyCompactHeight()
     {
-        var compactHeight = IsHorizontalLayout
-            ? ShowClaude ? 90d : 60d
-            : (ShowCodex ? 55d : 0d) + (ShowClaude ? 90d : 0d);
+        var providerHeights = _viewModel.Providers
+            .Select(provider => 20d + Math.Max(1, provider.UsageWindows.Count) * 35d)
+            .ToArray();
+        var compactHeight = providerHeights.Length == 0
+            ? 60d
+            : IsHorizontalLayout
+                ? providerHeights.Max()
+                : providerHeights.Sum();
         compactHeight = Math.Ceiling(compactHeight * GetFontHeightScale());
         compactHeight = Math.Max(60, compactHeight);
         MinHeight = compactHeight;
@@ -434,20 +455,16 @@ public partial class MainWindow : Window
 
     private double GetHorizontalMinWidth()
     {
-        var visibleProviderCount = (ShowCodex ? 1 : 0) + (ShowClaude ? 1 : 0);
+        var visibleProviderCount =
+            (ShowCodex ? 1 : 0) +
+            (ShowClaude ? 1 : 0) +
+            (ShowAntigravity ? 1 : 0);
         if (visibleProviderCount <= 1)
         {
             return GetVerticalMinWidth();
         }
 
-        return FontSizePreset switch
-        {
-            "Compact" => 290,
-            "Small" => 320,
-            "Large" => 410,
-            "Extra Large" => 470,
-            _ => 360
-        };
+        return GetVerticalMinWidth() * visibleProviderCount;
     }
 
     private double GetVerticalMinWidth() => FontSizePreset switch
@@ -617,6 +634,7 @@ public partial class MainWindow : Window
                 IsHorizontalLayout = IsHorizontalLayout,
                 ShowCodex = ShowCodex,
                 ShowClaude = ShowClaude,
+                ShowAntigravity = ShowAntigravity,
                 FontSizePreset = FontSizePreset,
                 GreenColorHex = GreenColorHex,
                 LimeColorHex = LimeColorHex,
@@ -631,6 +649,7 @@ public partial class MainWindow : Window
                 AutoRefreshEnabled = AutoRefreshEnabled,
                 CodexRefreshIntervalMinutes = CodexRefreshIntervalMinutes,
                 ClaudeRefreshIntervalMinutes = ClaudeRefreshIntervalMinutes,
+                AntigravityRefreshIntervalMinutes = AntigravityRefreshIntervalMinutes,
                 Opacity = Opacity
             };
             File.WriteAllText(temporaryPath, JsonSerializer.Serialize(placement));
@@ -669,6 +688,7 @@ public partial class MainWindow : Window
         public bool IsHorizontalLayout { get; init; }
         public bool ShowCodex { get; init; } = true;
         public bool ShowClaude { get; init; } = true;
+        public bool ShowAntigravity { get; init; } = true;
         public string FontSizePreset { get; init; } = "Normal";
         public string GreenColorHex { get; init; } = "#2ECC71";
         public string LimeColorHex { get; init; } = "#9ACD32";
@@ -683,6 +703,7 @@ public partial class MainWindow : Window
         public bool AutoRefreshEnabled { get; init; }
         public double CodexRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.DefaultIntervalMinutes;
         public double ClaudeRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.DefaultIntervalMinutes;
+        public double AntigravityRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.DefaultIntervalMinutes;
         public double Opacity { get; init; } = 1.0;
     }
 

@@ -13,18 +13,22 @@ public sealed class SettingsViewModel : ObservableObject
 {
     private readonly CodexHookInstaller _codexHookInstaller;
     private readonly ClaudeHookInstaller _claudeHookInstaller;
+    private readonly AntigravityHookInstaller _antigravityHookInstaller;
     private readonly IApplicationController _applicationController;
     private readonly MainWindow _mainWindow;
     private string _codexHookStatus = "Checking…";
     private string _claudeHookStatus = "Checking…";
+    private string _antigravityHookStatus = "Checking…";
     private string _testResult = string.Empty;
     private bool _isWindowLocked;
     private bool _isHorizontalLayout;
     private bool _showCodex = true;
     private bool _showClaude = true;
+    private bool _showAntigravity = true;
     private bool _autoRefreshEnabled;
     private double _codexRefreshIntervalMinutes = AutoRefreshOptions.DefaultIntervalMinutes;
     private double _claudeRefreshIntervalMinutes = AutoRefreshOptions.DefaultIntervalMinutes;
+    private double _antigravityRefreshIntervalMinutes = AutoRefreshOptions.DefaultIntervalMinutes;
     private string _fontSizePreset = "Normal";
     private string _greenColorHex = "#2ECC71";
     private string _limeColorHex = "#9ACD32";
@@ -40,20 +44,24 @@ public sealed class SettingsViewModel : ObservableObject
     public SettingsViewModel(
         CodexHookInstaller codexHookInstaller,
         ClaudeHookInstaller claudeHookInstaller,
+        AntigravityHookInstaller antigravityHookInstaller,
         MainWindow mainWindow,
         IApplicationController applicationController)
     {
         _codexHookInstaller = codexHookInstaller;
         _claudeHookInstaller = claudeHookInstaller;
+        _antigravityHookInstaller = antigravityHookInstaller;
         _mainWindow = mainWindow;
         _applicationController = applicationController;
         _isWindowLocked = mainWindow.IsWindowLocked;
         _isHorizontalLayout = mainWindow.IsHorizontalLayout;
         _showCodex = mainWindow.ShowCodex;
         _showClaude = mainWindow.ShowClaude;
+        _showAntigravity = mainWindow.ShowAntigravity;
         _autoRefreshEnabled = mainWindow.AutoRefreshEnabled;
         _codexRefreshIntervalMinutes = mainWindow.CodexRefreshIntervalMinutes;
         _claudeRefreshIntervalMinutes = mainWindow.ClaudeRefreshIntervalMinutes;
+        _antigravityRefreshIntervalMinutes = mainWindow.AntigravityRefreshIntervalMinutes;
         _fontSizePreset = mainWindow.FontSizePreset;
         RefreshUsageColorState();
         InstallCodexHookCommand = new AsyncRelayCommand(InstallCodexHookAsync);
@@ -64,6 +72,11 @@ public sealed class SettingsViewModel : ObservableObject
         UninstallClaudeHookCommand = new AsyncRelayCommand(UninstallClaudeHookAsync);
         TestClaudeHookCommand = new AsyncRelayCommand(TestClaudeHookAsync);
         OpenClaudeHookFileCommand = new RelayCommand(() => OpenHookFile(_claudeHookInstaller.ConfigurationPath, "Claude"));
+        InstallAntigravityHookCommand = new AsyncRelayCommand(InstallAntigravityHookAsync);
+        UninstallAntigravityHookCommand = new AsyncRelayCommand(UninstallAntigravityHookAsync);
+        TestAntigravityHookCommand = new AsyncRelayCommand(TestAntigravityHookAsync);
+        OpenAntigravityHookFileCommand = new RelayCommand(() =>
+            OpenHookFile(_antigravityHookInstaller.ConfigurationPath, "Antigravity"));
         ApplyUsageColorsCommand = new RelayCommand(ApplyUsageColors);
         OpenIconPreviewCommand = new RelayCommand(_applicationController.ShowIconPreview);
         RefreshStatus();
@@ -72,6 +85,11 @@ public sealed class SettingsViewModel : ObservableObject
     public string CodexHookStatus { get => _codexHookStatus; private set => SetProperty(ref _codexHookStatus, value); }
     public string TestResult { get => _testResult; private set => SetProperty(ref _testResult, value); }
     public string ClaudeHookStatus { get => _claudeHookStatus; private set => SetProperty(ref _claudeHookStatus, value); }
+    public string AntigravityHookStatus
+    {
+        get => _antigravityHookStatus;
+        private set => SetProperty(ref _antigravityHookStatus, value);
+    }
     public bool IsWindowLocked
     {
         get => _isWindowLocked;
@@ -116,6 +134,17 @@ public sealed class SettingsViewModel : ObservableObject
             }
         }
     }
+    public bool ShowAntigravity
+    {
+        get => _showAntigravity;
+        set
+        {
+            if (SetProperty(ref _showAntigravity, value))
+            {
+                _mainWindow.SetProviderVisibility(ProviderKind.Antigravity, value);
+            }
+        }
+    }
     public bool AutoRefreshEnabled
     {
         get => _autoRefreshEnabled;
@@ -151,6 +180,18 @@ public sealed class SettingsViewModel : ObservableObject
             }
         }
     }
+    public double AntigravityRefreshIntervalMinutes
+    {
+        get => _antigravityRefreshIntervalMinutes;
+        set
+        {
+            var normalized = AutoRefreshOptions.NormalizeInterval(value);
+            if (SetProperty(ref _antigravityRefreshIntervalMinutes, normalized))
+            {
+                _mainWindow.SetRefreshInterval(ProviderKind.Antigravity, normalized);
+            }
+        }
+    }
     public IReadOnlyList<string> FontSizePresets { get; } =
         ["Compact", "Small", "Normal", "Large", "Extra Large"];
     public string FontSizePreset
@@ -182,15 +223,21 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand UninstallClaudeHookCommand { get; }
     public ICommand TestClaudeHookCommand { get; }
     public ICommand OpenClaudeHookFileCommand { get; }
+    public ICommand InstallAntigravityHookCommand { get; }
+    public ICommand UninstallAntigravityHookCommand { get; }
+    public ICommand TestAntigravityHookCommand { get; }
+    public ICommand OpenAntigravityHookFileCommand { get; }
     public ICommand ApplyUsageColorsCommand { get; }
     public ICommand OpenIconPreviewCommand { get; }
     public string CodexHookPath => _codexHookInstaller.ConfigurationPath;
     public string ClaudeHookPath => _claudeHookInstaller.ConfigurationPath;
+    public string AntigravityHookPath => _antigravityHookInstaller.ConfigurationPath;
 
     public void RefreshStatus()
     {
         CodexHookStatus = FormatStatus(_codexHookInstaller.GetStatus());
         ClaudeHookStatus = FormatStatus(_claudeHookInstaller.GetStatus());
+        AntigravityHookStatus = FormatStatus(_antigravityHookInstaller.GetStatus());
     }
 
     public void RefreshWindowState()
@@ -199,6 +246,7 @@ public sealed class SettingsViewModel : ObservableObject
         SetProperty(ref _isHorizontalLayout, _mainWindow.IsHorizontalLayout, nameof(IsHorizontalLayout));
         SetProperty(ref _showCodex, _mainWindow.ShowCodex, nameof(ShowCodex));
         SetProperty(ref _showClaude, _mainWindow.ShowClaude, nameof(ShowClaude));
+        SetProperty(ref _showAntigravity, _mainWindow.ShowAntigravity, nameof(ShowAntigravity));
         SetProperty(ref _autoRefreshEnabled, _mainWindow.AutoRefreshEnabled, nameof(AutoRefreshEnabled));
         SetProperty(
             ref _codexRefreshIntervalMinutes,
@@ -208,6 +256,10 @@ public sealed class SettingsViewModel : ObservableObject
             ref _claudeRefreshIntervalMinutes,
             _mainWindow.ClaudeRefreshIntervalMinutes,
             nameof(ClaudeRefreshIntervalMinutes));
+        SetProperty(
+            ref _antigravityRefreshIntervalMinutes,
+            _mainWindow.AntigravityRefreshIntervalMinutes,
+            nameof(AntigravityRefreshIntervalMinutes));
         SetProperty(ref _fontSizePreset, _mainWindow.FontSizePreset, nameof(FontSizePreset));
         RefreshUsageColorState();
     }
@@ -322,6 +374,38 @@ public sealed class SettingsViewModel : ObservableObject
 
     private Task TestClaudeHookAsync() => TestHookAsync("claude", "Claude");
 
+    private async Task InstallAntigravityHookAsync()
+    {
+        try
+        {
+            await _antigravityHookInstaller.InstallOrRepairAsync();
+            RefreshStatus();
+            TestResult = "Antigravity Stop hook installed. Existing Google hooks were preserved.";
+        }
+        catch (Exception)
+        {
+            AntigravityHookStatus = "Invalid configuration";
+            TestResult = "The Antigravity hook could not be installed without changing existing configuration.";
+        }
+    }
+
+    private async Task UninstallAntigravityHookAsync()
+    {
+        try
+        {
+            await _antigravityHookInstaller.UninstallAsync();
+            RefreshStatus();
+            TestResult = "AI Usage Monitor's Antigravity hook was removed. Unrelated hooks were preserved.";
+        }
+        catch (Exception)
+        {
+            AntigravityHookStatus = "Invalid configuration";
+            TestResult = "The Antigravity hook could not be removed without changing unrelated configuration.";
+        }
+    }
+
+    private Task TestAntigravityHookAsync() => TestHookAsync("antigravity", "Antigravity");
+
     private void OpenHookFile(string path, string provider)
     {
         if (!File.Exists(path))
@@ -373,9 +457,7 @@ public sealed class SettingsViewModel : ObservableObject
             await process.WaitForExitAsync(timeout.Token);
             TestResult = process.ExitCode != 0
                 ? "The running app did not receive the notification."
-                : AutoRefreshEnabled
-                    ? $"Notification received; {displayName} refresh queued."
-                    : "Notification received; automatic refresh is disabled.";
+                : $"Notification received; {displayName} refresh queued.";
         }
         catch (Exception)
         {

@@ -30,14 +30,14 @@ internal static class HookProtocol
             string.Equals(arguments[2], NotifySwitch, StringComparison.OrdinalIgnoreCase))
         {
             provider = arguments[3].Trim().ToLowerInvariant();
-            return provider is "codex" or "claude";
+            return provider is "codex" or "claude" or "antigravity";
         }
 
         if (arguments.Length == 2 &&
             string.Equals(arguments[0], NotifySwitch, StringComparison.OrdinalIgnoreCase))
         {
             provider = arguments[1].Trim().ToLowerInvariant();
-            return provider is "codex" or "claude";
+            return provider is "codex" or "claude" or "antigravity";
         }
 
         return false;

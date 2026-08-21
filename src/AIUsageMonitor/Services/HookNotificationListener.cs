@@ -98,9 +98,10 @@ public sealed class HookNotificationListener : IAsyncDisposable
         {
             "codex" => ProviderKind.Codex,
             "claude" => ProviderKind.Claude,
+            "antigravity" => ProviderKind.Antigravity,
             _ => default
         };
-        return value is "codex" or "claude";
+        return value is "codex" or "claude" or "antigravity";
     }
 
     public async ValueTask DisposeAsync()

@@ -22,16 +22,19 @@ public sealed class ProviderViewModel : ObservableObject
         _refreshService = refreshService;
         FiveHourUsage = new UsageMetricViewModel("5H");
         WeeklyUsage = new UsageMetricViewModel("W");
-        UsageWindows = kind == ProviderKind.Codex
-            ? new ObservableCollection<UsageMetricViewModel>
-            {
-                WeeklyUsage
-            }
-            : new ObservableCollection<UsageMetricViewModel>
+        UsageWindows = kind switch
+        {
+            ProviderKind.Codex => new ObservableCollection<UsageMetricViewModel> { WeeklyUsage },
+            ProviderKind.Claude => new ObservableCollection<UsageMetricViewModel>
             {
                 FiveHourUsage,
                 WeeklyUsage
-            };
+            },
+            _ => new ObservableCollection<UsageMetricViewModel>
+            {
+                new("Usage")
+            }
+        };
         RefreshCommand = new AsyncRelayCommand(() =>
             _refreshService.RequestRefreshAsync(Kind, RefreshReason.Manual));
         RetryCommand = RefreshCommand;
@@ -113,8 +116,21 @@ public sealed class ProviderViewModel : ObservableObject
 
         if (snapshot.Status == UsageStatus.Available)
         {
-            FiveHourUsage.SetUsage(snapshot.FiveHourRemainingPercent, snapshot.FiveHourResetAt);
-            WeeklyUsage.SetUsage(snapshot.WeeklyRemainingPercent, snapshot.WeeklyResetAt);
+            if (Kind == ProviderKind.Antigravity && snapshot.Windows.Count > 0)
+            {
+                UsageWindows.Clear();
+                foreach (var window in snapshot.Windows)
+                {
+                    var metric = new UsageMetricViewModel(window.Label);
+                    metric.SetUsage(window.RemainingPercent, window.ResetAt);
+                    UsageWindows.Add(metric);
+                }
+            }
+            else
+            {
+                FiveHourUsage.SetUsage(snapshot.FiveHourRemainingPercent, snapshot.FiveHourResetAt);
+                WeeklyUsage.SetUsage(snapshot.WeeklyRemainingPercent, snapshot.WeeklyResetAt);
+            }
             SetStale(false);
             _hasSuccessfulData = true;
             StatusText = "Available";
@@ -137,6 +153,12 @@ public sealed class ProviderViewModel : ObservableObject
 
     private async Task LoginAsync()
     {
+        if (Kind == ProviderKind.Antigravity)
+        {
+            StatusText = "Open Antigravity and sign in, then Retry";
+            return;
+        }
+
         try
         {
             await _refreshService.StartLoginAsync(Kind);

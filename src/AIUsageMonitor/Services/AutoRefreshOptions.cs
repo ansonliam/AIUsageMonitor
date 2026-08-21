@@ -11,6 +11,7 @@ public sealed class AutoRefreshOptions
     private bool _enabled;
     private double _codexIntervalMinutes = DefaultIntervalMinutes;
     private double _claudeIntervalMinutes = DefaultIntervalMinutes;
+    private double _antigravityIntervalMinutes = DefaultIntervalMinutes;
 
     public event Action? Changed;
 
@@ -29,27 +30,37 @@ public sealed class AutoRefreshOptions
     {
         lock (_syncRoot)
         {
-            var minutes = provider == ProviderKind.Codex
-                ? _codexIntervalMinutes
-                : _claudeIntervalMinutes;
+            var minutes = provider switch
+            {
+                ProviderKind.Codex => _codexIntervalMinutes,
+                ProviderKind.Claude => _claudeIntervalMinutes,
+                _ => _antigravityIntervalMinutes
+            };
             return TimeSpan.FromMinutes(minutes);
         }
     }
 
-    public void Update(bool enabled, double codexIntervalMinutes, double claudeIntervalMinutes)
+    public void Update(
+        bool enabled,
+        double codexIntervalMinutes,
+        double claudeIntervalMinutes,
+        double antigravityIntervalMinutes)
     {
         codexIntervalMinutes = NormalizeInterval(codexIntervalMinutes);
         claudeIntervalMinutes = NormalizeInterval(claudeIntervalMinutes);
+        antigravityIntervalMinutes = NormalizeInterval(antigravityIntervalMinutes);
         var changed = false;
         lock (_syncRoot)
         {
             if (_enabled != enabled ||
                 Math.Abs(_codexIntervalMinutes - codexIntervalMinutes) > 0.001 ||
-                Math.Abs(_claudeIntervalMinutes - claudeIntervalMinutes) > 0.001)
+                Math.Abs(_claudeIntervalMinutes - claudeIntervalMinutes) > 0.001 ||
+                Math.Abs(_antigravityIntervalMinutes - antigravityIntervalMinutes) > 0.001)
             {
                 _enabled = enabled;
                 _codexIntervalMinutes = codexIntervalMinutes;
                 _claudeIntervalMinutes = claudeIntervalMinutes;
+                _antigravityIntervalMinutes = antigravityIntervalMinutes;
                 changed = true;
             }
         }

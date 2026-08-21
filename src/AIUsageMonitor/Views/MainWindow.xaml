@@ -8,7 +8,7 @@
         Title="AI Usage Monitor"
         Width="302"
         Height="230"
-        MinWidth="220"
+        MinWidth="160"
         MinHeight="145"
         AllowsTransparency="True"
         Background="Transparent"
@@ -60,7 +60,7 @@
         </Style>
 
         <DataTemplate DataType="{x:Type vm:UsageMetricViewModel}">
-            <StackPanel Margin="3,0,3,2" ToolTip="{Binding ResetToolTip}">
+            <StackPanel Margin="3,0,3,2" ToolTip="{Binding HoverText}">
                 <Grid Height="{DynamicResource MetricRowHeight}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" SharedSizeGroup="MetricLabelColumn" />
@@ -68,10 +68,13 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock VerticalAlignment="Center"
+                               MaxWidth="150"
                                FontSize="{DynamicResource MetricFontSize}"
                                FontWeight="Bold"
                                Foreground="#F5F7FA"
-                               Text="{Binding Label}" />
+                               Text="{Binding ShortLabel}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding HoverText}" />
                     <TextBlock Grid.Column="1"
                                Margin="8,0,7,0"
                                HorizontalAlignment="Left"

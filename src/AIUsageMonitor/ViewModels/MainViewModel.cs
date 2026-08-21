@@ -14,9 +14,14 @@ public sealed class MainViewModel
     {
         var codex = new ProviderViewModel(ProviderKind.Codex, "Codex", refreshService);
         var claude = new ProviderViewModel(ProviderKind.Claude, "Claude", refreshService);
-        Providers = new ObservableCollection<ProviderViewModel> { codex, claude };
+        var antigravity = new ProviderViewModel(ProviderKind.Antigravity, "Antigravity", refreshService);
+        Providers = new ObservableCollection<ProviderViewModel> { codex, claude, antigravity };
         _providers = Providers.ToDictionary(provider => provider.Kind);
-        _providerOrder = [codex, claude];
+        _providerOrder = [codex, claude, antigravity];
+        foreach (var provider in _providerOrder)
+        {
+            provider.UsageWindows.CollectionChanged += (_, _) => LayoutChanged?.Invoke();
+        }
 
         refreshService.RefreshStarted += provider => Dispatch(() =>
         {
@@ -27,7 +32,12 @@ public sealed class MainViewModel
         });
         refreshService.SnapshotUpdated += snapshot => Dispatch(() =>
         {
-            var provider = snapshot.Provider == "Claude Code" ? ProviderKind.Claude : ProviderKind.Codex;
+            var provider = snapshot.Provider switch
+            {
+                "Claude Code" => ProviderKind.Claude,
+                "Google Antigravity" => ProviderKind.Antigravity,
+                _ => ProviderKind.Codex
+            };
             if (_providers.TryGetValue(provider, out var viewModel))
             {
                 viewModel.ApplySnapshot(snapshot);
@@ -38,6 +48,7 @@ public sealed class MainViewModel
 
     public ObservableCollection<ProviderViewModel> Providers { get; }
     public ProviderViewModel ClaudeProvider => _providers[ProviderKind.Claude];
+    public event Action? LayoutChanged;
 
     public void SetProviderVisibility(ProviderKind provider, bool isVisible)
     {
@@ -45,6 +56,7 @@ public sealed class MainViewModel
         if (!isVisible)
         {
             Providers.Remove(viewModel);
+            LayoutChanged?.Invoke();
             return;
         }
 
@@ -57,6 +69,7 @@ public sealed class MainViewModel
             .TakeWhile(candidate => candidate.Kind != provider)
             .Count(candidate => Providers.Contains(candidate));
         Providers.Insert(insertAt, viewModel);
+        LayoutChanged?.Invoke();
     }
 
     public void RefreshUsageColors()

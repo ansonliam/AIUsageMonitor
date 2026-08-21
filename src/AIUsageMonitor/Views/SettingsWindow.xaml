@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="AI Usage Monitor Settings"
         Width="780"
-        Height="700"
+        Height="790"
         MinWidth="700"
         MinHeight="500"
         Background="#FFF7F8FA"
@@ -82,6 +82,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" FontSize="16" FontWeight="SemiBold" Text="Window" />
@@ -93,39 +94,42 @@
                 BorderThickness="1"
                 CornerRadius="6">
             <StackPanel>
-                <CheckBox IsChecked="{Binding IsWindowLocked, Mode=TwoWay}"
-                          FontWeight="SemiBold"
-                          Content="Lock window position and size" />
-                <TextBlock Margin="22,4,0,0"
-                           Foreground="#FF65717D"
-                           Text="When unlocked, drag the widget body to move it and drag any edge or corner to resize it." />
-                <Grid Margin="0,12,0,0">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <CheckBox Grid.Column="0"
+                              IsChecked="{Binding IsWindowLocked, Mode=TwoWay}"
+                              FontWeight="SemiBold"
+                              Content="Lock window position and size" />
+                    <CheckBox Grid.Column="1"
                               IsChecked="{Binding IsHorizontalLayout, Mode=TwoWay}"
                               FontWeight="SemiBold"
                               Content="Side-by-side layout" />
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <TextBlock Margin="0,0,12,0"
-                                   VerticalAlignment="Center"
-                                   FontWeight="SemiBold"
-                                   Text="Visible:" />
-                        <CheckBox IsChecked="{Binding ShowCodex, Mode=TwoWay}" Content="Codex" />
-                        <CheckBox Margin="18,0,0,0"
-                                  IsChecked="{Binding ShowClaude, Mode=TwoWay}"
-                                  Content="Claude" />
-                    </StackPanel>
                 </Grid>
+                <TextBlock Margin="22,4,0,0"
+                           Foreground="#FF65717D"
+                           Text="When unlocked, drag the widget body to move it and drag any edge or corner to resize it." />
+                <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+                    <TextBlock Margin="0,0,12,0"
+                               VerticalAlignment="Center"
+                               FontWeight="SemiBold"
+                               Text="Visible:" />
+                    <CheckBox IsChecked="{Binding ShowCodex, Mode=TwoWay}" Content="Codex" />
+                    <CheckBox Margin="18,0,0,0"
+                              IsChecked="{Binding ShowClaude, Mode=TwoWay}"
+                              Content="Claude" />
+                    <CheckBox Margin="18,0,0,0"
+                              IsChecked="{Binding ShowAntigravity, Mode=TwoWay}"
+                              Content="Antigravity" />
+                </StackPanel>
                 <CheckBox Margin="0,12,0,0"
                           IsChecked="{Binding AutoRefreshEnabled, Mode=TwoWay}"
                           FontWeight="SemiBold"
                           Content="Scheduled refresh" />
-                <StackPanel Margin="22,7,0,0"
-                            IsEnabled="{Binding AutoRefreshEnabled}"
-                            Orientation="Horizontal">
+                <WrapPanel Margin="22,7,0,0"
+                           IsEnabled="{Binding AutoRefreshEnabled}">
                     <TextBlock VerticalAlignment="Center" Text="Codex every" />
                     <TextBox Width="58"
                              Margin="8,0,4,0"
@@ -146,7 +150,17 @@
                              Foreground="#FF20252B"
                              Text="{Binding ClaudeRefreshIntervalMinutes, Mode=TwoWay}" />
                     <TextBlock VerticalAlignment="Center" Text="min" />
-                </StackPanel>
+                    <TextBlock Margin="28,0,0,0" VerticalAlignment="Center" Text="Antigravity every" />
+                    <TextBox Width="58"
+                             Margin="8,0,4,0"
+                             Padding="7,3"
+                             HorizontalContentAlignment="Right"
+                             Background="#FFFFFFFF"
+                             BorderBrush="#FFBFC7D1"
+                             Foreground="#FF20252B"
+                             Text="{Binding AntigravityRefreshIntervalMinutes, Mode=TwoWay}" />
+                    <TextBlock VerticalAlignment="Center" Text="min" />
+                </WrapPanel>
                 <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
                     <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text size" />
                     <ComboBox Width="130"
@@ -276,12 +290,44 @@
             </Grid>
         </Border>
 
-        <TextBlock Grid.Row="5"
+        <Border Grid.Row="5"
+                Margin="0,6,0,0"
+                Padding="10"
+                Background="#FFFFFFFF"
+                BorderBrush="#FFD6DBE1"
+                BorderThickness="1"
+                CornerRadius="6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock FontWeight="SemiBold" Text="Google Antigravity" />
+                    <StackPanel Margin="0,4,12,0" Orientation="Horizontal">
+                        <TextBlock Text="Hook status: " />
+                        <TextBlock Text="{Binding AntigravityHookStatus, Mode=OneWay}" />
+                    </StackPanel>
+                    <TextBlock Margin="0,3,12,0"
+                               FontSize="10"
+                               Foreground="#FF65717D"
+                               Text="{Binding AntigravityHookPath}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
+                    <Button Margin="8,0,6,0" Command="{Binding InstallAntigravityHookCommand}" Content="Install / Repair Hook" />
+                    <Button Margin="0,0,6,0" Command="{Binding UninstallAntigravityHookCommand}" Content="Uninstall Hook" />
+                    <Button Margin="0,0,6,0" Command="{Binding TestAntigravityHookCommand}" Content="Test Hook" />
+                    <Button Command="{Binding OpenAntigravityHookFileCommand}" Content="Open Hook File" ToolTip="{Binding AntigravityHookPath}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <TextBlock Grid.Row="6"
                    Margin="0,8,0,0"
                    Foreground="#FF4E5964"
                    Text="{Binding TestResult}"
                    TextWrapping="Wrap" />
-        <StackPanel Grid.Row="6" HorizontalAlignment="Right" Orientation="Horizontal">
+        <StackPanel Grid.Row="7" HorizontalAlignment="Right" Orientation="Horizontal">
             <Button MinWidth="76" IsCancel="True" IsDefault="True" Content="Close" />
         </StackPanel>
     </Grid>

@@ -1,4 +1,6 @@
 using System.Windows;
+using System.Text;
+using System.IO;
 using AIUsageMonitor.Authentication;
 using AIUsageMonitor.Integrations;
 using AIUsageMonitor.Models;
@@ -27,6 +29,7 @@ public partial class App : System.Windows.Application, IApplicationController
         if (TryGetNotificationProvider(e.Args, out var provider))
         {
             var sent = await _singleInstance.SendNotificationAsync(provider, CancellationToken.None);
+            WriteHookResponse(provider);
             _singleInstance.Dispose();
             Shutdown(sent ? 0 : 2);
             return;
@@ -54,6 +57,9 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<IUsageProvider>(sp => sp.GetRequiredService<CodexUsageProvider>());
         services.AddSingleton<ClaudeUsageProvider>();
         services.AddSingleton<IUsageProvider>(sp => sp.GetRequiredService<ClaudeUsageProvider>());
+        services.AddSingleton<AntigravityLanguageServerClient>();
+        services.AddSingleton<AntigravityUsageProvider>();
+        services.AddSingleton<IUsageProvider>(sp => sp.GetRequiredService<AntigravityUsageProvider>());
         services.AddSingleton<UsageCacheStore>();
         services.AddSingleton<AutoRefreshOptions>();
         services.AddSingleton<UsageRefreshService>();
@@ -61,6 +67,7 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<UsagePollingService>();
         services.AddSingleton<CodexHookInstaller>();
         services.AddSingleton<ClaudeHookInstaller>();
+        services.AddSingleton<AntigravityHookInstaller>();
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<SettingsViewModel>();
         services.AddSingleton<MainWindow>();
@@ -147,7 +154,8 @@ public partial class App : System.Windows.Application, IApplicationController
         var refreshService = _services.GetRequiredService<UsageRefreshService>();
         return Task.WhenAll(
             refreshService.RequestRefreshAsync(ProviderKind.Codex, RefreshReason.Manual),
-            refreshService.RequestRefreshAsync(ProviderKind.Claude, RefreshReason.Manual));
+            refreshService.RequestRefreshAsync(ProviderKind.Claude, RefreshReason.Manual),
+            refreshService.RequestRefreshAsync(ProviderKind.Antigravity, RefreshReason.Manual));
     }
 
     public async Task ExitAsync()
@@ -191,6 +199,7 @@ public partial class App : System.Windows.Application, IApplicationController
 
         var codexInstaller = _services.GetRequiredService<CodexHookInstaller>();
         var claudeInstaller = _services.GetRequiredService<ClaudeHookInstaller>();
+        var antigravityInstaller = _services.GetRequiredService<AntigravityHookInstaller>();
         var missingHooks = new List<(string Name, Func<Task> Install)>();
 
         if (NeedsInstall(codexInstaller.GetStatus()))
@@ -201,6 +210,11 @@ public partial class App : System.Windows.Application, IApplicationController
         if (NeedsInstall(claudeInstaller.GetStatus()))
         {
             missingHooks.Add(("Claude Code", () => claudeInstaller.InstallOrRepairAsync()));
+        }
+
+        if (NeedsInstall(antigravityInstaller.GetStatus()))
+        {
+            missingHooks.Add(("Google Antigravity", () => antigravityInstaller.InstallOrRepairAsync()));
         }
 
         if (missingHooks.Count == 0)
@@ -250,4 +264,25 @@ public partial class App : System.Windows.Application, IApplicationController
 
     private static bool NeedsInstall(HookInstallationStatus status) =>
         status == HookInstallationStatus.NotInstalled;
+
+    private static void WriteHookResponse(string provider)
+    {
+        if (!string.Equals(provider, "antigravity", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        try
+        {
+            using var writer = new StreamWriter(
+                Console.OpenStandardOutput(),
+                new UTF8Encoding(false),
+                leaveOpen: true);
+            writer.WriteLine("{\"decision\":\"allow\"}");
+            writer.Flush();
+        }
+        catch (IOException)
+        {
+        }
+    }
 }
