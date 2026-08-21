@@ -1,0 +1,87 @@
+name: Build and release main
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.303
+
+      - name: Check privacy and credentials
+        shell: pwsh
+        run: ./scripts/Invoke-PrivacyCheck.ps1 -Scope Repository
+
+      - name: Build and test
+        shell: pwsh
+        run: |
+          dotnet restore ./AIUsageMonitor.sln
+          dotnet build ./AIUsageMonitor.sln --configuration Release --no-restore
+          dotnet test ./AIUsageMonitor.sln --configuration Release --no-build --no-restore
+
+      - name: Publish single-file application
+        shell: pwsh
+        run: |
+          dotnet publish ./src/AIUsageMonitor/AIUsageMonitor.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:EnableCompressionInSingleFile=true `
+            --output ./release
+
+          $executablePath = Join-Path $PWD "release/AIUsageMonitor.exe"
+          if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf))
+          {
+              throw "Published executable was not created."
+          }
+
+          $hash = (Get-FileHash -LiteralPath $executablePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  AIUsageMonitor.exe" | Set-Content `
+            -LiteralPath ./release/AIUsageMonitor.exe.sha256 `
+            -Encoding ascii
+
+      - name: Create downloadable GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "build-$env:GITHUB_RUN_NUMBER-$env:GITHUB_RUN_ATTEMPT"
+          $shortCommit = $env:GITHUB_SHA.Substring(0, 7)
+          $title = "AI Usage Monitor build $env:GITHUB_RUN_NUMBER ($shortCommit)"
+          $notes = @"
+          Automated Windows x64 build from the main branch.
+
+          Commit: $env:GITHUB_SHA
+
+          Download AIUsageMonitor.exe and optionally verify it with AIUsageMonitor.exe.sha256.
+          This executable is unsigned, so Windows SmartScreen may show an Unknown publisher warning.
+          "@
+
+          gh release create $tag `
+            ./release/AIUsageMonitor.exe `
+            ./release/AIUsageMonitor.exe.sha256 `
+            --repo $env:GITHUB_REPOSITORY `
+            --target $env:GITHUB_SHA `
+            --title $title `
+            --notes $notes `
+            --latest

@@ -4,6 +4,15 @@ AI Usage Monitor is a compact, always-on-top Windows desktop widget for monitori
 
 ![AI Usage Monitor compact vertical widget](docs/usage-widget.png)
 
+## Download
+
+Download the newest automatic Windows x64 build from [GitHub Releases](https://github.com/ansonliam/AIUsageMonitor/releases/latest), or download the executable directly:
+
+- [AIUsageMonitor.exe](https://github.com/ansonliam/AIUsageMonitor/releases/latest/download/AIUsageMonitor.exe)
+- [SHA-256 checksum](https://github.com/ansonliam/AIUsageMonitor/releases/latest/download/AIUsageMonitor.exe.sha256)
+
+The release is a self-contained single-file application and does not require a separate .NET installation. It is currently unsigned, so Windows SmartScreen may display an **Unknown publisher** warning.
+
 ## Features
 
 - OpenAI Codex weekly usage
@@ -133,6 +142,7 @@ The screenshot above shows the compact vertical layout. The same provider cards 
 - Hook paths are absolute, so portable copies require hook repair after being moved or renamed.
 - Cached values may be shown until the next successful refresh.
 - Hook-triggered refresh is throttled and is not intended as second-by-second monitoring.
+- Automatic release executables are not code-signed and may trigger a Windows SmartScreen warning.
 - CSV history, alerts, and usage notifications are not currently implemented.
 - The application has no automated test project yet; release verification currently relies on a clean solution build and runtime checks.
 
