@@ -96,6 +96,24 @@ Codex authentication is accessed through the locally installed Codex app-server.
 
 Do not commit runtime caches, provider configuration, credential files, or locally published binaries. The repository `.gitignore` excludes these files and directories.
 
+### Automatic commit safety check
+
+Install the repository-owned pre-commit hook once after cloning:
+
+```powershell
+.\scripts\Install-GitHooks.ps1
+```
+
+Every local commit will then scan the exact staged files for credential patterns, private or machine-specific data, sensitive filenames, generated artifacts, and unapproved binary files. Findings report only the issue type, file, and line number so a detected secret is not printed to the terminal.
+
+Run the full repository check manually at any time:
+
+```powershell
+.\scripts\Invoke-PrivacyCheck.ps1 -Scope Repository
+```
+
+Approved screenshots and icons are content-hash allowlisted in `scripts/privacy-allowlist.json`. Any changed or newly added binary asset is blocked until it has been reviewed and its Git blob hash deliberately added to that file. GitHub Actions runs the same repository scan on every push and pull request.
+
 ## Refresh behavior
 
 - **Manual refresh** always requests fresh data.

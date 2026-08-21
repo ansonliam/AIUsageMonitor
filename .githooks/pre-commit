@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+set -eu
+
+repository_root="$(git rev-parse --show-toplevel)"
+check_script="$repository_root/scripts/Invoke-PrivacyCheck.ps1"
+
+if command -v pwsh.exe >/dev/null 2>&1; then
+    powershell_command="pwsh.exe"
+elif command -v pwsh >/dev/null 2>&1; then
+    powershell_command="pwsh"
+elif command -v powershell.exe >/dev/null 2>&1; then
+    powershell_command="powershell.exe"
+else
+    echo "Privacy check blocked the commit: PowerShell was not found." >&2
+    exit 2
+fi
+
+"$powershell_command" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "$check_script" -Scope Staged
