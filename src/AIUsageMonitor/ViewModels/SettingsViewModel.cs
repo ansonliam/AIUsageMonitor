@@ -13,6 +13,7 @@ public sealed class SettingsViewModel : ObservableObject
 {
     private readonly CodexHookInstaller _codexHookInstaller;
     private readonly ClaudeHookInstaller _claudeHookInstaller;
+    private readonly IApplicationController _applicationController;
     private readonly MainWindow _mainWindow;
     private string _codexHookStatus = "Checking…";
     private string _claudeHookStatus = "Checking…";
@@ -39,11 +40,13 @@ public sealed class SettingsViewModel : ObservableObject
     public SettingsViewModel(
         CodexHookInstaller codexHookInstaller,
         ClaudeHookInstaller claudeHookInstaller,
-        MainWindow mainWindow)
+        MainWindow mainWindow,
+        IApplicationController applicationController)
     {
         _codexHookInstaller = codexHookInstaller;
         _claudeHookInstaller = claudeHookInstaller;
         _mainWindow = mainWindow;
+        _applicationController = applicationController;
         _isWindowLocked = mainWindow.IsWindowLocked;
         _isHorizontalLayout = mainWindow.IsHorizontalLayout;
         _showCodex = mainWindow.ShowCodex;
@@ -62,6 +65,7 @@ public sealed class SettingsViewModel : ObservableObject
         TestClaudeHookCommand = new AsyncRelayCommand(TestClaudeHookAsync);
         OpenClaudeHookFileCommand = new RelayCommand(() => OpenHookFile(_claudeHookInstaller.ConfigurationPath, "Claude"));
         ApplyUsageColorsCommand = new RelayCommand(ApplyUsageColors);
+        OpenIconPreviewCommand = new RelayCommand(_applicationController.ShowIconPreview);
         RefreshStatus();
     }
 
@@ -179,6 +183,7 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand TestClaudeHookCommand { get; }
     public ICommand OpenClaudeHookFileCommand { get; }
     public ICommand ApplyUsageColorsCommand { get; }
+    public ICommand OpenIconPreviewCommand { get; }
     public string CodexHookPath => _codexHookInstaller.ConfigurationPath;
     public string ClaudeHookPath => _claudeHookInstaller.ConfigurationPath;
 

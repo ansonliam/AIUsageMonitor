@@ -63,7 +63,7 @@
             <StackPanel Margin="3,0,3,2" ToolTip="{Binding ResetToolTip}">
                 <Grid Height="{DynamicResource MetricRowHeight}">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="MetricLabelColumn" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
@@ -72,20 +72,22 @@
                                FontWeight="Bold"
                                Foreground="#F5F7FA"
                                Text="{Binding Label}" />
-                    <StackPanel Grid.Column="2" HorizontalAlignment="Right" Orientation="Horizontal">
-                        <TextBlock Margin="0,0,7,0"
-                                   VerticalAlignment="Center"
-                                   FontSize="{DynamicResource ResetFontSize}"
-                                   Foreground="#9DA7B2"
-                                   Text="{Binding ResetText}" />
-                        <TextBlock MinWidth="34"
-                                   VerticalAlignment="Center"
-                                   FontSize="{DynamicResource MetricFontSize}"
-                                   FontWeight="Bold"
-                                   Foreground="#F5F7FA"
-                                   Text="{Binding PercentText}"
-                                   TextAlignment="Right" />
-                    </StackPanel>
+                    <TextBlock Grid.Column="1"
+                               Margin="8,0,7,0"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Center"
+                               FontSize="{DynamicResource ResetFontSize}"
+                               Foreground="#9DA7B2"
+                               Text="{Binding ResetText}"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="2"
+                               MinWidth="34"
+                               VerticalAlignment="Center"
+                               FontSize="{DynamicResource MetricFontSize}"
+                               FontWeight="Bold"
+                               Foreground="#F5F7FA"
+                               Text="{Binding PercentText}"
+                               TextAlignment="Right" />
                 </Grid>
                 <ProgressBar Margin="0,1,0,0"
                              Foreground="{Binding UsedPercent, Converter={StaticResource UsageColorConverter}}"
@@ -174,6 +176,7 @@
         </Border.ContextMenu>
         <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
             <ItemsControl x:Name="ProvidersItemsControl"
+                          Grid.IsSharedSizeScope="True"
                           VerticalAlignment="Top"
                           ItemsPanel="{StaticResource VerticalProvidersPanel}"
                           ItemsSource="{Binding Providers}" />

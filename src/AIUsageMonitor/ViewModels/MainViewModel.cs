@@ -37,6 +37,7 @@ public sealed class MainViewModel
     }
 
     public ObservableCollection<ProviderViewModel> Providers { get; }
+    public ProviderViewModel ClaudeProvider => _providers[ProviderKind.Claude];
 
     public void SetProviderVisibility(ProviderKind provider, bool isVisible)
     {

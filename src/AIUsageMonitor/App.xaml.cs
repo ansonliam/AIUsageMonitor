@@ -66,6 +66,7 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<MainWindow>();
         services.AddSingleton<TrayIconService>();
         services.AddTransient<SettingsWindow>();
+        services.AddTransient<IconPreviewWindow>();
 
         _services = services.BuildServiceProvider();
         MainWindow = _services.GetRequiredService<MainWindow>();
@@ -109,6 +110,30 @@ public partial class App : System.Windows.Application, IApplicationController
             var window = _services.GetRequiredService<SettingsWindow>();
             window.Owner = MainWindow?.IsVisible == true ? MainWindow : null;
             window.ShowDialog();
+        });
+    }
+
+    public void ShowIconPreview()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            if (_services is null)
+            {
+                return;
+            }
+
+            var existing = Windows.OfType<IconPreviewWindow>().FirstOrDefault();
+            if (existing is not null)
+            {
+                existing.Activate();
+                return;
+            }
+
+            var window = _services.GetRequiredService<IconPreviewWindow>();
+            window.Owner = Windows.OfType<SettingsWindow>().FirstOrDefault(candidate => candidate.IsActive)
+                ?? MainWindow;
+            window.Show();
+            window.Activate();
         });
     }
 

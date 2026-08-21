@@ -18,6 +18,7 @@ AI Usage Monitor is a compact, always-on-top Windows desktop widget for monitori
 - Vertical or side-by-side provider layout with a 2 px horizontal gap
 - Independently show or hide Codex and Claude
 - Five text-size presets from Compact to Extra Large
+- Developer-only 512 × 512 icon screenshot preview with large text and reset labels hidden (`Ctrl+Alt+D` in Settings)
 - Borderless, translucent, always-on-top widget
 - Movable and resizable window with a shared lock setting
 - Remembered position, size, opacity, layout, visibility, typography, and usage stages

@@ -9,6 +9,7 @@
         Background="#FFF7F8FA"
         Foreground="#FF20252B"
         Icon="/AIUsageMonitor;component/Assets/AIUsageMonitor.ico"
+        PreviewKeyDown="Window_PreviewKeyDown"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner">
     <Window.Resources>
@@ -191,11 +192,24 @@
                         <TextBlock VerticalAlignment="Center" Text="%" />
                     </StackPanel>
                 </UniformGrid>
-                <Button Width="112"
-                        Margin="0,8,0,0"
-                        HorizontalAlignment="Left"
-                        Command="{Binding ApplyUsageColorsCommand}"
-                        Content="Apply Stages" />
+                <StackPanel Margin="0,8,0,0" HorizontalAlignment="Left" Orientation="Horizontal">
+                    <Button Width="112"
+                            Command="{Binding ApplyUsageColorsCommand}"
+                            Content="Apply Stages" />
+                    <StackPanel x:Name="DeveloperControls"
+                                Margin="10,0,0,0"
+                                Orientation="Horizontal"
+                                Visibility="Collapsed">
+                        <TextBlock Margin="0,0,8,0"
+                                   VerticalAlignment="Center"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="#FF6B4F00"
+                                   Text="Developer mode" />
+                        <Button Command="{Binding OpenIconPreviewCommand}"
+                                Content="Open Icon Preview" />
+                    </StackPanel>
+                </StackPanel>
             </StackPanel>
         </Border>
 
