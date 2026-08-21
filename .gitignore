@@ -11,13 +11,19 @@
 # .NET build and publish output
 [Bb]in/
 [Oo]bj/
+[Dd]ebug/
+[Rr]elease/
 [Aa]rtifacts/
 artifacts/
 [Dd]ist/
 dist/
 [Pp]ublish/
 TestResults/
+coverage/
 BenchmarkDotNet.Artifacts/
+*.trx
+*.coverage
+*.coveragexml
 *.pdb
 *.nupkg
 *.snupkg
@@ -35,6 +41,12 @@ packages/
 *.bak
 *.swp
 *.pid
+*.dmp
+*.crash
+*.trace
+*.db
+*.sqlite
+*.sqlite3
 
 # Local secrets and environment overrides
 .env
@@ -46,6 +58,12 @@ appsettings.*.local.json
 *.p12
 *.key
 *.pem
+
+# Generated installers and packages
+*.msi
+*.msix
+*.appx
+*.appxbundle
 
 # AIUsageMonitor runtime data and provider credentials/configuration
 **/.credentials.json

@@ -12,25 +12,46 @@
         ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner">
     <Window.Resources>
-        <Style TargetType="Button" BasedOn="{StaticResource MahApps.Styles.Button}">
+        <Style TargetType="Button">
             <Setter Property="MinHeight" Value="28" />
             <Setter Property="Padding" Value="10,4" />
             <Setter Property="Background" Value="#FFFFFFFF" />
             <Setter Property="Foreground" Value="#FF20252B" />
             <Setter Property="BorderBrush" Value="#FFC6CCD3" />
+            <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Cursor" Value="Hand" />
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FFE5F4F2" />
-                    <Setter Property="Foreground" Value="#FF173A37" />
-                    <Setter Property="BorderBrush" Value="#FF62A9A1" />
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Setter Property="Background" Value="#FFCBE8E4" />
-                    <Setter Property="Foreground" Value="#FF102C29" />
-                    <Setter Property="BorderBrush" Value="#FF31877D" />
-                </Trigger>
-            </Style.Triggers>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonBorder"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FFEAF4FF" />
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#FF78A9D4" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FFD6E9FA" />
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#FF4D8DC4" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FFF1F3F5" />
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#FFD5DAE0" />
+                                <Setter Property="Foreground" Value="#FF929AA3" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style TargetType="CheckBox">
             <Setter Property="Foreground" Value="#FF20252B" />
@@ -77,19 +98,26 @@
                 <TextBlock Margin="22,4,0,0"
                            Foreground="#FF65717D"
                            Text="When unlocked, drag the widget body to move it and drag any edge or corner to resize it." />
-                <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
-                    <CheckBox IsChecked="{Binding IsHorizontalLayout, Mode=TwoWay}"
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <CheckBox Grid.Column="0"
+                              IsChecked="{Binding IsHorizontalLayout, Mode=TwoWay}"
                               FontWeight="SemiBold"
                               Content="Side-by-side layout" />
-                    <TextBlock Margin="52,0,12,0"
-                               VerticalAlignment="Center"
-                               FontWeight="SemiBold"
-                               Text="Visible:" />
-                    <CheckBox IsChecked="{Binding ShowCodex, Mode=TwoWay}" Content="Codex" />
-                    <CheckBox Margin="18,0,0,0"
-                              IsChecked="{Binding ShowClaude, Mode=TwoWay}"
-                              Content="Claude" />
-                </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <TextBlock Margin="0,0,12,0"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Text="Visible:" />
+                        <CheckBox IsChecked="{Binding ShowCodex, Mode=TwoWay}" Content="Codex" />
+                        <CheckBox Margin="18,0,0,0"
+                                  IsChecked="{Binding ShowClaude, Mode=TwoWay}"
+                                  Content="Claude" />
+                    </StackPanel>
+                </Grid>
                 <CheckBox Margin="0,12,0,0"
                           IsChecked="{Binding AutoRefreshEnabled, Mode=TwoWay}"
                           FontWeight="SemiBold"
