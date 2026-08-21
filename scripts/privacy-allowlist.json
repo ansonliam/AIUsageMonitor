@@ -1,6 +1,9 @@
 {
   "approvedBinaryFiles": {
     "docs/usage-widget.png": "4bafce245bbe039de0298277e0a511dda1d5e27f",
-    "src/AIUsageMonitor/Assets/AIUsageMonitor.ico": "2903c90154f44de31760df471bfc6cd048070a86"
+    "src/AIUsageMonitor/Assets/AIUsageMonitor.ico": "2903c90154f44de31760df471bfc6cd048070a86",
+    "src/AIUsageMonitor/Assets/provider-icons/antigravity.png": "0033d0813dd405bf6c26943d141b514d28abcdc0",
+    "src/AIUsageMonitor/Assets/provider-icons/codex.png": "49ebe6ca359e10eeab3be7b445f612cce282e853",
+    "src/AIUsageMonitor/Assets/provider-icons/cursor.png": "6dcbd6b856e88f097bcf9d7ef1adca2e77687b9a"
   }
 }

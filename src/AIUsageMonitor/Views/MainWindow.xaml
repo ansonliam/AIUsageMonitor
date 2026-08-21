@@ -29,7 +29,13 @@
         <system:Double x:Key="ResetFontSize">9.5</system:Double>
         <system:Double x:Key="ActionFontSize">10</system:Double>
         <system:Double x:Key="ProviderHeaderHeight">19</system:Double>
+        <system:Double x:Key="ProviderIconSize">13</system:Double>
         <system:Double x:Key="MetricRowHeight">19</system:Double>
+
+        <!-- Official "Claude Code" mark (thesvg.org/icons/claude-code/color.svg), reused here purely to
+             identify which provider's usage a card shows - the same identifying use as a favicon or a
+             "works with" badge. -->
+        <Geometry x:Key="ClaudeIconGeometry">M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z</Geometry>
         <ItemsPanelTemplate x:Key="VerticalProvidersPanel">
             <StackPanel Orientation="Vertical" />
         </ItemsPanelTemplate>
@@ -113,7 +119,8 @@
                           ToolTip="{Binding HoverText}"
                           ToolTipService.InitialShowDelay="250"
                           ToolTipService.ShowDuration="20000">
-                        <TextBlock VerticalAlignment="Center"
+                        <TextBlock x:Name="ProviderNameText"
+                                   VerticalAlignment="Center"
                                    AutomationProperties.HelpText="{Binding HoverText}"
                                    FontSize="{DynamicResource ProviderFontSize}"
                                    FontWeight="SemiBold"
@@ -122,6 +129,29 @@
                                    ToolTip="{Binding HoverText}"
                                    ToolTipService.InitialShowDelay="200"
                                    ToolTipService.ShowDuration="20000" />
+                        <Path x:Name="ProviderIconPath"
+                              Width="{DynamicResource ProviderIconSize}"
+                              Height="{DynamicResource ProviderIconSize}"
+                              HorizontalAlignment="Left"
+                              VerticalAlignment="Center"
+                              AutomationProperties.HelpText="{Binding HoverText}"
+                              Stretch="Uniform"
+                              ToolTip="{Binding HoverText}"
+                              ToolTipService.InitialShowDelay="200"
+                              ToolTipService.ShowDuration="20000"
+                              Visibility="Collapsed" />
+                        <Image x:Name="ProviderIconImage"
+                               Width="{DynamicResource ProviderIconSize}"
+                               Height="{DynamicResource ProviderIconSize}"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Center"
+                               AutomationProperties.HelpText="{Binding HoverText}"
+                               RenderOptions.BitmapScalingMode="HighQuality"
+                               Stretch="Uniform"
+                               ToolTip="{Binding HoverText}"
+                               ToolTipService.InitialShowDelay="200"
+                               ToolTipService.ShowDuration="20000"
+                               Visibility="Collapsed" />
                         <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                             <Button Height="{DynamicResource ProviderHeaderHeight}"
                                     MinHeight="{DynamicResource ProviderHeaderHeight}"
@@ -149,6 +179,29 @@
                     <ItemsControl ItemsSource="{Binding UsageWindows}" />
                 </StackPanel>
             </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Kind}" Value="Claude">
+                    <Setter TargetName="ProviderNameText" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="ProviderIconPath" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="ProviderIconPath" Property="Data" Value="{StaticResource ClaudeIconGeometry}" />
+                    <Setter TargetName="ProviderIconPath" Property="Fill" Value="#D97757" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Kind}" Value="Antigravity">
+                    <Setter TargetName="ProviderNameText" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="ProviderIconImage" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="ProviderIconImage" Property="Source" Value="/AIUsageMonitor;component/Assets/provider-icons/antigravity.png" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Kind}" Value="Cursor">
+                    <Setter TargetName="ProviderNameText" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="ProviderIconImage" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="ProviderIconImage" Property="Source" Value="/AIUsageMonitor;component/Assets/provider-icons/cursor.png" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Kind}" Value="Codex">
+                    <Setter TargetName="ProviderNameText" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="ProviderIconImage" Property="Visibility" Value="Visible" />
+                    <Setter TargetName="ProviderIconImage" Property="Source" Value="/AIUsageMonitor;component/Assets/provider-icons/codex.png" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
         </DataTemplate>
     </Window.Resources>
 

@@ -1,6 +1,6 @@
 # AI Usage Monitor
 
-AI Usage Monitor is a compact, always-on-top Windows desktop widget for monitoring subscription usage across OpenAI Codex, Claude Code, and Google Antigravity. It displays used quota, reset times, and provider state without requiring a browser dashboard.
+AI Usage Monitor is a compact, always-on-top Windows desktop widget for monitoring subscription usage across OpenAI Codex, Claude Code, Google Antigravity, and Cursor. It displays used quota, reset times, and provider state without requiring a browser dashboard.
 
 ![AI Usage Monitor compact vertical widget](docs/usage-widget.png)
 
@@ -15,28 +15,39 @@ The release is a self-contained single-file application and does not require a s
 
 ## Features
 
-- OpenAI Codex weekly usage
-- Claude Code current five-hour session and weekly usage
-- Google Antigravity quota windows reported by the current desktop backend, shown as short "G" (Gemini Models) and "C" (Claude and GPT models) labels with the full group name on hover
+### Usage
+
+- **Codex** — weekly usage
+- **Claude Code** — current five-hour session and weekly usage
+- **Antigravity** — quota windows reported by the current desktop backend, shown as short "G" (Gemini Models) and "C" (Claude and GPT models) labels with the full group name on hover
+- **Cursor** — Cursor Models and Other Models remaining percentage and shared billing/reset date, read from Cursor's own local session token (no separate API key)
+- Each card is identified by a compact provider icon, with the full provider name available on hover
 - Used-percentage progress bars with configurable five-stage colours and cutoffs
 - Compact reset-time labels, with a short "Reset in …, on …" summary and the exact reset date and time in tooltips
+- The displayed percentages are **used percentages**: a larger value and longer bar mean more of the quota has been consumed
+
+### Refresh
+
 - Manual refresh plus optional scheduled and hook-triggered refresh
-- Optional Codex, Claude Code, and Antigravity Stop hooks for automatic refresh after a session
-- Scheduled refresh disabled by default, with independent intervals for all three providers
-- Five-minute non-manual refresh throttle to reduce rate-limit errors
+- Optional Codex, Claude Code, Antigravity, and Cursor Stop hooks for automatic refresh after a session
+- Scheduled refresh disabled by default, with an independent interval per provider, defaulted from each provider's own observed rate-limit behavior (Codex 15 min, Claude 20 min, Antigravity 20 min, Cursor 5 min)
+- Independent non-manual refresh throttle per provider (Codex 3 min, Claude 15 min, Antigravity 10 min, Cursor 5 min) to reduce rate-limit errors
+- A hook that arrives inside the throttle window is not dropped: one follow-up refresh is scheduled for the moment the throttle clears, and the provider's scheduled-poll countdown restarts from that refresh rather than firing again shortly after
+- Hidden provider cards are never polled or hook-refreshed; showing a card again triggers an immediate catch-up refresh
 - Cached last-known usage and update times across restarts
+
+### Window and layout
+
+- Borderless, translucent, always-on-top widget, with "always on top" itself toggleable from Settings or the widget's right-click menu
 - Vertical or side-by-side provider layout with a 2 px horizontal gap, resizable down to a compact 160 px minimum width
-- Independently show or hide Codex, Claude, and Antigravity
+- Independently show or hide Codex, Claude, Antigravity, and Cursor
 - Five text-size presets from Compact to Extra Large
 - Developer-only 512 × 512 icon screenshot preview with large text and reset labels hidden (`Ctrl+Alt+D` in Settings)
-- Borderless, translucent, always-on-top widget
 - Tray-only operation without a taskbar button
 - Movable and resizable window with a shared lock setting
 - Remembered position, size, opacity, layout, visibility, typography, and usage stages
 - System-tray and widget context menus for Settings, Refresh All, and window controls
 - Single-instance handling for hook notifications
-
-The displayed percentages are **used percentages**: a larger value and longer bar mean more of the quota has been consumed.
 
 ## Requirements
 
@@ -46,6 +57,7 @@ To run the published application:
 - OpenAI Codex installed and signed in for Codex usage
 - Claude Code installed and signed in for Claude usage
 - Google Antigravity 2.0 desktop installed, signed in, and running for Antigravity usage
+- Cursor installed and signed in for Cursor usage
 - Internet access to the relevant provider services
 
 To build from source:
@@ -60,7 +72,7 @@ Clone the repository and build the solution:
 ```powershell
 git clone https://github.com/ansonliam/AIUsageMonitor.git
 cd AIUsageMonitor
-dotnet build .\AIUsageMonitor.sln -c Release
+dotnet build .\AIUsageMonitor.slnx -c Release
 ```
 
 Run from source:
@@ -89,7 +101,7 @@ dotnet publish .\src\AIUsageMonitor\AIUsageMonitor.csproj `
 4. Right-click the widget or tray icon to open **Settings**.
 5. Enable **Scheduled refresh** if wanted and choose a separate interval for each provider.
 6. Use Settings to install, repair, uninstall, test, or inspect each provider hook.
-7. Choose the provider layout, visible cards, text size, colours, cutoff percentages, opacity, and window lock state.
+7. Choose the provider layout, visible cards, text size, colours, cutoff percentages, opacity, always-on-top, and window lock state.
 
 Hook installation and removal preserve unrelated provider settings and hooks. New handlers carry the unique owner marker `com.ansonliam.ai-usage-monitor`; executable-specific legacy handlers are migrated during repair.
 
@@ -104,8 +116,9 @@ AI Usage Monitor does not place provider credentials in this repository or its o
 - Codex hook: `%USERPROFILE%\.codex\hooks.json`
 - Claude hook: `%USERPROFILE%\.claude\settings.json`, or the directory selected by `CLAUDE_CONFIG_DIR`
 - Antigravity hook: `%USERPROFILE%\.gemini\config\hooks.json`
+- Cursor hook: `%USERPROFILE%\.cursor\hooks.json`
 
-Codex authentication is accessed through the locally installed Codex app-server. Claude authentication uses the existing Claude Code credential cache; when required, the application follows the Claude OAuth refresh flow and updates the relevant credential fields in that existing cache. Antigravity usage is requested from the signed-in desktop application's loopback-only local language server. AI Usage Monitor does not request an API key or copy Antigravity's Google session credentials into its settings or usage cache.
+Codex authentication is accessed through the locally installed Codex app-server. Claude authentication uses the existing Claude Code credential cache; when required, the application follows the Claude OAuth refresh flow and updates the relevant credential fields in that existing cache. Antigravity usage is requested from the signed-in desktop application's loopback-only local language server. Cursor authentication reads the session token Cursor's own desktop app already stores locally and calls Cursor's usage-summary endpoint with it. AI Usage Monitor does not request an API key for any provider, and does not copy Antigravity's or Cursor's session credentials into its own settings or usage cache.
 
 Do not commit runtime caches, provider configuration, credential files, or locally published binaries. The repository `.gitignore` excludes these files and directories.
 
@@ -129,11 +142,13 @@ Approved screenshots and icons are content-hash allowlisted in `scripts/privacy-
 
 ## Refresh behavior
 
-- **Manual refresh** always requests fresh data.
+- **Manual refresh** always requests fresh data, bypassing the throttle.
 - **Scheduled refresh** is disabled by default.
-- **Scheduled refresh intervals** are configured separately for Codex, Claude, and Antigravity from 5 to 1440 minutes.
+- **Scheduled refresh intervals** are configured separately for Codex, Claude, Antigravity, and Cursor, from 5 to 1440 minutes.
 - **Installed hooks** request a provider refresh independently of the scheduled-refresh setting.
-- **Hook and scheduled refreshes** are limited to one provider request per five minutes.
+- **Hook and scheduled refreshes** are limited by a per-provider minimum interval (Codex 3 min, Claude 15 min, Antigravity 10 min, Cursor 5 min), chosen from each provider's own observed rate-limit behavior rather than a single shared value.
+- A hook that lands inside that minimum interval is not simply dropped: exactly one follow-up refresh is scheduled for when the interval clears, and the provider's scheduled-poll countdown restarts from that refresh so it isn't immediately polled again.
+- Hidden provider cards (unchecked in **Visible**) are skipped by scheduled and hook refreshes entirely; making a card visible again triggers one immediate refresh.
 - Claude `429 Too Many Requests` responses respect `Retry-After` when present and otherwise use capped exponential backoff.
 
 ## Screenshots

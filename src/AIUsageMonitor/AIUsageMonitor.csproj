@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <Resource Include="Assets\AIUsageMonitor.ico" />
+    <Resource Include="Assets\provider-icons\*.png" />
   </ItemGroup>
 
   <ItemGroup>

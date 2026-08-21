@@ -59,6 +59,10 @@ public partial class MainWindow : Window
     public double ClaudeRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
     public double AntigravityRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
     public double CursorRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.CursorDefaultIntervalMinutes;
+    public double CodexThrottleIntervalMinutes { get; private set; } = AutoRefreshOptions.CodexDefaultThrottleMinutes;
+    public double ClaudeThrottleIntervalMinutes { get; private set; } = AutoRefreshOptions.ClaudeDefaultThrottleMinutes;
+    public double AntigravityThrottleIntervalMinutes { get; private set; } = AutoRefreshOptions.AntigravityDefaultThrottleMinutes;
+    public double CursorThrottleIntervalMinutes { get; private set; } = AutoRefreshOptions.CursorDefaultThrottleMinutes;
 
     public MainWindow(
         MainViewModel viewModel,
@@ -164,6 +168,14 @@ public partial class MainWindow : Window
                 placement.AntigravityRefreshIntervalMinutes);
             CursorRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(
                 placement.CursorRefreshIntervalMinutes);
+            CodexThrottleIntervalMinutes = AutoRefreshOptions.NormalizeThrottle(
+                placement.CodexThrottleIntervalMinutes);
+            ClaudeThrottleIntervalMinutes = AutoRefreshOptions.NormalizeThrottle(
+                placement.ClaudeThrottleIntervalMinutes);
+            AntigravityThrottleIntervalMinutes = AutoRefreshOptions.NormalizeThrottle(
+                placement.AntigravityThrottleIntervalMinutes);
+            CursorThrottleIntervalMinutes = AutoRefreshOptions.NormalizeThrottle(
+                placement.CursorThrottleIntervalMinutes);
             Opacity = Math.Clamp(placement.Opacity, 0.6, 1.0);
         }
         else
@@ -177,6 +189,7 @@ public partial class MainWindow : Window
 
         ApplyWindowLockState();
         ApplyAutoRefreshOptions();
+        ApplyThrottleOptions();
         ApplySavedUsageColors();
         ApplyFontSizePreset();
         ApplyProviderLayout();
@@ -293,6 +306,55 @@ public partial class MainWindow : Window
         SavePlacement();
     }
 
+    public void SetThrottleInterval(ProviderKind provider, double minutes)
+    {
+        var normalized = AutoRefreshOptions.NormalizeThrottle(minutes);
+        if (provider == ProviderKind.Codex)
+        {
+            CodexThrottleIntervalMinutes = normalized;
+        }
+        else if (provider == ProviderKind.Claude)
+        {
+            ClaudeThrottleIntervalMinutes = normalized;
+        }
+        else if (provider == ProviderKind.Antigravity)
+        {
+            AntigravityThrottleIntervalMinutes = normalized;
+        }
+        else
+        {
+            CursorThrottleIntervalMinutes = normalized;
+        }
+
+        ApplyThrottleOptions();
+        SavePlacement();
+    }
+
+    public void ResetScheduledIntervalsToDefault()
+    {
+        CodexRefreshIntervalMinutes = AutoRefreshOptions.CodexDefaultIntervalMinutes;
+        ClaudeRefreshIntervalMinutes = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
+        AntigravityRefreshIntervalMinutes = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
+        CursorRefreshIntervalMinutes = AutoRefreshOptions.CursorDefaultIntervalMinutes;
+        ApplyAutoRefreshOptions();
+        SavePlacement();
+    }
+
+    public void ResetThrottleIntervalsToDefault()
+    {
+        CodexThrottleIntervalMinutes = AutoRefreshOptions.CodexDefaultThrottleMinutes;
+        ClaudeThrottleIntervalMinutes = AutoRefreshOptions.ClaudeDefaultThrottleMinutes;
+        AntigravityThrottleIntervalMinutes = AutoRefreshOptions.AntigravityDefaultThrottleMinutes;
+        CursorThrottleIntervalMinutes = AutoRefreshOptions.CursorDefaultThrottleMinutes;
+        ApplyThrottleOptions();
+        SavePlacement();
+    }
+
+    public void ResetUsageColorsToDefault()
+    {
+        TrySetUsageColors("#2ECC71", "#9ACD32", "#FFD21E", "#FF9800", "#FF4D4F", 40, 70, 85, 95, 100);
+    }
+
     private void ApplyAutoRefreshOptions() =>
         _autoRefreshOptions.Update(
             AutoRefreshEnabled,
@@ -300,6 +362,13 @@ public partial class MainWindow : Window
             ClaudeRefreshIntervalMinutes,
             AntigravityRefreshIntervalMinutes,
             CursorRefreshIntervalMinutes);
+
+    private void ApplyThrottleOptions() =>
+        _autoRefreshOptions.UpdateThrottle(
+            CodexThrottleIntervalMinutes,
+            ClaudeThrottleIntervalMinutes,
+            AntigravityThrottleIntervalMinutes,
+            CursorThrottleIntervalMinutes);
 
     public bool TrySetUsageColors(
         string green,
@@ -411,11 +480,11 @@ public partial class MainWindow : Window
     {
         var typography = FontSizePreset switch
         {
-            "Compact" => new WidgetTypography(8, 10, 6.5, 7.5, 14, 14),
-            "Small" => new WidgetTypography(9.5, 12.5, 8, 8.5, 17, 17),
-            "Large" => new WidgetTypography(15, 21, 13, 13, 27, 27),
-            "Extra Large" => new WidgetTypography(20, 30, 17, 16, 36, 36),
-            _ => new WidgetTypography(11.5, 15, 9.5, 10, 19, 19)
+            "Compact" => new WidgetTypography(8, 10, 6.5, 7.5, 14, 14, 10),
+            "Small" => new WidgetTypography(9.5, 12.5, 8, 8.5, 17, 17, 12),
+            "Large" => new WidgetTypography(15, 21, 13, 13, 27, 27, 18),
+            "Extra Large" => new WidgetTypography(20, 30, 17, 16, 36, 36, 24),
+            _ => new WidgetTypography(11.5, 15, 9.5, 10, 19, 19, 13)
         };
 
         Resources["ProviderFontSize"] = typography.ProviderFontSize;
@@ -423,6 +492,7 @@ public partial class MainWindow : Window
         Resources["ResetFontSize"] = typography.ResetFontSize;
         Resources["ActionFontSize"] = typography.ActionFontSize;
         Resources["ProviderHeaderHeight"] = typography.ProviderHeaderHeight;
+        Resources["ProviderIconSize"] = typography.ProviderIconSize;
         Resources["MetricRowHeight"] = typography.MetricRowHeight;
         ApplyCompactHeight();
     }
@@ -688,6 +758,10 @@ public partial class MainWindow : Window
                 ClaudeRefreshIntervalMinutes = ClaudeRefreshIntervalMinutes,
                 AntigravityRefreshIntervalMinutes = AntigravityRefreshIntervalMinutes,
                 CursorRefreshIntervalMinutes = CursorRefreshIntervalMinutes,
+                CodexThrottleIntervalMinutes = CodexThrottleIntervalMinutes,
+                ClaudeThrottleIntervalMinutes = ClaudeThrottleIntervalMinutes,
+                AntigravityThrottleIntervalMinutes = AntigravityThrottleIntervalMinutes,
+                CursorThrottleIntervalMinutes = CursorThrottleIntervalMinutes,
                 Opacity = Opacity
             };
             File.WriteAllText(temporaryPath, JsonSerializer.Serialize(placement));
@@ -745,6 +819,10 @@ public partial class MainWindow : Window
         public double ClaudeRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
         public double AntigravityRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
         public double CursorRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.CursorDefaultIntervalMinutes;
+        public double CodexThrottleIntervalMinutes { get; init; } = AutoRefreshOptions.CodexDefaultThrottleMinutes;
+        public double ClaudeThrottleIntervalMinutes { get; init; } = AutoRefreshOptions.ClaudeDefaultThrottleMinutes;
+        public double AntigravityThrottleIntervalMinutes { get; init; } = AutoRefreshOptions.AntigravityDefaultThrottleMinutes;
+        public double CursorThrottleIntervalMinutes { get; init; } = AutoRefreshOptions.CursorDefaultThrottleMinutes;
         public double Opacity { get; init; } = 1.0;
     }
 
@@ -754,5 +832,6 @@ public partial class MainWindow : Window
         double ResetFontSize,
         double ActionFontSize,
         double ProviderHeaderHeight,
-        double MetricRowHeight);
+        double MetricRowHeight,
+        double ProviderIconSize);
 }

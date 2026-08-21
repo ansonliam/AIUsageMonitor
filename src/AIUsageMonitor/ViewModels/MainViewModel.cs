@@ -9,9 +9,11 @@ public sealed class MainViewModel
 {
     private readonly Dictionary<ProviderKind, ProviderViewModel> _providers;
     private readonly IReadOnlyList<ProviderViewModel> _providerOrder;
+    private readonly UsageRefreshService _refreshService;
 
     public MainViewModel(UsageRefreshService refreshService)
     {
+        _refreshService = refreshService;
         var codex = new ProviderViewModel(ProviderKind.Codex, "Codex", refreshService);
         var claude = new ProviderViewModel(ProviderKind.Claude, "Claude", refreshService);
         var antigravity = new ProviderViewModel(ProviderKind.Antigravity, "Antigravity", refreshService);
@@ -54,6 +56,7 @@ public sealed class MainViewModel
 
     public void SetProviderVisibility(ProviderKind provider, bool isVisible)
     {
+        _refreshService.SetProviderVisible(provider, isVisible);
         var viewModel = _providers[provider];
         if (!isVisible)
         {

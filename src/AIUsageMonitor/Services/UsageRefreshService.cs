@@ -7,30 +7,23 @@ namespace AIUsageMonitor.Services;
 public sealed class UsageRefreshService : IDisposable
 {
     private static readonly TimeSpan HookDebounce = TimeSpan.FromMilliseconds(1500);
-
-    // Floor between refreshes for non-manual reasons (hook/scheduled), tuned per provider from the same
-    // research backing AutoRefreshOptions' per-provider defaults - see the constants there for citations.
-    private static readonly Dictionary<ProviderKind, TimeSpan> MinRefreshIntervals = new()
-    {
-        [ProviderKind.Codex] = TimeSpan.FromMinutes(3),
-        [ProviderKind.Claude] = TimeSpan.FromMinutes(15),
-        [ProviderKind.Antigravity] = TimeSpan.FromMinutes(10),
-        [ProviderKind.Cursor] = TimeSpan.FromMinutes(5)
-    };
     private readonly Dictionary<ProviderKind, IUsageProvider> _providers;
     private readonly Dictionary<ProviderKind, ProviderRefreshState> _states;
     private readonly UsageCacheStore _cacheStore;
+    private readonly AutoRefreshOptions _options;
     private readonly ILogger<UsageRefreshService> _logger;
     private readonly CancellationTokenSource _lifetime = new();
 
     public UsageRefreshService(
         IEnumerable<IUsageProvider> providers,
         UsageCacheStore cacheStore,
+        AutoRefreshOptions options,
         ILogger<UsageRefreshService> logger)
     {
         _providers = providers.ToDictionary(provider => provider.Kind);
         _states = _providers.Keys.ToDictionary(kind => kind, _ => new ProviderRefreshState());
         _cacheStore = cacheStore;
+        _options = options;
         _logger = logger;
         SeedCachedSnapshots();
     }
@@ -38,10 +31,21 @@ public sealed class UsageRefreshService : IDisposable
     public event Action<ProviderKind>? RefreshStarted;
     public event Action<UsageSnapshot>? SnapshotUpdated;
 
+    // Raised only after a real GetUsageAsync call completes (not a throttled re-emit), so listeners
+    // can restart a provider's scheduled-poll countdown from this point instead of double-refreshing soon after.
+    public event Action<ProviderKind>? RefreshCompleted;
+
     public Task RequestRefreshAsync(ProviderKind provider, RefreshReason reason)
     {
-        if (!_providers.ContainsKey(provider))
+        if (!_providers.TryGetValue(provider, out _))
         {
+            return Task.CompletedTask;
+        }
+
+        if (reason is not (RefreshReason.Manual or RefreshReason.VisibilityRestored) && !IsVisible(provider))
+        {
+            // Hidden providers do not get scheduled or hook-triggered network calls; an explicit
+            // Refresh-All click or the immediate catch-up on becoming visible still goes through.
             return Task.CompletedTask;
         }
 
@@ -80,6 +84,44 @@ public sealed class UsageRefreshService : IDisposable
             ClaudeUsageProvider claudeProvider => claudeProvider.StartLoginAsync(cancellationToken),
             _ => Task.CompletedTask
         };
+    }
+
+    // Called whenever a provider card is shown or hidden in the widget. Hiding cancels any pending
+    // deferred hook retry so a hidden card never triggers a network call; showing it again fires one
+    // immediate catch-up refresh (bypassing the throttle) so the number isn't stale the moment it reappears.
+    public void SetProviderVisible(ProviderKind provider, bool isVisible)
+    {
+        if (!_states.TryGetValue(provider, out var state))
+        {
+            return;
+        }
+
+        bool changedToVisible;
+        lock (state.SyncRoot)
+        {
+            changedToVisible = isVisible && !state.IsVisible;
+            state.IsVisible = isVisible;
+            if (!isVisible)
+            {
+                state.DeferredRetryCancellation?.Cancel();
+                state.DeferredRetryCancellation?.Dispose();
+                state.DeferredRetryCancellation = null;
+            }
+        }
+
+        if (changedToVisible)
+        {
+            _ = RequestRefreshAsync(provider, RefreshReason.VisibilityRestored);
+        }
+    }
+
+    private bool IsVisible(ProviderKind provider)
+    {
+        var state = _states[provider];
+        lock (state.SyncRoot)
+        {
+            return state.IsVisible;
+        }
     }
 
     private void SeedCachedSnapshots()
@@ -134,7 +176,7 @@ public sealed class UsageRefreshService : IDisposable
         if (!await state.Gate.WaitAsync(0, _lifetime.Token))
         {
             Interlocked.Exchange(ref state.RefreshQueued, 1);
-            if (reason == RefreshReason.Manual)
+            if (reason is RefreshReason.Manual or RefreshReason.VisibilityRestored)
             {
                 Interlocked.Exchange(ref state.ForceRefreshQueued, 1);
             }
@@ -163,6 +205,7 @@ public sealed class UsageRefreshService : IDisposable
 
                     _cacheStore.Save(snapshot);
                     SnapshotUpdated?.Invoke(snapshot);
+                    RefreshCompleted?.Invoke(provider);
                 }
 
                 if (Interlocked.Exchange(ref state.RefreshQueued, 0) == 0)
@@ -189,7 +232,7 @@ public sealed class UsageRefreshService : IDisposable
         ProviderRefreshState state,
         RefreshReason reason)
     {
-        if (reason == RefreshReason.Manual)
+        if (reason is RefreshReason.Manual or RefreshReason.VisibilityRestored)
         {
             return false;
         }
@@ -202,7 +245,7 @@ public sealed class UsageRefreshService : IDisposable
             snapshot = state.LastSnapshot;
         }
 
-        var minInterval = MinRefreshIntervals[provider];
+        var minInterval = _options.GetThrottleInterval(provider);
         if (lastAttempt is null || DateTimeOffset.Now - lastAttempt >= minInterval)
         {
             return false;
@@ -217,7 +260,52 @@ public sealed class UsageRefreshService : IDisposable
             SnapshotUpdated?.Invoke(snapshot);
         }
 
+        if (reason == RefreshReason.Hook)
+        {
+            ScheduleDeferredHookRetry(provider, state, lastAttempt.Value + minInterval);
+        }
+
         return true;
+    }
+
+    // A hook that arrived inside the throttle window is not dropped: exactly one follow-up refresh is
+    // scheduled for the moment the throttle actually clears (lastAttempt + minInterval), rather than
+    // waiting for the next scheduled poll (which can be much further away for Claude/Antigravity).
+    private void ScheduleDeferredHookRetry(ProviderKind provider, ProviderRefreshState state, DateTimeOffset runAt)
+    {
+        CancellationTokenSource cancellation;
+        lock (state.SyncRoot)
+        {
+            state.DeferredRetryCancellation?.Cancel();
+            state.DeferredRetryCancellation?.Dispose();
+            state.DeferredRetryCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+            cancellation = state.DeferredRetryCancellation;
+        }
+
+        var delay = runAt - DateTimeOffset.Now;
+        if (delay < TimeSpan.Zero)
+        {
+            delay = TimeSpan.Zero;
+        }
+
+        _ = RunDeferredHookRetryAsync(provider, delay, cancellation);
+    }
+
+    private async Task RunDeferredHookRetryAsync(ProviderKind provider, TimeSpan delay, CancellationTokenSource cancellation)
+    {
+        try
+        {
+            await Task.Delay(delay, cancellation.Token);
+            if (!IsVisible(provider))
+            {
+                return;
+            }
+
+            await RunOrQueueAsync(provider, RefreshReason.Hook);
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     public void Dispose()
@@ -229,6 +317,8 @@ public sealed class UsageRefreshService : IDisposable
             {
                 state.DebounceCancellation?.Cancel();
                 state.DebounceCancellation?.Dispose();
+                state.DeferredRetryCancellation?.Cancel();
+                state.DeferredRetryCancellation?.Dispose();
             }
             state.Gate.Dispose();
         }
@@ -240,8 +330,10 @@ public sealed class UsageRefreshService : IDisposable
         public object SyncRoot { get; } = new();
         public SemaphoreSlim Gate { get; } = new(1, 1);
         public CancellationTokenSource? DebounceCancellation { get; set; }
+        public CancellationTokenSource? DeferredRetryCancellation { get; set; }
         public DateTimeOffset? LastAttemptAt { get; set; }
         public UsageSnapshot? LastSnapshot { get; set; }
+        public bool IsVisible { get; set; } = true;
         public int RefreshQueued;
         public int ForceRefreshQueued;
     }

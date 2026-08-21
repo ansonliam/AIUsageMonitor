@@ -4,11 +4,21 @@ namespace AIUsageMonitor.Services;
 
 public sealed class UsagePollingService : IDisposable
 {
+    private static readonly ProviderKind[] Providers =
+    [
+        ProviderKind.Codex,
+        ProviderKind.Claude,
+        ProviderKind.Antigravity,
+        ProviderKind.Cursor
+    ];
+
     private readonly UsageRefreshService _refreshService;
     private readonly AutoRefreshOptions _options;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly List<Task> _pollingTasks = [];
     private readonly object _settingsChangeSyncRoot = new();
+    private readonly Dictionary<ProviderKind, TaskCompletionSource> _providerResetSignals =
+        Providers.ToDictionary(provider => provider, _ => CreateSettingsChangedSource());
     private TaskCompletionSource _settingsChanged = CreateSettingsChangedSource();
 
     public UsagePollingService(UsageRefreshService refreshService, AutoRefreshOptions options)
@@ -16,6 +26,7 @@ public sealed class UsagePollingService : IDisposable
         _refreshService = refreshService;
         _options = options;
         _options.Changed += Options_Changed;
+        _refreshService.RefreshCompleted += RefreshService_RefreshCompleted;
     }
 
     public async Task StartAsync()
@@ -28,16 +39,13 @@ public sealed class UsagePollingService : IDisposable
         if (_options.Enabled)
         {
             await Task.WhenAll(
-                _refreshService.RequestRefreshAsync(ProviderKind.Codex, RefreshReason.Startup),
-                _refreshService.RequestRefreshAsync(ProviderKind.Claude, RefreshReason.Startup),
-                _refreshService.RequestRefreshAsync(ProviderKind.Antigravity, RefreshReason.Startup),
-                _refreshService.RequestRefreshAsync(ProviderKind.Cursor, RefreshReason.Startup));
+                Providers.Select(provider => _refreshService.RequestRefreshAsync(provider, RefreshReason.Startup)));
         }
 
-        _pollingTasks.Add(PollAsync(ProviderKind.Codex, _lifetime.Token));
-        _pollingTasks.Add(PollAsync(ProviderKind.Claude, _lifetime.Token));
-        _pollingTasks.Add(PollAsync(ProviderKind.Antigravity, _lifetime.Token));
-        _pollingTasks.Add(PollAsync(ProviderKind.Cursor, _lifetime.Token));
+        foreach (var provider in Providers)
+        {
+            _pollingTasks.Add(PollAsync(provider, _lifetime.Token));
+        }
     }
 
     private async Task PollAsync(ProviderKind provider, CancellationToken cancellationToken)
@@ -47,15 +55,18 @@ public sealed class UsagePollingService : IDisposable
             while (!cancellationToken.IsCancellationRequested)
             {
                 var settingsChanged = GetSettingsChangedTask();
+                var providerReset = GetProviderResetTask(provider);
                 if (!_options.Enabled)
                 {
-                    await settingsChanged.WaitAsync(cancellationToken);
+                    await Task.WhenAny(settingsChanged, providerReset).WaitAsync(cancellationToken);
                     continue;
                 }
 
                 var delay = Task.Delay(_options.GetInterval(provider), cancellationToken);
-                if (await Task.WhenAny(delay, settingsChanged) == settingsChanged)
+                if (await Task.WhenAny(delay, settingsChanged, providerReset) != delay)
                 {
+                    // Either the global settings changed, or a hook/manual/visibility refresh already
+                    // happened for this provider - restart the wait so we don't poll again right away.
                     continue;
                 }
 
@@ -76,6 +87,7 @@ public sealed class UsagePollingService : IDisposable
     public void Dispose()
     {
         _options.Changed -= Options_Changed;
+        _refreshService.RefreshCompleted -= RefreshService_RefreshCompleted;
         _lifetime.Cancel();
         _lifetime.Dispose();
     }
@@ -92,11 +104,31 @@ public sealed class UsagePollingService : IDisposable
         changed.TrySetResult();
     }
 
+    private void RefreshService_RefreshCompleted(ProviderKind provider)
+    {
+        TaskCompletionSource reset;
+        lock (_settingsChangeSyncRoot)
+        {
+            reset = _providerResetSignals[provider];
+            _providerResetSignals[provider] = CreateSettingsChangedSource();
+        }
+
+        reset.TrySetResult();
+    }
+
     private Task GetSettingsChangedTask()
     {
         lock (_settingsChangeSyncRoot)
         {
             return _settingsChanged.Task;
+        }
+    }
+
+    private Task GetProviderResetTask(ProviderKind provider)
+    {
+        lock (_settingsChangeSyncRoot)
+        {
+            return _providerResetSignals[provider].Task;
         }
     }
 

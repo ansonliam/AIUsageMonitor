@@ -34,9 +34,9 @@ jobs:
       - name: Build and test
         shell: pwsh
         run: |
-          dotnet restore ./AIUsageMonitor.sln
-          dotnet build ./AIUsageMonitor.sln --configuration Release --no-restore
-          dotnet test ./AIUsageMonitor.sln --configuration Release --no-build --no-restore
+          dotnet restore ./AIUsageMonitor.slnx
+          dotnet build ./AIUsageMonitor.slnx --configuration Release --no-restore
+          dotnet test ./AIUsageMonitor.slnx --configuration Release --no-build --no-restore
 
       - name: Publish single-file application
         shell: pwsh

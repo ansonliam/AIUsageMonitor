@@ -34,6 +34,10 @@ public sealed class SettingsViewModel : ObservableObject
     private double _claudeRefreshIntervalMinutes = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
     private double _antigravityRefreshIntervalMinutes = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
     private double _cursorRefreshIntervalMinutes = AutoRefreshOptions.CursorDefaultIntervalMinutes;
+    private double _codexThrottleIntervalMinutes = AutoRefreshOptions.CodexDefaultThrottleMinutes;
+    private double _claudeThrottleIntervalMinutes = AutoRefreshOptions.ClaudeDefaultThrottleMinutes;
+    private double _antigravityThrottleIntervalMinutes = AutoRefreshOptions.AntigravityDefaultThrottleMinutes;
+    private double _cursorThrottleIntervalMinutes = AutoRefreshOptions.CursorDefaultThrottleMinutes;
     private string _fontSizePreset = "Normal";
     private string _greenColorHex = "#2ECC71";
     private string _limeColorHex = "#9ACD32";
@@ -72,6 +76,10 @@ public sealed class SettingsViewModel : ObservableObject
         _claudeRefreshIntervalMinutes = mainWindow.ClaudeRefreshIntervalMinutes;
         _antigravityRefreshIntervalMinutes = mainWindow.AntigravityRefreshIntervalMinutes;
         _cursorRefreshIntervalMinutes = mainWindow.CursorRefreshIntervalMinutes;
+        _codexThrottleIntervalMinutes = mainWindow.CodexThrottleIntervalMinutes;
+        _claudeThrottleIntervalMinutes = mainWindow.ClaudeThrottleIntervalMinutes;
+        _antigravityThrottleIntervalMinutes = mainWindow.AntigravityThrottleIntervalMinutes;
+        _cursorThrottleIntervalMinutes = mainWindow.CursorThrottleIntervalMinutes;
         _fontSizePreset = mainWindow.FontSizePreset;
         RefreshUsageColorState();
         InstallCodexHookCommand = new AsyncRelayCommand(InstallCodexHookAsync);
@@ -94,6 +102,24 @@ public sealed class SettingsViewModel : ObservableObject
             OpenHookFile(_cursorHookInstaller.ConfigurationPath, "Cursor"));
         ApplyUsageColorsCommand = new RelayCommand(ApplyUsageColors);
         OpenIconPreviewCommand = new RelayCommand(_applicationController.ShowIconPreview);
+        ResetScheduledIntervalsCommand = new RelayCommand(() =>
+        {
+            _mainWindow.ResetScheduledIntervalsToDefault();
+            RefreshWindowState();
+            TestResult = "Scheduled refresh intervals reset to defaults.";
+        });
+        ResetThrottleIntervalsCommand = new RelayCommand(() =>
+        {
+            _mainWindow.ResetThrottleIntervalsToDefault();
+            RefreshWindowState();
+            TestResult = "Hook throttle intervals reset to defaults.";
+        });
+        ResetUsageColorsCommand = new RelayCommand(() =>
+        {
+            _mainWindow.ResetUsageColorsToDefault();
+            RefreshWindowState();
+            TestResult = "Usage colour stages reset to defaults.";
+        });
         RefreshStatus();
     }
 
@@ -246,6 +272,54 @@ public sealed class SettingsViewModel : ObservableObject
             }
         }
     }
+    public double CodexThrottleIntervalMinutes
+    {
+        get => _codexThrottleIntervalMinutes;
+        set
+        {
+            var normalized = AutoRefreshOptions.NormalizeThrottle(value);
+            if (SetProperty(ref _codexThrottleIntervalMinutes, normalized))
+            {
+                _mainWindow.SetThrottleInterval(ProviderKind.Codex, normalized);
+            }
+        }
+    }
+    public double ClaudeThrottleIntervalMinutes
+    {
+        get => _claudeThrottleIntervalMinutes;
+        set
+        {
+            var normalized = AutoRefreshOptions.NormalizeThrottle(value);
+            if (SetProperty(ref _claudeThrottleIntervalMinutes, normalized))
+            {
+                _mainWindow.SetThrottleInterval(ProviderKind.Claude, normalized);
+            }
+        }
+    }
+    public double AntigravityThrottleIntervalMinutes
+    {
+        get => _antigravityThrottleIntervalMinutes;
+        set
+        {
+            var normalized = AutoRefreshOptions.NormalizeThrottle(value);
+            if (SetProperty(ref _antigravityThrottleIntervalMinutes, normalized))
+            {
+                _mainWindow.SetThrottleInterval(ProviderKind.Antigravity, normalized);
+            }
+        }
+    }
+    public double CursorThrottleIntervalMinutes
+    {
+        get => _cursorThrottleIntervalMinutes;
+        set
+        {
+            var normalized = AutoRefreshOptions.NormalizeThrottle(value);
+            if (SetProperty(ref _cursorThrottleIntervalMinutes, normalized))
+            {
+                _mainWindow.SetThrottleInterval(ProviderKind.Cursor, normalized);
+            }
+        }
+    }
     public IReadOnlyList<string> FontSizePresets { get; } =
         ["Compact", "Small", "Normal", "Large", "Extra Large"];
     public string FontSizePreset
@@ -287,6 +361,9 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand OpenCursorHookFileCommand { get; }
     public ICommand ApplyUsageColorsCommand { get; }
     public ICommand OpenIconPreviewCommand { get; }
+    public ICommand ResetScheduledIntervalsCommand { get; }
+    public ICommand ResetThrottleIntervalsCommand { get; }
+    public ICommand ResetUsageColorsCommand { get; }
     public string CodexHookPath => _codexHookInstaller.ConfigurationPath;
     public string ClaudeHookPath => _claudeHookInstaller.ConfigurationPath;
     public string AntigravityHookPath => _antigravityHookInstaller.ConfigurationPath;
@@ -326,6 +403,22 @@ public sealed class SettingsViewModel : ObservableObject
             ref _cursorRefreshIntervalMinutes,
             _mainWindow.CursorRefreshIntervalMinutes,
             nameof(CursorRefreshIntervalMinutes));
+        SetProperty(
+            ref _codexThrottleIntervalMinutes,
+            _mainWindow.CodexThrottleIntervalMinutes,
+            nameof(CodexThrottleIntervalMinutes));
+        SetProperty(
+            ref _claudeThrottleIntervalMinutes,
+            _mainWindow.ClaudeThrottleIntervalMinutes,
+            nameof(ClaudeThrottleIntervalMinutes));
+        SetProperty(
+            ref _antigravityThrottleIntervalMinutes,
+            _mainWindow.AntigravityThrottleIntervalMinutes,
+            nameof(AntigravityThrottleIntervalMinutes));
+        SetProperty(
+            ref _cursorThrottleIntervalMinutes,
+            _mainWindow.CursorThrottleIntervalMinutes,
+            nameof(CursorThrottleIntervalMinutes));
         SetProperty(ref _fontSizePreset, _mainWindow.FontSizePreset, nameof(FontSizePreset));
         RefreshUsageColorState();
     }

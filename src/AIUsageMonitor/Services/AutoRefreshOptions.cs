@@ -26,12 +26,26 @@ public sealed class AutoRefreshOptions
     // undocumented endpoint without reported issues.
     public const double CursorDefaultIntervalMinutes = 5;
 
+    public const double MinimumThrottleMinutes = 1;
+    public const double MaximumThrottleMinutes = 1440;
+
+    // Hook/scheduled-refresh floor per provider - same research as the scheduled defaults above, just
+    // tuned as the minimum gap between any two non-manual refreshes rather than the polling cadence.
+    public const double CodexDefaultThrottleMinutes = 3;
+    public const double ClaudeDefaultThrottleMinutes = 15;
+    public const double AntigravityDefaultThrottleMinutes = 10;
+    public const double CursorDefaultThrottleMinutes = 5;
+
     private readonly object _syncRoot = new();
     private bool _enabled;
     private double _codexIntervalMinutes = CodexDefaultIntervalMinutes;
     private double _claudeIntervalMinutes = ClaudeDefaultIntervalMinutes;
     private double _antigravityIntervalMinutes = AntigravityDefaultIntervalMinutes;
     private double _cursorIntervalMinutes = CursorDefaultIntervalMinutes;
+    private double _codexThrottleMinutes = CodexDefaultThrottleMinutes;
+    private double _claudeThrottleMinutes = ClaudeDefaultThrottleMinutes;
+    private double _antigravityThrottleMinutes = AntigravityDefaultThrottleMinutes;
+    private double _cursorThrottleMinutes = CursorDefaultThrottleMinutes;
 
     public event Action? Changed;
 
@@ -96,8 +110,47 @@ public sealed class AutoRefreshOptions
         }
     }
 
+    public TimeSpan GetThrottleInterval(ProviderKind provider)
+    {
+        lock (_syncRoot)
+        {
+            var minutes = provider switch
+            {
+                ProviderKind.Codex => _codexThrottleMinutes,
+                ProviderKind.Claude => _claudeThrottleMinutes,
+                ProviderKind.Antigravity => _antigravityThrottleMinutes,
+                _ => _cursorThrottleMinutes
+            };
+            return TimeSpan.FromMinutes(minutes);
+        }
+    }
+
+    public void UpdateThrottle(
+        double codexThrottleMinutes,
+        double claudeThrottleMinutes,
+        double antigravityThrottleMinutes,
+        double cursorThrottleMinutes)
+    {
+        codexThrottleMinutes = NormalizeThrottle(codexThrottleMinutes);
+        claudeThrottleMinutes = NormalizeThrottle(claudeThrottleMinutes);
+        antigravityThrottleMinutes = NormalizeThrottle(antigravityThrottleMinutes);
+        cursorThrottleMinutes = NormalizeThrottle(cursorThrottleMinutes);
+        lock (_syncRoot)
+        {
+            _codexThrottleMinutes = codexThrottleMinutes;
+            _claudeThrottleMinutes = claudeThrottleMinutes;
+            _antigravityThrottleMinutes = antigravityThrottleMinutes;
+            _cursorThrottleMinutes = cursorThrottleMinutes;
+        }
+    }
+
     public static double NormalizeInterval(double minutes) =>
         double.IsFinite(minutes)
             ? Math.Clamp(minutes, MinimumIntervalMinutes, MaximumIntervalMinutes)
             : DefaultIntervalMinutes;
+
+    public static double NormalizeThrottle(double minutes) =>
+        double.IsFinite(minutes)
+            ? Math.Clamp(minutes, MinimumThrottleMinutes, MaximumThrottleMinutes)
+            : CodexDefaultThrottleMinutes;
 }
