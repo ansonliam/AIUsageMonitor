@@ -671,10 +671,22 @@ public partial class MainWindow : Window
             : IsHorizontalLayout
                 ? providerHeights.Max()
                 : providerHeights.Sum();
+
+        // Codex API Cost panels always stack vertically below the provider cards, regardless of
+        // the horizontal/vertical provider layout toggle, so their height always adds rather than
+        // taking part in the Max()/Sum() choice above.
+        compactHeight += _viewModel.CodexApiCostPanels
+            .Select(panel => panel.HasStatus ? 90d : 74d)
+            .Sum();
+
         compactHeight = Math.Ceiling(compactHeight * GetFontHeightScale());
         compactHeight = Math.Max(60, compactHeight);
         MinHeight = compactHeight;
-        if (Height > compactHeight)
+
+        // Window.MinHeight only constrains manual drag-resizing at the OS level - it does not by
+        // itself grow an already-open window, so the height must be assigned directly whenever the
+        // compact content size changes (e.g. a Codex API Cost panel appearing/disappearing).
+        if (Height != compactHeight)
         {
             Height = compactHeight;
         }

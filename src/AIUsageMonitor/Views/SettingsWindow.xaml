@@ -1,6 +1,7 @@
 <Window x:Class="AIUsageMonitor.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:AIUsageMonitor.ViewModels"
         Title="AI Usage Monitor Settings"
         Width="780"
         Height="790"
@@ -213,6 +214,8 @@
     <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
     <Grid Margin="18,12,18,8">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -610,12 +613,220 @@
             </Grid>
         </Border>
 
-        <TextBlock Grid.Row="7"
+        <Grid Grid.Row="7" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <TextBlock FontSize="16" FontWeight="SemiBold" Text="API Cost" />
+                <TextBlock Margin="0,2,0,0"
+                           Foreground="#FF65717D"
+                           Text="Track spend for a Codex Azure/OpenAI endpoint (the host your Codex API key actually calls, not your personal ChatGPT login) or a Claude AWS Bedrock endpoint. Add one per API key/subscription you want tracked separately."
+                           TextWrapping="Wrap" />
+                <TextBlock Margin="0,4,0,0"
+                           Foreground="#FF65717D"
+                           Text="Pricing currency: AUD  All rates are AUD per 1 million tokens."
+                           TextWrapping="Wrap" />
+            </StackPanel>
+            <Button Grid.Column="1" VerticalAlignment="Top" Command="{Binding AddCodexApiEndpointCommand}" Content="+ Add Endpoint" />
+        </Grid>
+        <StackPanel Grid.Row="8" Margin="0,8,0,0">
+            <ItemsControl ItemsSource="{Binding CodexApiEndpoints}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,0,0,8"
+                                Padding="10"
+                                Background="#FFFFFFFF"
+                                BorderBrush="#FFD6DBE1"
+                                BorderThickness="1"
+                                CornerRadius="6">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                        <TextBlock Margin="0,0,6,0" VerticalAlignment="Center" FontSize="10" Foreground="#FF65717D" Text="Provider" />
+                                        <ComboBox Width="170"
+                                                  ItemsSource="{x:Static vm:CodexApiEndpointSettingsViewModel.TypeOptions}"
+                                                  SelectedItem="{Binding TypeDisplayText, Mode=TwoWay}" />
+                                    </StackPanel>
+                                    <CheckBox Grid.Column="1"
+                                              Margin="16,0,0,0"
+                                              VerticalAlignment="Center"
+                                              Content="Show in widget"
+                                              IsChecked="{Binding ShowInWidget, Mode=TwoWay}" />
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid Grid.Column="0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="1.6*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="70" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                            <TextBlock FontSize="10" Foreground="#FF65717D" Text="Name" />
+                                            <TextBox Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                                        </StackPanel>
+                                        <Grid Grid.Column="1" Margin="0,0,6,0">
+                                            <StackPanel Visibility="{Binding IsCodexType, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <TextBlock FontSize="10" Foreground="#FF65717D" Text="Azure OpenAI Endpoint" />
+                                                <TextBox Text="{Binding Endpoint, UpdateSourceTrigger=PropertyChanged}"
+                                                         ToolTip="The Azure/OpenAI host your Codex config points at for this API key (e.g. b2c-codex.openai.azure.com). Used only to match usage from Codex's own logs to this endpoint - never called or contacted directly." />
+                                            </StackPanel>
+                                            <StackPanel Visibility="{Binding IsClaudeType, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <TextBlock FontSize="10" Foreground="#FF65717D" Text="AWS Region (optional)" />
+                                                <TextBox Text="{Binding AwsRegion, UpdateSourceTrigger=PropertyChanged}"
+                                                         ToolTip="The AWS region this Bedrock endpoint runs in (e.g. us-east-1). Only needed if you configure more than one Claude AWS Bedrock endpoint - with a single one, all detected Bedrock usage is attributed to it automatically." />
+                                            </StackPanel>
+                                        </Grid>
+                                        <StackPanel Grid.Column="2" Margin="0,0,6,0">
+                                            <TextBlock FontSize="10" Foreground="#FF65717D" Text="Track From" />
+                                            <TextBox Text="{Binding TrackFromText, UpdateSourceTrigger=PropertyChanged}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="3">
+                                            <TextBlock FontSize="10" Foreground="#FF65717D" Text="Currency" />
+                                            <TextBlock Margin="4,5,0,0" Text="AUD" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Bottom">
+                                        <TextBlock FontSize="10" Text=" " />
+                                        <Button Command="{Binding DeleteCommand}" Content="Delete" />
+                                    </StackPanel>
+                                </Grid>
+                                <Grid Margin="0,6,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="220" />
+                                        <ColumnDefinition Width="220" />
+                                        <ColumnDefinition Width="220" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                        <TextBlock FontSize="10" Foreground="#FF65717D" Text="Monthly Budget (optional)" />
+                                        <TextBox Text="{Binding MonthlyBudgetText, UpdateSourceTrigger=PropertyChanged}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                                        <TextBlock FontSize="10" Foreground="#FF65717D" Text="Manual Cost Adjustment (AUD)" />
+                                        <TextBox Text="{Binding ManualCostAdjustmentText, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Enter an AUD difference, e.g. 12 changes a $31 estimate to $43. Supports negative values too." />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Visibility="{Binding IsCodexType, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock FontSize="10" Foreground="#FF65717D" Text="Azure Cache Match Rate % (optional)" />
+                                        <TextBox Text="{Binding CacheHitRateText, UpdateSourceTrigger=PropertyChanged}"
+                                                 ToolTip="Your Azure provider-reported prompt cache match rate. Used only when a Codex session record has no cached-token telemetry." />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Margin="0,6,0,0"
+                                           FontSize="10"
+                                           Foreground="#FF65717D"
+                                           Text="The manual adjustment is added to Today, 7 Days, and Month. Update it when reconciling against your provider's actual cost."
+                                           TextWrapping="Wrap" />
+                                <TextBlock Margin="0,6,0,0"
+                                           FontSize="10"
+                                           Foreground="#FF65717D"
+                                           Visibility="{Binding IsCodexType, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                           Text="Optional: enter Azure Cost Management's Prompt Token Cache Match Rate (for example 5.22). It is used only when a session record has no cached-token count; exact cached-token counts in Codex logs always take precedence."
+                                           TextWrapping="Wrap" />
+                                <TextBlock Margin="0,10,0,4"
+                                           FontSize="10"
+                                           Foreground="#FF65717D"
+                                           Text="{Binding PricingHelpText}"
+                                           TextWrapping="Wrap" />
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="180" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" FontSize="10" FontWeight="SemiBold" Foreground="#FF65717D" Text="Model" />
+                                    <TextBlock Grid.Column="1" Margin="0,0,4,0" FontSize="10" FontWeight="SemiBold" Foreground="#FF65717D" Text="Input" ToolTip="AUD / 1M tokens" />
+                                    <TextBlock Grid.Column="2" Margin="0,0,4,0" FontSize="10" FontWeight="SemiBold" Foreground="#FF65717D" Text="Cached Input" ToolTip="AUD / 1M tokens" />
+                                    <TextBlock Grid.Column="3" Margin="0,0,4,0" FontSize="10" FontWeight="SemiBold" Foreground="#FF65717D" Text="Cache Write" ToolTip="AUD / 1M tokens" />
+                                    <TextBlock Grid.Column="4" Margin="0,0,8,0" FontSize="10" FontWeight="SemiBold" Foreground="#FF65717D" Text="Output" ToolTip="AUD / 1M tokens" />
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding PricingRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,0,0,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="180" />
+                                                        <ColumnDefinition Width="90" />
+                                                        <ColumnDefinition Width="90" />
+                                                        <ColumnDefinition Width="90" />
+                                                        <ColumnDefinition Width="90" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0"
+                                                               Margin="0,0,6,0"
+                                                               VerticalAlignment="Center"
+                                                               Text="{Binding DisplayName}"
+                                                               TextWrapping="Wrap"
+                                                               ToolTip="{Binding DisplayName}" />
+                                                    <TextBox Grid.Column="1"
+                                                             Margin="0,0,4,0"
+                                                             Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged}"
+                                                             ToolTip="AUD / 1M tokens" />
+                                                    <TextBox Grid.Column="2"
+                                                             Margin="0,0,4,0"
+                                                             Text="{Binding CachedInputText, UpdateSourceTrigger=PropertyChanged}"
+                                                             ToolTip="AUD / 1M tokens" />
+                                                    <TextBox Grid.Column="3"
+                                                             Margin="0,0,4,0"
+                                                             Text="{Binding CacheWriteText, UpdateSourceTrigger=PropertyChanged}"
+                                                             ToolTip="AUD / 1M tokens" />
+                                                    <TextBox Grid.Column="4"
+                                                             Margin="0,0,8,0"
+                                                             Text="{Binding OutputText, UpdateSourceTrigger=PropertyChanged}"
+                                                             ToolTip="AUD / 1M tokens" />
+                                                    <Button Grid.Column="5"
+                                                            Style="{StaticResource LinkButtonStyle}"
+                                                            Command="{Binding ResetToDefaultCommand}"
+                                                            Content="Clear pricing" />
+                                                </Grid>
+                                                <TextBlock Margin="186,2,0,0"
+                                                           FontSize="10"
+                                                           Foreground="#FF9AA3AC"
+                                                           Text="{Binding DefaultHintText}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Grid Margin="0,2,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Command="{Binding SaveCodexApiEndpointsCommand}" Content="Save API Endpoints" />
+                <TextBlock Grid.Column="1"
+                           Margin="10,0,0,0"
+                           VerticalAlignment="Center"
+                           Foreground="#FF4E5964"
+                           Text="{Binding CodexApiCostStatus}"
+                           TextWrapping="Wrap" />
+            </Grid>
+        </StackPanel>
+
+        <TextBlock Grid.Row="9"
                    Margin="0,8,0,0"
                    Foreground="#FF4E5964"
                    Text="{Binding TestResult}"
                    TextWrapping="Wrap" />
-        <StackPanel Grid.Row="8" HorizontalAlignment="Right" Orientation="Horizontal">
+        <StackPanel Grid.Row="10" HorizontalAlignment="Right" Orientation="Horizontal">
             <Button MinWidth="76" IsCancel="True" IsDefault="True" Content="Close" />
         </StackPanel>
     </Grid>

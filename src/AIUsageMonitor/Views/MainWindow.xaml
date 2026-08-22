@@ -196,6 +196,85 @@
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
+
+        <DataTemplate DataType="{x:Type vm:CodexApiCostPanelViewModel}">
+            <Border Margin="0,0,2,3"
+                    Padding="8,3,8,3"
+                    Background="{DynamicResource ProviderCardBackground}"
+                    BorderBrush="{DynamicResource ProviderCardBorderBrush}"
+                    BorderThickness="{DynamicResource ProviderCardBorderThickness}"
+                    CornerRadius="{DynamicResource ProviderCardCornerRadius}">
+                <StackPanel>
+                    <Grid Height="{DynamicResource ProviderHeaderHeight}" Margin="2,0,1,1">
+                        <TextBlock VerticalAlignment="Center"
+                                   FontSize="{DynamicResource ProviderFontSize}"
+                                   FontWeight="{DynamicResource ProviderFontWeight}"
+                                   Foreground="#DCE3EA"
+                                   Text="{Binding Name}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                            <TextBlock Margin="0,0,6,0"
+                                       VerticalAlignment="Center"
+                                       FontSize="{DynamicResource ResetFontSize}"
+                                       Foreground="#9DA7B2"
+                                       Text="{Binding PercentText}"
+                                       Visibility="{Binding HasBudget, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Margin="3,0,3,1"
+                               FontSize="{DynamicResource ResetFontSize}"
+                               Foreground="#9DA7B2"
+                               Text="Estimated cost (AUD)" />
+                    <Grid Margin="3,0,3,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,3,0">
+                            <TextBlock FontSize="{DynamicResource ResetFontSize}" Foreground="#9DA7B2" Text="Month" />
+                            <TextBlock FontSize="11"
+                                       FontWeight="{DynamicResource MetricFontWeight}"
+                                       Foreground="#F5F7FA"
+                                       Text="{Binding MonthText}"
+                                       TextWrapping="Wrap"
+                                       ToolTip="{Binding MonthText}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="0,0,3,0">
+                            <TextBlock FontSize="{DynamicResource ResetFontSize}" Foreground="#9DA7B2" Text="7 Days" />
+                            <TextBlock FontSize="11"
+                                       FontWeight="{DynamicResource MetricFontWeight}"
+                                       Foreground="#F5F7FA"
+                                       Text="{Binding SevenDayText}"
+                                       TextWrapping="Wrap"
+                                       ToolTip="{Binding SevenDayText}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock FontSize="{DynamicResource ResetFontSize}" Foreground="#9DA7B2" Text="Today" />
+                            <TextBlock FontSize="11"
+                                       FontWeight="{DynamicResource MetricFontWeight}"
+                                       Foreground="#F5F7FA"
+                                       Text="{Binding TodayText}"
+                                       TextWrapping="Wrap"
+                                       ToolTip="{Binding TodayText}" />
+                        </StackPanel>
+                    </Grid>
+                    <ProgressBar Margin="3,0,3,2"
+                                 Foreground="#F5B041"
+                                 Style="{StaticResource CompactProgressBarStyle}"
+                                 Value="{Binding ProgressValue, Mode=OneWay}"
+                                 Visibility="{Binding HasBudget, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                    <TextBlock Margin="3,1,3,0"
+                               FontSize="{DynamicResource ResetFontSize}"
+                               Foreground="#9DA7B2"
+                               Text="{Binding StatusText}"
+                               TextTrimming="CharacterEllipsis"
+                               TextWrapping="Wrap"
+                               ToolTip="{Binding StatusText}"
+                               Visibility="{Binding HasStatus, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </Window.Resources>
 
     <Border Background="Transparent" BorderThickness="0">
@@ -227,11 +306,16 @@
             </ContextMenu>
         </Border.ContextMenu>
         <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-            <ItemsControl x:Name="ProvidersItemsControl"
-                          Grid.IsSharedSizeScope="True"
-                          VerticalAlignment="Top"
-                          ItemsPanel="{StaticResource VerticalProvidersPanel}"
-                          ItemsSource="{Binding Providers}" />
+            <StackPanel>
+                <ItemsControl x:Name="ProvidersItemsControl"
+                              Grid.IsSharedSizeScope="True"
+                              VerticalAlignment="Top"
+                              ItemsPanel="{StaticResource VerticalProvidersPanel}"
+                              ItemsSource="{Binding Providers}" />
+                <ItemsControl x:Name="CodexApiCostItemsControl"
+                              VerticalAlignment="Top"
+                              ItemsSource="{Binding CodexApiCostPanels}" />
+            </StackPanel>
         </ScrollViewer>
     </Border>
 </Window>
