@@ -74,7 +74,9 @@
             <StackPanel Margin="3,0,3,2" ToolTip="{Binding HoverText}">
                 <Grid Height="{DynamicResource MetricRowHeight}">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" SharedSizeGroup="MetricLabelColumn" />
+                        <!-- Fixed label column keeps every Reset value aligned, regardless of
+                             whether the provider uses W, G, C, or the wider 5H label. -->
+                        <ColumnDefinition Width="24" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
@@ -337,16 +339,8 @@
                 <ItemsControl x:Name="CompactItemsControl"
                               Grid.IsSharedSizeScope="True"
                               VerticalAlignment="Top"
-                              ItemsPanel="{StaticResource VerticalProvidersPanel}">
-                    <!-- A single flow keeps provider and API-cost cards in the same horizontal
-                         row. WPF chooses each card's DataTemplate from its view-model type. -->
-                    <ItemsControl.ItemsSource>
-                        <CompositeCollection>
-                            <CollectionContainer Collection="{Binding Providers}" />
-                            <CollectionContainer Collection="{Binding CodexApiCostPanels}" />
-                        </CompositeCollection>
-                    </ItemsControl.ItemsSource>
-                </ItemsControl>
+                              ItemsPanel="{StaticResource VerticalProvidersPanel}"
+                              ItemsSource="{Binding CompactPanels}" />
             </ScrollViewer>
 
             <!-- Opt-in free-form dashboard grid. DashboardGrid itself has no static

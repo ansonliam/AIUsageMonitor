@@ -25,6 +25,7 @@ public sealed class MainViewModel
         var antigravity = new ProviderViewModel(ProviderKind.Antigravity, "Antigravity", refreshService);
         var cursor = new ProviderViewModel(ProviderKind.Cursor, "Cursor", refreshService);
         Providers = new ObservableCollection<ProviderViewModel> { codex, claude, antigravity, cursor };
+        CompactPanels = new ObservableCollection<object>(Providers);
         _providers = Providers.ToDictionary(provider => provider.Kind);
         _providerOrder = [codex, claude, antigravity, cursor];
         foreach (var provider in _providerOrder)
@@ -67,6 +68,9 @@ public sealed class MainViewModel
 
     public ObservableCollection<ProviderViewModel> Providers { get; }
     public ObservableCollection<CodexApiCostPanelViewModel> CodexApiCostPanels { get; }
+    // Compact mode needs a single sequence so horizontal layout can place providers and API
+    // cost cards in the same row. The differing item types select their own XAML DataTemplates.
+    public ObservableCollection<object> CompactPanels { get; }
     public DashboardLayoutViewModel DashboardLayout { get; }
     public ProviderViewModel ClaudeProvider => _providers[ProviderKind.Claude];
     public event Action? LayoutChanged;
@@ -89,11 +93,14 @@ public sealed class MainViewModel
             panel.Update(summary);
             _codexApiCostPanels[summary.EndpointId] = panel;
             CodexApiCostPanels.Add(panel);
+            CompactPanels.Add(panel);
         }
 
         foreach (var staleId in _codexApiCostPanels.Keys.Where(id => !seenIds.Contains(id)).ToList())
         {
-            CodexApiCostPanels.Remove(_codexApiCostPanels[staleId]);
+            var stalePanel = _codexApiCostPanels[staleId];
+            CodexApiCostPanels.Remove(stalePanel);
+            CompactPanels.Remove(stalePanel);
             _codexApiCostPanels.Remove(staleId);
         }
 
@@ -107,6 +114,7 @@ public sealed class MainViewModel
         if (!isVisible)
         {
             Providers.Remove(viewModel);
+            CompactPanels.Remove(viewModel);
             LayoutChanged?.Invoke();
             return;
         }
@@ -120,6 +128,7 @@ public sealed class MainViewModel
             .TakeWhile(candidate => candidate.Kind != provider)
             .Count(candidate => Providers.Contains(candidate));
         Providers.Insert(insertAt, viewModel);
+        CompactPanels.Insert(insertAt, viewModel);
         LayoutChanged?.Invoke();
     }
 
