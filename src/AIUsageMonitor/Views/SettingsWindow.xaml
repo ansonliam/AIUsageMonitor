@@ -11,7 +11,7 @@
         Icon="/AIUsageMonitor;component/Assets/AIUsageMonitor.ico"
         PreviewKeyDown="Window_PreviewKeyDown"
         ResizeMode="CanResize"
-        WindowStartupLocation="CenterOwner">
+        WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <Style TargetType="Button">
             <Setter Property="MinHeight" Value="28" />
