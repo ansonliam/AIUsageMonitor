@@ -397,13 +397,11 @@
                 </WrapPanel>
                 <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
                     <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text size" />
-                    <ComboBox Width="130"
+                    <ComboBox Width="110"
                               Margin="16,0,0,0"
                               ItemsSource="{Binding FontSizePresets}"
                               SelectedItem="{Binding FontSizePreset, Mode=TwoWay}" />
-                </StackPanel>
-                <StackPanel Margin="0,8,0,0" Orientation="Horizontal">
-                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Font" />
+                    <TextBlock Margin="20,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" Text="Font" />
                     <ComboBox Width="160"
                               Margin="16,0,0,0"
                               ItemsSource="{Binding WidgetFonts}"
