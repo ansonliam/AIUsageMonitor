@@ -1,4 +1,3 @@
-using System.Windows.Input;
 using AIUsageMonitor.Models;
 
 namespace AIUsageMonitor.ViewModels;
@@ -15,14 +14,12 @@ public sealed class CodexApiCostPanelViewModel : ObservableObject
     private string _statusText = "";
     private bool _hasStatus;
 
-    public CodexApiCostPanelViewModel(Guid endpointId, Action<Guid> onHide)
+    public CodexApiCostPanelViewModel(Guid endpointId)
     {
         EndpointId = endpointId;
-        HideCommand = new RelayCommand(() => onHide(EndpointId));
     }
 
     public Guid EndpointId { get; }
-    public ICommand HideCommand { get; }
     public string Name { get => _name; private set => SetProperty(ref _name, value); }
     public string MonthText { get => _monthText; private set => SetProperty(ref _monthText, value); }
     public string SevenDayText { get => _sevenDayText; private set => SetProperty(ref _sevenDayText, value); }

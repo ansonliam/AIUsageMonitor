@@ -240,17 +240,12 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <CheckBox Grid.Column="0"
                               IsChecked="{Binding IsWindowLocked, Mode=TwoWay}"
                               FontWeight="SemiBold"
                               Content="Lock window position and size" />
                     <CheckBox Grid.Column="1"
-                              IsChecked="{Binding IsHorizontalLayout, Mode=TwoWay}"
-                              FontWeight="SemiBold"
-                              Content="Side-by-side layout" />
-                    <CheckBox Grid.Column="2"
                               IsChecked="{Binding AlwaysOnTop, Mode=TwoWay}"
                               FontWeight="SemiBold"
                               Content="Always on top" />
@@ -258,6 +253,21 @@
                 <TextBlock Margin="22,4,0,0"
                            Foreground="#FF65717D"
                            Text="When unlocked, drag the widget body to move it and drag any edge or corner to resize it." />
+                <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Dashboard widget height:" />
+                    <TextBox Width="64"
+                             Margin="8,0,4,0"
+                             Padding="7,3"
+                             HorizontalContentAlignment="Right"
+                             Background="#FFFFFFFF"
+                             BorderBrush="#FFBFC7D1"
+                             Foreground="#FF20252B"
+                             Text="{Binding DashboardWidgetHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock VerticalAlignment="Center" Text="px (minimum 36)" />
+                </StackPanel>
+                <TextBlock Margin="0,3,0,0"
+                           Foreground="#FF65717D"
+                           Text="Used by Dashboard Layout. This is the height of one grid unit; widgets spanning two units are twice as tall." />
                 <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
                     <TextBlock Margin="0,0,12,0"
                                VerticalAlignment="Center"
@@ -398,28 +408,36 @@
                         <TextBlock VerticalAlignment="Center" Text="min" />
                     </StackPanel>
                 </WrapPanel>
-                <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
-                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text size" />
-                    <ComboBox Width="110"
-                              Margin="16,0,0,0"
-                              ItemsSource="{Binding FontSizePresets}"
-                              SelectedItem="{Binding FontSizePreset, Mode=TwoWay}" />
-                    <TextBlock Margin="20,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" Text="Font" />
-                    <ComboBox Width="160"
-                              Margin="16,0,0,0"
-                              ItemsSource="{Binding WidgetFonts}"
-                              SelectedItem="{Binding WidgetFont, Mode=TwoWay}" />
-                    <TextBlock Margin="20,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" Text="Text weight" />
-                    <ComboBox Width="110"
-                              Margin="16,0,0,0"
-                              ItemsSource="{Binding WidgetTextWeights}"
-                              SelectedItem="{Binding WidgetTextWeight, Mode=TwoWay}" />
-                    <TextBlock Margin="20,0,0,0" VerticalAlignment="Center" FontWeight="SemiBold" Text="Appearance" />
-                    <ComboBox Width="110"
-                              Margin="16,0,0,0"
-                              ItemsSource="{Binding WidgetAppearances}"
-                              SelectedItem="{Binding WidgetAppearance, Mode=TwoWay}" />
-                </StackPanel>
+                <WrapPanel Margin="0,12,0,0" Orientation="Horizontal">
+                    <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text size" />
+                        <ComboBox Width="110"
+                                  Margin="16,0,0,0"
+                                  ItemsSource="{Binding FontSizePresets}"
+                                  SelectedItem="{Binding FontSizePreset, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Margin="20,4,0,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Font" />
+                        <ComboBox Width="160"
+                                  Margin="16,0,0,0"
+                                  ItemsSource="{Binding WidgetFonts}"
+                                  SelectedItem="{Binding WidgetFont, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Margin="20,4,0,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text weight" />
+                        <ComboBox Width="110"
+                                  Margin="16,0,0,0"
+                                  ItemsSource="{Binding WidgetTextWeights}"
+                                  SelectedItem="{Binding WidgetTextWeight, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Margin="20,4,0,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Appearance" />
+                        <ComboBox Width="110"
+                                  Margin="16,0,0,0"
+                                  ItemsSource="{Binding WidgetAppearances}"
+                                  SelectedItem="{Binding WidgetAppearance, Mode=TwoWay}" />
+                    </StackPanel>
+                </WrapPanel>
                 <StackPanel Margin="0,14,0,4" Orientation="Horizontal">
                     <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Usage colour stages" />
                     <Button Margin="12,0,0,0"

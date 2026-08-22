@@ -1,0 +1,89 @@
+<UserControl x:Class="AIUsageMonitor.Controls.DashboardCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             mc:Ignorable="d">
+    <!--
+        Wraps one dashboard card's content (a ProviderViewModel or CodexApiCostPanelViewModel -
+        see DashboardCardViewModel). The ContentPresenter below deliberately does not set an
+        explicit ContentTemplate: WPF resolves the matching implicit DataTemplate declared in
+        MainWindow.xaml.Resources by the bound object's runtime type, so the exact same visuals
+        used in the normal compact widget view are reused here for free.
+
+        DataContext for an instance of this control is always the DashboardCardViewModel for the
+        card it represents (set by MainWindow.xaml.cs when it creates the element) - every binding
+        below is relative to that.
+    -->
+    <UserControl.Resources>
+        <!-- Declared locally (not reused from MainWindow.xaml.Resources) because StaticResource
+             lookups here are resolved against this document's own resource chain at load time,
+             before this control is ever parented under MainWindow. -->
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RenderTransform>
+            <TranslateTransform x:Name="DragPreviewTransform" X="0" Y="0" />
+        </Grid.RenderTransform>
+
+        <!-- Provider/cost templates retain their compact-widget bottom/right margins. Offset those
+             only inside the dashboard wrapper so neighbouring grid cards do not leave a wide gap. -->
+        <ContentPresenter Content="{Binding Content}" Margin="0,0,-2,-3" />
+
+        <!-- Edit-mode-only chrome: a highlight border plus a top drag handle and a bottom-right
+             resize handle. Hidden entirely outside Edit Layout so normal use of the app looks
+             and behaves exactly as it always has. -->
+        <Border x:Name="EditOverlayBorder"
+                BorderBrush="#8034D2FF"
+                BorderThickness="1.5"
+                CornerRadius="10"
+                IsHitTestVisible="False"
+                Visibility="{Binding IsEditMode, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+        <Thumb x:Name="MoveThumb"
+               Height="22"
+               HorizontalAlignment="Stretch"
+               VerticalAlignment="Top"
+               Cursor="SizeAll"
+               DragCompleted="MoveThumb_DragCompleted"
+               DragDelta="MoveThumb_DragDelta"
+               DragStarted="MoveThumb_DragStarted"
+               ToolTip="Drag to move"
+               Visibility="{Binding IsEditMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Thumb.Template>
+                <ControlTemplate TargetType="Thumb">
+                    <Border Background="#5934D2FF" CornerRadius="10,10,0,0">
+                        <TextBlock HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontSize="10"
+                                   Foreground="#F2F5F8"
+                                   Opacity="0.85"
+                                   Text="&#x2261; move" />
+                    </Border>
+                </ControlTemplate>
+            </Thumb.Template>
+        </Thumb>
+
+        <Thumb x:Name="ResizeThumb"
+               Width="20"
+               Height="20"
+               HorizontalAlignment="Right"
+               VerticalAlignment="Bottom"
+               Cursor="SizeNWSE"
+               DragCompleted="ResizeThumb_DragCompleted"
+               DragDelta="ResizeThumb_DragDelta"
+               DragStarted="ResizeThumb_DragStarted"
+               ToolTip="Drag to resize"
+               Visibility="{Binding IsEditMode, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Thumb.Template>
+                <ControlTemplate TargetType="Thumb">
+                    <Grid Background="Transparent">
+                        <Path Data="M2,17 L17,2 M7,17 L17,7 M12,17 L17,12"
+                              Stroke="#F2F5F8"
+                              StrokeThickness="1.6" />
+                    </Grid>
+                </ControlTemplate>
+            </Thumb.Template>
+        </Thumb>
+    </Grid>
+</UserControl>

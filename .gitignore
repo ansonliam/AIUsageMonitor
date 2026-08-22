@@ -18,6 +18,7 @@ artifacts/
 [Dd]ist/
 dist/
 [Pp]ublish/
+.codex-build/
 TestResults/
 coverage/
 BenchmarkDotNet.Artifacts/

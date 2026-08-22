@@ -1,6 +1,7 @@
 <Window x:Class="AIUsageMonitor.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:AIUsageMonitor.Controls"
         xmlns:converters="clr-namespace:AIUsageMonitor.Converters"
         xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
         xmlns:system="clr-namespace:System;assembly=System.Runtime"
@@ -32,6 +33,7 @@
         <Thickness x:Key="ProviderCardBorderThickness">0</Thickness>
         <CornerRadius x:Key="ProviderCardCornerRadius">10</CornerRadius>
         <CornerRadius x:Key="ProgressCornerRadius">3</CornerRadius>
+
         <system:Double x:Key="ProviderFontSize">11.5</system:Double>
         <system:Double x:Key="MetricFontSize">15</system:Double>
         <system:Double x:Key="ResetFontSize">9.5</system:Double>
@@ -283,6 +285,27 @@
                 <MenuItem Header="Settings" Click="SettingsMenuItem_Click" />
                 <MenuItem Header="Refresh All" Click="RefreshAllMenuItem_Click" />
                 <Separator />
+                <MenuItem Header="Layout">
+                    <MenuItem x:Name="HorizontalLayoutMenuItem"
+                              Click="HorizontalLayoutMenuItem_Click"
+                              Header="Horizontal"
+                              IsCheckable="True" />
+                    <MenuItem x:Name="VerticalLayoutMenuItem"
+                              Click="VerticalLayoutMenuItem_Click"
+                              Header="Vertical"
+                              IsCheckable="True" />
+                    <MenuItem x:Name="DashboardLayoutMenuItem"
+                              Click="DashboardLayoutMenuItem_Click"
+                              Header="Dashboard"
+                              IsCheckable="True" />
+                </MenuItem>
+                <MenuItem x:Name="EditDashboardLayoutMenuItem"
+                          Click="EditDashboardLayoutMenuItem_Click"
+                          Header="Edit Layout" />
+                <MenuItem x:Name="ResetDashboardLayoutMenuItem"
+                          Click="ResetDashboardLayoutMenuItem_Click"
+                          Header="Reset Layout" />
+                <Separator />
                 <MenuItem x:Name="OpacityMenuItem" Header="Opacity">
                     <MenuItem Header="100%" Tag="1.0" Click="OpacityMenuItem_Click" />
                     <MenuItem Header="90%" Tag="0.9" Click="OpacityMenuItem_Click" />
@@ -305,17 +328,74 @@
                 <MenuItem x:Name="LockWindowMenuItem" Click="LockWindowMenuItem_Click" />
             </ContextMenu>
         </Border.ContextMenu>
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-            <StackPanel>
-                <ItemsControl x:Name="ProvidersItemsControl"
+        <Grid>
+            <!-- Normal compact widget content - unchanged from before the dashboard feature.
+                 Visibility is toggled in code-behind by ApplyDashboardLayoutMode(). -->
+            <ScrollViewer x:Name="CompactContentScrollViewer"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="CompactItemsControl"
                               Grid.IsSharedSizeScope="True"
                               VerticalAlignment="Top"
-                              ItemsPanel="{StaticResource VerticalProvidersPanel}"
-                              ItemsSource="{Binding Providers}" />
-                <ItemsControl x:Name="CodexApiCostItemsControl"
-                              VerticalAlignment="Top"
-                              ItemsSource="{Binding CodexApiCostPanels}" />
-            </StackPanel>
-        </ScrollViewer>
+                              ItemsPanel="{StaticResource VerticalProvidersPanel}">
+                    <!-- A single flow keeps provider and API-cost cards in the same horizontal
+                         row. WPF chooses each card's DataTemplate from its view-model type. -->
+                    <ItemsControl.ItemsSource>
+                        <CompositeCollection>
+                            <CollectionContainer Collection="{Binding Providers}" />
+                            <CollectionContainer Collection="{Binding CodexApiCostPanels}" />
+                        </CompositeCollection>
+                    </ItemsControl.ItemsSource>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- Opt-in free-form dashboard grid. DashboardGrid itself has no static
+                 RowDefinitions/ColumnDefinitions in markup - MainWindow.xaml.cs builds and
+                 maintains them from DashboardLayoutViewModel.Rows/Columns/Cards, since WPF has no
+                 built-in way to bind a Grid's RowDefinitions count to a view model collection. -->
+            <ScrollViewer x:Name="DashboardScrollViewer"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto"
+                          Visibility="Collapsed">
+                <Grid MinHeight="280">
+                    <Border x:Name="DashboardEditBackground"
+                            Background="#66FFFFFF"
+                            IsHitTestVisible="False"
+                            Visibility="Collapsed" />
+                    <Grid x:Name="DashboardGrid"
+                          VerticalAlignment="Top" />
+                    <Canvas x:Name="DashboardGridOverlay"
+                            IsHitTestVisible="False"
+                            Panel.ZIndex="1"
+                            VerticalAlignment="Top"
+                            Visibility="Collapsed" />
+                </Grid>
+            </ScrollViewer>
+
+            <!-- Explicit window resize affordance: the app also supports edge resizing, but this
+                 makes the intended bottom-right interaction discoverable when dashboard cards
+                 extend beyond the current widget height. -->
+            <Thumb x:Name="WindowResizeThumb"
+                   Width="22"
+                   Height="22"
+                   HorizontalAlignment="Right"
+                   VerticalAlignment="Bottom"
+                   Margin="0,0,3,3"
+                   Cursor="SizeNWSE"
+                   DragCompleted="WindowResizeThumb_DragCompleted"
+                   DragDelta="WindowResizeThumb_DragDelta"
+                   Panel.ZIndex="2"
+                   ToolTip="Resize widget">
+                <Thumb.Template>
+                    <ControlTemplate TargetType="Thumb">
+                        <Grid Background="#59000000">
+                            <Path Data="M5,18 L18,5 M10,18 L18,10 M15,18 L18,15"
+                                  Stroke="#E6F2F5F8"
+                                  StrokeThickness="1.5" />
+                        </Grid>
+                    </ControlTemplate>
+                </Thumb.Template>
+            </Thumb>
+        </Grid>
     </Border>
 </Window>

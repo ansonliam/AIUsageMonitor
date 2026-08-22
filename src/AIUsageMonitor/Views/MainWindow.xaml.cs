@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
+using AIUsageMonitor.Controls;
 using AIUsageMonitor.Converters;
 using AIUsageMonitor.Models;
 using AIUsageMonitor.Services;
@@ -27,6 +28,8 @@ public partial class MainWindow : Window
     private const int HtBottom = 15;
     private const int HtBottomLeft = 16;
     private const int HtBottomRight = 17;
+    private const double DashboardMinWidth = 420;
+    private const double DashboardMinHeight = 320;
     private static readonly string PlacementPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "AIUsageMonitor",
@@ -34,9 +37,22 @@ public partial class MainWindow : Window
     private readonly IApplicationController _applicationController;
     private readonly AutoRefreshOptions _autoRefreshOptions;
     private readonly MainViewModel _viewModel;
+    // A Grid whose rows are all "*" and that sits inside a ScrollViewer (which measures its
+    // content with infinite available height so it can decide whether to show a scrollbar) does
+    // not divide its rows evenly - WPF falls back to auto-sizing each star row by its content's
+    // desired size in that case, which is unpredictable once cards of different heights are
+    // spanning different row combinations. Giving DashboardGrid an explicit total height (this
+    // constant times the row count) instead makes every row exactly this many pixels tall,
+    // always - which DashboardCard's drag/resize snapping math depends on to convert pixels back
+    // to whole cell deltas.
+    private const double DefaultDashboardWidgetHeight = 56;
+
+    private readonly Dictionary<DashboardCardViewModel, DashboardCard> _dashboardElements = [];
     private HwndSource? _windowSource;
 
     public bool IsWindowLocked { get; private set; }
+    public bool IsDashboardLayoutEnabled { get; private set; }
+    public double DashboardWidgetHeight { get; private set; } = DefaultDashboardWidgetHeight;
     public bool IsHorizontalLayout { get; private set; }
     public bool AlwaysOnTop { get; private set; } = true;
     public bool ShowCodex { get; private set; } = true;
@@ -78,6 +94,9 @@ public partial class MainWindow : Window
         _applicationController = applicationController;
         _autoRefreshOptions = autoRefreshOptions;
         _viewModel.LayoutChanged += () => Dispatcher.BeginInvoke(ApplyProviderLayout);
+        _viewModel.DashboardLayout.Cards.CollectionChanged += (_, _) => Dispatcher.BeginInvoke(RebuildDashboardGrid);
+        _viewModel.DashboardLayout.PropertyChanged += DashboardLayout_PropertyChanged;
+        DashboardGrid.SizeChanged += (_, _) => RenderDashboardGridLines();
         Loaded += MainWindow_Loaded;
         SourceInitialized += MainWindow_SourceInitialized;
     }
@@ -102,7 +121,10 @@ public partial class MainWindow : Window
 
     private void Window_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (IsWindowLocked || e.ChangedButton != MouseButton.Left || IsInsideButton(e.OriginalSource as DependencyObject))
+        if (IsWindowLocked ||
+            e.ChangedButton != MouseButton.Left ||
+            IsInsideButton(e.OriginalSource as DependencyObject) ||
+            IsInsideThumb(e.OriginalSource as DependencyObject))
         {
             return;
         }
@@ -127,6 +149,38 @@ public partial class MainWindow : Window
         return false;
     }
 
+    // This handler is attached at the Window's preview stage, before a Thumb can begin its own
+    // WPF drag. Treat resize/move thumbs as window-drag exclusions; otherwise DragMove captures
+    // the pointer for the whole widget and the dashboard card can never receive DragStarted.
+    private static bool IsInsideThumb(DependencyObject? source)
+    {
+        while (source is not null)
+        {
+            if (source is System.Windows.Controls.Primitives.Thumb)
+            {
+                return true;
+            }
+
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return false;
+    }
+
+    private void WindowResizeThumb_DragDelta(object sender, System.Windows.Controls.Primitives.DragDeltaEventArgs e)
+    {
+        if (IsWindowLocked)
+        {
+            return;
+        }
+
+        Width = Math.Max(MinWidth, Width + e.HorizontalChange);
+        Height = Math.Max(MinHeight, Height + e.VerticalChange);
+    }
+
+    private void WindowResizeThumb_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e) =>
+        SavePlacement();
+
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         var placement = ReadPlacement();
@@ -145,6 +199,11 @@ public partial class MainWindow : Window
             }
 
             IsWindowLocked = placement.IsLocked;
+            IsDashboardLayoutEnabled = placement.IsDashboardLayoutEnabled;
+            DashboardWidgetHeight = double.IsFinite(placement.DashboardWidgetHeight) &&
+                                    placement.DashboardWidgetHeight >= 36
+                ? placement.DashboardWidgetHeight
+                : DefaultDashboardWidgetHeight;
             IsHorizontalLayout = placement.IsHorizontalLayout;
             AlwaysOnTop = placement.AlwaysOnTop;
             ShowCodex = placement.ShowCodex;
@@ -203,6 +262,8 @@ public partial class MainWindow : Window
         ApplyFontSizePreset();
         ApplyProviderLayout();
         ApplyProviderVisibility();
+        ApplyDashboardLayoutMode();
+        ApplyDashboardEditModeVisuals();
         Topmost = AlwaysOnTop;
     }
 
@@ -229,6 +290,302 @@ public partial class MainWindow : Window
         ApplyProviderLayout();
         SavePlacement();
     }
+
+    public void SetDashboardLayoutEnabled(bool enabled)
+    {
+        if (IsDashboardLayoutEnabled == enabled)
+        {
+            return;
+        }
+
+        IsDashboardLayoutEnabled = enabled;
+        if (!enabled)
+        {
+            _viewModel.DashboardLayout.IsEditMode = false;
+        }
+
+        ApplyDashboardLayoutMode();
+        SavePlacement();
+    }
+
+    public void SetDashboardWidgetHeight(double height)
+    {
+        if (!double.IsFinite(height))
+        {
+            return;
+        }
+
+        DashboardWidgetHeight = Math.Max(36, Math.Round(height));
+        if (IsDashboardLayoutEnabled)
+        {
+            RebuildDashboardGrid();
+            Dispatcher.BeginInvoke(() =>
+            {
+                RebuildDashboardGrid();
+                FitDashboardPanelToContent();
+            }, DispatcherPriority.ContextIdle);
+        }
+
+        SavePlacement();
+    }
+
+    // Swaps between the normal compact widget content and the free-form dashboard grid. The two
+    // are mutually exclusive views of the same underlying Providers/CodexApiCostPanels data -
+    // enabling the dashboard does not change what is shown, only how it is arranged and sized.
+    private void ApplyDashboardLayoutMode()
+    {
+        CompactContentScrollViewer.Visibility = IsDashboardLayoutEnabled ? Visibility.Collapsed : Visibility.Visible;
+        DashboardScrollViewer.Visibility = IsDashboardLayoutEnabled ? Visibility.Visible : Visibility.Collapsed;
+
+        if (!IsDashboardLayoutEnabled)
+        {
+            // Compact mode owns MinWidth/MinHeight/Height itself based on live content -
+            // ApplyProviderLayout (which calls ApplyCompactHeight) is the single source of truth
+            // for that whenever dashboard mode is off. See ApplyCompactHeight's own early-return
+            // guard for the other half of this split.
+            ApplyProviderLayout();
+            return;
+        }
+
+        MinWidth = DashboardMinWidth;
+        MinHeight = DashboardMinHeight;
+        if (Width < DashboardMinWidth)
+        {
+            Width = 640;
+        }
+
+        if (Height < DashboardMinHeight)
+        {
+            Height = 480;
+        }
+
+        RebuildDashboardGrid();
+        ApplyDashboardGridOverlaySize();
+    }
+
+    private void DashboardLayout_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(DashboardLayoutViewModel.Rows):
+                Dispatcher.BeginInvoke(() =>
+                {
+                    RebuildDashboardGrid();
+                    ApplyDashboardGridOverlaySize();
+                });
+                break;
+            case nameof(DashboardLayoutViewModel.IsEditMode):
+                Dispatcher.BeginInvoke(() =>
+                {
+                    ApplyDashboardEditModeVisuals();
+                    if (!_viewModel.DashboardLayout.IsEditMode)
+                    {
+                        FitDashboardPanelToContent();
+                    }
+                }, DispatcherPriority.ContextIdle);
+                break;
+        }
+    }
+
+    // Edit mode deliberately keeps spare parking rows so a card can be left there. Once editing
+    // is finished, retain those positions but grow the panel by just its current overflow. This
+    // prevents the ScrollViewer from hiding the bottom cards or leaving a vertical scrollbar.
+    private void FitDashboardPanelToContent()
+    {
+        if (!IsDashboardLayoutEnabled)
+        {
+            return;
+        }
+
+        DashboardScrollViewer.UpdateLayout();
+        var overflow = DashboardScrollViewer.ScrollableHeight;
+        if (overflow <= 0.5)
+        {
+            return;
+        }
+
+        Height += Math.Ceiling(overflow) + 2;
+        DashboardScrollViewer.UpdateLayout();
+    }
+
+    private void ApplyDashboardEditModeVisuals()
+    {
+        var isEditing = _viewModel.DashboardLayout.IsEditMode;
+        DashboardEditBackground.Visibility = isEditing ? Visibility.Visible : Visibility.Collapsed;
+        DashboardGridOverlay.Visibility = isEditing ? Visibility.Visible : Visibility.Collapsed;
+        WindowResizeThumb.Visibility = IsDashboardLayoutEnabled && isEditing
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        RenderDashboardGridLines();
+    }
+
+    // Rebuild the exact six-column grid guides when the board's dimensions change. They are real
+    // line elements rather than a brush so the edit grid remains visible over the wallpaper and
+    // each cell boundary is crisp.
+    private void ApplyDashboardGridOverlaySize()
+    {
+        RenderDashboardGridLines();
+    }
+
+    private void RenderDashboardGridLines()
+    {
+        if (!_viewModel.DashboardLayout.IsEditMode ||
+            DashboardGrid.ActualWidth <= 0 ||
+            DashboardGrid.ActualHeight <= 0)
+        {
+            DashboardGridOverlay.Children.Clear();
+            return;
+        }
+
+        var layout = _viewModel.DashboardLayout;
+        var guideBrush = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0xB0, 0xFF, 0xFF, 0xFF));
+        guideBrush.Freeze();
+        DashboardGridOverlay.Children.Clear();
+        DashboardGridOverlay.Width = DashboardGrid.ActualWidth;
+        DashboardGridOverlay.Height = DashboardGrid.ActualHeight;
+
+        for (var column = 0; column <= layout.Columns; column++)
+        {
+            var x = Math.Round(DashboardGrid.ActualWidth * column / layout.Columns) + 0.5;
+            DashboardGridOverlay.Children.Add(new System.Windows.Shapes.Line
+            {
+                X1 = x,
+                X2 = x,
+                Y1 = 0,
+                Y2 = DashboardGrid.ActualHeight,
+                Stroke = guideBrush,
+                StrokeThickness = 1,
+                SnapsToDevicePixels = true
+            });
+        }
+
+        for (var row = 0; row <= layout.Rows; row++)
+        {
+            var y = Math.Round(DashboardGrid.ActualHeight * row / layout.Rows) + 0.5;
+            DashboardGridOverlay.Children.Add(new System.Windows.Shapes.Line
+            {
+                X1 = 0,
+                X2 = DashboardGrid.ActualWidth,
+                Y1 = y,
+                Y2 = y,
+                Stroke = guideBrush,
+                StrokeThickness = 1,
+                SnapsToDevicePixels = true
+            });
+        }
+    }
+
+    // Rebuilds DashboardGrid's structure (row/column definitions) and adds/removes card elements
+    // to match DashboardLayoutViewModel.Cards. Deliberately does *not* touch elements for cards
+    // that already exist - see DashboardCard_PropertyChanged, which repositions an existing
+    // element in place when its card moves or resizes, so an in-progress drag is never
+    // interrupted by a structural rebuild triggered by some unrelated card appearing/disappearing.
+    private void RebuildDashboardGrid()
+    {
+        var layout = _viewModel.DashboardLayout;
+
+        if (DashboardGrid.RowDefinitions.Count != layout.Rows)
+        {
+            DashboardGrid.RowDefinitions.Clear();
+            for (var i = 0; i < layout.Rows; i++)
+            {
+                DashboardGrid.RowDefinitions.Add(new RowDefinition());
+            }
+        }
+
+        if (DashboardGrid.ColumnDefinitions.Count != layout.Columns)
+        {
+            DashboardGrid.ColumnDefinitions.Clear();
+            for (var i = 0; i < layout.Columns; i++)
+            {
+                DashboardGrid.ColumnDefinitions.Add(new ColumnDefinition());
+            }
+        }
+
+        // Explicit height (see DashboardWidgetHeight) rather than letting the Grid size
+        // itself - width doesn't need the same treatment since the ScrollViewer never gives it
+        // infinite *width* (HorizontalScrollBarVisibility is Disabled), so columns already divide
+        // evenly on their own.
+        DashboardGrid.Height = layout.Rows * DashboardWidgetHeight;
+
+        var desired = new HashSet<DashboardCardViewModel>(layout.Cards);
+
+        foreach (var stale in _dashboardElements.Keys.Where(card => !desired.Contains(card)).ToList())
+        {
+            DashboardGrid.Children.Remove(_dashboardElements[stale]);
+            stale.PropertyChanged -= DashboardCard_PropertyChanged;
+            _dashboardElements.Remove(stale);
+        }
+
+        foreach (var card in layout.Cards)
+        {
+            if (_dashboardElements.ContainsKey(card))
+            {
+                continue;
+            }
+
+            var element = new DashboardCard { DataContext = card, Margin = new Thickness(0) };
+            card.PropertyChanged += DashboardCard_PropertyChanged;
+            Grid.SetRow(element, card.Row);
+            Grid.SetColumn(element, card.Column);
+            Grid.SetRowSpan(element, card.RowSpan);
+            Grid.SetColumnSpan(element, card.ColumnSpan);
+            DashboardGrid.Children.Add(element);
+            _dashboardElements[card] = element;
+        }
+    }
+
+    private void DashboardCard_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not DashboardCardViewModel card || !_dashboardElements.TryGetValue(card, out var element))
+        {
+            return;
+        }
+
+        switch (e.PropertyName)
+        {
+            case nameof(DashboardCardViewModel.Row):
+                Grid.SetRow(element, card.Row);
+                break;
+            case nameof(DashboardCardViewModel.Column):
+                Grid.SetColumn(element, card.Column);
+                break;
+            case nameof(DashboardCardViewModel.RowSpan):
+                Grid.SetRowSpan(element, card.RowSpan);
+                break;
+            case nameof(DashboardCardViewModel.ColumnSpan):
+                Grid.SetColumnSpan(element, card.ColumnSpan);
+                break;
+        }
+    }
+
+    private void HorizontalLayoutMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        SetDashboardLayoutEnabled(false);
+        SetHorizontalLayout(true);
+    }
+
+    private void VerticalLayoutMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        SetDashboardLayoutEnabled(false);
+        SetHorizontalLayout(false);
+    }
+
+    private void DashboardLayoutMenuItem_Click(object sender, RoutedEventArgs e) =>
+        SetDashboardLayoutEnabled(true);
+
+    private void EditDashboardLayoutMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (!IsDashboardLayoutEnabled)
+        {
+            SetDashboardLayoutEnabled(true);
+        }
+
+        _viewModel.DashboardLayout.IsEditMode = !_viewModel.DashboardLayout.IsEditMode;
+    }
+
+    private void ResetDashboardLayoutMenuItem_Click(object sender, RoutedEventArgs e) =>
+        _viewModel.DashboardLayout.ResetLayoutCommand.Execute(null);
 
     public void SetAlwaysOnTop(bool alwaysOnTop)
     {
@@ -650,9 +1007,20 @@ public partial class MainWindow : Window
 
     private void ApplyProviderLayout()
     {
+        // Provider count controls the compact widget's minimum width only. In dashboard mode
+        // cards flow inside a fixed-width grid, so adding Antigravity/Cursor must not lock the
+        // whole window at the compact horizontal layout's expanded minimum.
+        if (IsDashboardLayoutEnabled)
+        {
+            MinWidth = DashboardMinWidth;
+            MinHeight = DashboardMinHeight;
+            return;
+        }
+
         MinWidth = IsHorizontalLayout ? GetHorizontalMinWidth() : GetVerticalMinWidth();
-        ProvidersItemsControl.ItemsPanel = (ItemsPanelTemplate)FindResource(
+        var compactItemsPanel = (ItemsPanelTemplate)FindResource(
             IsHorizontalLayout ? "HorizontalProvidersPanel" : "VerticalProvidersPanel");
+        CompactItemsControl.ItemsPanel = compactItemsPanel;
         if (IsHorizontalLayout && Width < MinWidth)
         {
             Width = MinWidth;
@@ -663,21 +1031,23 @@ public partial class MainWindow : Window
 
     private void ApplyCompactHeight()
     {
+        // Dashboard mode manages its own window size (see ApplyDashboardLayoutMode) - content
+        // there can be arranged and resized arbitrarily by the user, so auto-sizing the window to
+        // "fit" it the way the compact view does would fight every manual resize/drag.
+        if (IsDashboardLayoutEnabled)
+        {
+            return;
+        }
+
         var providerHeights = _viewModel.Providers
             .Select(provider => 20d + Math.Max(1, provider.UsageWindows.Count) * 35d)
             .ToArray();
-        var compactHeight = providerHeights.Length == 0
-            ? 60d
-            : IsHorizontalLayout
-                ? providerHeights.Max()
-                : providerHeights.Sum();
-
-        // Codex API Cost panels always stack vertically below the provider cards, regardless of
-        // the horizontal/vertical provider layout toggle, so their height always adds rather than
-        // taking part in the Max()/Sum() choice above.
-        compactHeight += _viewModel.CodexApiCostPanels
+        var apiCostHeights = _viewModel.CodexApiCostPanels
             .Select(panel => panel.HasStatus ? 90d : 74d)
-            .Sum();
+            .ToArray();
+        var compactHeight = IsHorizontalLayout
+            ? providerHeights.Concat(apiCostHeights).DefaultIfEmpty(60d).Max()
+            : providerHeights.Sum() + apiCostHeights.Sum();
 
         compactHeight = Math.Ceiling(compactHeight * GetFontHeightScale());
         compactHeight = Math.Max(60, compactHeight);
@@ -729,6 +1099,14 @@ public partial class MainWindow : Window
     {
         LockWindowMenuItem.Header = IsWindowLocked ? "Unlock widget" : "Lock widget";
         AlwaysOnTopMenuItem.IsChecked = AlwaysOnTop;
+        HorizontalLayoutMenuItem.IsChecked = !IsDashboardLayoutEnabled && IsHorizontalLayout;
+        VerticalLayoutMenuItem.IsChecked = !IsDashboardLayoutEnabled && !IsHorizontalLayout;
+        DashboardLayoutMenuItem.IsChecked = IsDashboardLayoutEnabled;
+        EditDashboardLayoutMenuItem.IsEnabled = IsDashboardLayoutEnabled;
+        EditDashboardLayoutMenuItem.Header = _viewModel.DashboardLayout.IsEditMode
+            ? "Done Editing Layout"
+            : "Edit Layout";
+        ResetDashboardLayoutMenuItem.IsEnabled = IsDashboardLayoutEnabled;
         foreach (var item in OpacityMenuItem.Items.OfType<System.Windows.Controls.MenuItem>())
         {
             item.IsCheckable = true;
@@ -883,7 +1261,9 @@ public partial class MainWindow : Window
                 Top = Top,
                 Width = ActualWidth,
                 Height = ActualHeight,
+                DashboardWidgetHeight = DashboardWidgetHeight,
                 IsLocked = IsWindowLocked,
+                IsDashboardLayoutEnabled = IsDashboardLayoutEnabled,
                 IsHorizontalLayout = IsHorizontalLayout,
                 AlwaysOnTop = AlwaysOnTop,
                 ShowCodex = ShowCodex,
@@ -948,7 +1328,9 @@ public partial class MainWindow : Window
         public double Top { get; init; }
         public double Width { get; init; } = 302;
         public double Height { get; init; } = 230;
+        public double DashboardWidgetHeight { get; init; } = DefaultDashboardWidgetHeight;
         public bool IsLocked { get; init; }
+        public bool IsDashboardLayoutEnabled { get; init; }
         public bool IsHorizontalLayout { get; init; }
         public bool AlwaysOnTop { get; init; } = true;
         public bool ShowCodex { get; init; } = true;

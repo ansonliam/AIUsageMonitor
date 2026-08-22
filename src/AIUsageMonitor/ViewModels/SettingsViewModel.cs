@@ -27,7 +27,7 @@ public sealed class SettingsViewModel : ObservableObject
     private string _cursorHookStatus = "Checking…";
     private string _testResult = string.Empty;
     private bool _isWindowLocked;
-    private bool _isHorizontalLayout;
+    private double _dashboardWidgetHeight = 56;
     private bool _alwaysOnTop = true;
     private bool _showCodex = true;
     private bool _showClaude = true;
@@ -78,7 +78,7 @@ public sealed class SettingsViewModel : ObservableObject
         CodexApiEndpoints = [];
         LoadCodexApiEndpoints();
         _isWindowLocked = mainWindow.IsWindowLocked;
-        _isHorizontalLayout = mainWindow.IsHorizontalLayout;
+        _dashboardWidgetHeight = mainWindow.DashboardWidgetHeight;
         _alwaysOnTop = mainWindow.AlwaysOnTop;
         _showCodex = mainWindow.ShowCodex;
         _showClaude = mainWindow.ShowClaude;
@@ -165,14 +165,15 @@ public sealed class SettingsViewModel : ObservableObject
             }
         }
     }
-    public bool IsHorizontalLayout
+    public double DashboardWidgetHeight
     {
-        get => _isHorizontalLayout;
+        get => _dashboardWidgetHeight;
         set
         {
-            if (SetProperty(ref _isHorizontalLayout, value))
+            var normalized = Math.Max(36, Math.Round(value));
+            if (SetProperty(ref _dashboardWidgetHeight, normalized))
             {
-                _mainWindow.SetHorizontalLayout(value);
+                _mainWindow.SetDashboardWidgetHeight(normalized);
             }
         }
     }
@@ -515,7 +516,7 @@ public sealed class SettingsViewModel : ObservableObject
     public void RefreshWindowState()
     {
         SetProperty(ref _isWindowLocked, _mainWindow.IsWindowLocked, nameof(IsWindowLocked));
-        SetProperty(ref _isHorizontalLayout, _mainWindow.IsHorizontalLayout, nameof(IsHorizontalLayout));
+        SetProperty(ref _dashboardWidgetHeight, _mainWindow.DashboardWidgetHeight, nameof(DashboardWidgetHeight));
         SetProperty(ref _alwaysOnTop, _mainWindow.AlwaysOnTop, nameof(AlwaysOnTop));
         SetProperty(ref _showCodex, _mainWindow.ShowCodex, nameof(ShowCodex));
         SetProperty(ref _showClaude, _mainWindow.ShowClaude, nameof(ShowClaude));

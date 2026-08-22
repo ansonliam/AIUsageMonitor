@@ -77,6 +77,7 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<ClaudeSessionLogScanner>();
         services.AddSingleton<ClaudePricingRegistry>();
         services.AddSingleton<CodexApiCostService>();
+        services.AddSingleton<DashboardLayoutStore>();
         services.AddSingleton<CodexHookInstaller>();
         services.AddSingleton<ClaudeHookInstaller>();
         services.AddSingleton<AntigravityHookInstaller>();
