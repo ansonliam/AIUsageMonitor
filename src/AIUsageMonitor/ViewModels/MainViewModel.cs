@@ -10,10 +10,18 @@ public sealed class MainViewModel
     private readonly Dictionary<ProviderKind, ProviderViewModel> _providers;
     private readonly IReadOnlyList<ProviderViewModel> _providerOrder;
     private readonly UsageRefreshService _refreshService;
+    private readonly CodexApiCostService _codexApiCostService;
+    private readonly CodexApiCostSettingsStore _codexApiCostSettingsStore;
+    private readonly Dictionary<Guid, CodexApiCostPanelViewModel> _codexApiCostPanels = [];
 
-    public MainViewModel(UsageRefreshService refreshService)
+    public MainViewModel(
+        UsageRefreshService refreshService,
+        CodexApiCostService codexApiCostService,
+        CodexApiCostSettingsStore codexApiCostSettingsStore)
     {
         _refreshService = refreshService;
+        _codexApiCostService = codexApiCostService;
+        _codexApiCostSettingsStore = codexApiCostSettingsStore;
         var codex = new ProviderViewModel(ProviderKind.Codex, "Codex", refreshService);
         var claude = new ProviderViewModel(ProviderKind.Claude, "Claude", refreshService);
         var antigravity = new ProviderViewModel(ProviderKind.Antigravity, "Antigravity", refreshService);
@@ -48,11 +56,70 @@ public sealed class MainViewModel
             }
         });
         refreshService.PublishCachedSnapshots();
+
+        CodexApiCostPanels = [];
+        _codexApiCostService.SummariesUpdated += () => Dispatch(ApplyCodexApiCostSummaries);
+        ApplyCodexApiCostSummaries();
     }
 
     public ObservableCollection<ProviderViewModel> Providers { get; }
+    public ObservableCollection<CodexApiCostPanelViewModel> CodexApiCostPanels { get; }
     public ProviderViewModel ClaudeProvider => _providers[ProviderKind.Claude];
     public event Action? LayoutChanged;
+
+    private void ApplyCodexApiCostSummaries()
+    {
+        var summaries = _codexApiCostService.GetCurrentSummaries().Where(summary => summary.ShowInWidget);
+        var seenIds = new HashSet<Guid>();
+
+        foreach (var summary in summaries)
+        {
+            seenIds.Add(summary.EndpointId);
+            if (_codexApiCostPanels.TryGetValue(summary.EndpointId, out var panel))
+            {
+                panel.Update(summary);
+                continue;
+            }
+
+            panel = new CodexApiCostPanelViewModel(summary.EndpointId, HideCodexApiCostPanel);
+            panel.Update(summary);
+            _codexApiCostPanels[summary.EndpointId] = panel;
+            CodexApiCostPanels.Add(panel);
+        }
+
+        foreach (var staleId in _codexApiCostPanels.Keys.Where(id => !seenIds.Contains(id)).ToList())
+        {
+            CodexApiCostPanels.Remove(_codexApiCostPanels[staleId]);
+            _codexApiCostPanels.Remove(staleId);
+        }
+
+        LayoutChanged?.Invoke();
+    }
+
+    // Hides a Codex API Cost panel from the widget without deleting its endpoint config - the
+    // endpoint keeps tracking usage in the background and can be re-shown via its "Show in widget"
+    // checkbox in Settings.
+    private void HideCodexApiCostPanel(Guid endpointId)
+    {
+        var settings = _codexApiCostSettingsStore.Load();
+        var endpoint = settings.Endpoints.FirstOrDefault(candidate => candidate.Id == endpointId);
+        if (endpoint is null)
+        {
+            return;
+        }
+
+        endpoint.ShowInWidget = false;
+        _codexApiCostSettingsStore.Save(settings);
+
+        if (_codexApiCostPanels.TryGetValue(endpointId, out var panel))
+        {
+            CodexApiCostPanels.Remove(panel);
+            _codexApiCostPanels.Remove(endpointId);
+            LayoutChanged?.Invoke();
+        }
+
+        _ = _codexApiCostService.RefreshAsync();
+    }
 
     public void SetProviderVisibility(ProviderKind provider, bool isVisible)
     {

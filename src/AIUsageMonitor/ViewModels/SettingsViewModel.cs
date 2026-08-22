@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -17,6 +18,9 @@ public sealed class SettingsViewModel : ObservableObject
     private readonly CursorHookInstaller _cursorHookInstaller;
     private readonly IApplicationController _applicationController;
     private readonly MainWindow _mainWindow;
+    private readonly CodexApiCostSettingsStore _codexApiCostSettingsStore;
+    private readonly CodexApiCostService _codexApiCostService;
+    private string _codexApiCostStatus = "";
     private string _codexHookStatus = "Checking…";
     private string _claudeHookStatus = "Checking…";
     private string _antigravityHookStatus = "Checking…";
@@ -59,7 +63,9 @@ public sealed class SettingsViewModel : ObservableObject
         AntigravityHookInstaller antigravityHookInstaller,
         CursorHookInstaller cursorHookInstaller,
         MainWindow mainWindow,
-        IApplicationController applicationController)
+        IApplicationController applicationController,
+        CodexApiCostSettingsStore codexApiCostSettingsStore,
+        CodexApiCostService codexApiCostService)
     {
         _codexHookInstaller = codexHookInstaller;
         _claudeHookInstaller = claudeHookInstaller;
@@ -67,6 +73,10 @@ public sealed class SettingsViewModel : ObservableObject
         _cursorHookInstaller = cursorHookInstaller;
         _mainWindow = mainWindow;
         _applicationController = applicationController;
+        _codexApiCostSettingsStore = codexApiCostSettingsStore;
+        _codexApiCostService = codexApiCostService;
+        CodexApiEndpoints = [];
+        LoadCodexApiEndpoints();
         _isWindowLocked = mainWindow.IsWindowLocked;
         _isHorizontalLayout = mainWindow.IsHorizontalLayout;
         _alwaysOnTop = mainWindow.AlwaysOnTop;
@@ -126,6 +136,8 @@ public sealed class SettingsViewModel : ObservableObject
             RefreshWindowState();
             TestResult = "Usage colour stages reset to defaults.";
         });
+        AddCodexApiEndpointCommand = new RelayCommand(AddCodexApiEndpoint);
+        SaveCodexApiEndpointsCommand = new RelayCommand(SaveCodexApiEndpoints);
         RefreshStatus();
     }
 
@@ -424,6 +436,69 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand ResetScheduledIntervalsCommand { get; }
     public ICommand ResetThrottleIntervalsCommand { get; }
     public ICommand ResetUsageColorsCommand { get; }
+    public ICommand AddCodexApiEndpointCommand { get; }
+    public ICommand SaveCodexApiEndpointsCommand { get; }
+    public ObservableCollection<CodexApiEndpointSettingsViewModel> CodexApiEndpoints { get; }
+    public string CodexApiCostStatus
+    {
+        get => _codexApiCostStatus;
+        private set => SetProperty(ref _codexApiCostStatus, value);
+    }
+
+    private void LoadCodexApiEndpoints()
+    {
+        CodexApiEndpoints.Clear();
+        var settings = _codexApiCostSettingsStore.Load();
+        foreach (var endpoint in settings.Endpoints)
+        {
+            CodexApiEndpoints.Add(new CodexApiEndpointSettingsViewModel(endpoint, RemoveCodexApiEndpoint));
+        }
+    }
+
+    private void AddCodexApiEndpoint()
+    {
+        var endpoint = new CodexApiEndpointSettings
+        {
+            Id = Guid.NewGuid(),
+            TrackFrom = DateTimeOffset.Now,
+            Currency = "AUD"
+        };
+        CodexApiEndpoints.Add(new CodexApiEndpointSettingsViewModel(endpoint, RemoveCodexApiEndpoint));
+        CodexApiCostStatus = "";
+    }
+
+    private void RemoveCodexApiEndpoint(CodexApiEndpointSettingsViewModel endpoint) =>
+        CodexApiEndpoints.Remove(endpoint);
+
+    private void SaveCodexApiEndpoints()
+    {
+        var resolved = new List<CodexApiEndpointSettings>();
+        var hostsSeen = new HashSet<string>();
+        foreach (var endpoint in CodexApiEndpoints)
+        {
+            if (!endpoint.TryToSettings(out var settings, out var validationError))
+            {
+                CodexApiCostStatus = validationError!;
+                return;
+            }
+
+            // Host-collision detection only makes sense for Codex endpoints - Claude Bedrock
+            // endpoints have no "Endpoint" host at all (NormalizedHost is always "" for them), so
+            // enforcing uniqueness on that empty string would falsely flag any second Claude
+            // Bedrock endpoint as a duplicate of the first.
+            if (settings.Type == ApiEndpointType.CodexAzureOpenAI && !hostsSeen.Add(settings.NormalizedHost))
+            {
+                CodexApiCostStatus = $"\"{settings.Name}\" uses the same endpoint as another Codex endpoint.";
+                return;
+            }
+
+            resolved.Add(settings);
+        }
+
+        _codexApiCostSettingsStore.Save(new CodexApiCostSettings { Endpoints = resolved });
+        CodexApiCostStatus = "Saved.";
+        _ = _codexApiCostService.RefreshAsync();
+    }
     public string CodexHookPath => _codexHookInstaller.ConfigurationPath;
     public string ClaudeHookPath => _claudeHookInstaller.ConfigurationPath;
     public string AntigravityHookPath => _antigravityHookInstaller.ConfigurationPath;

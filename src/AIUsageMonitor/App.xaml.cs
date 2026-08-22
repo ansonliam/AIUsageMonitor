@@ -69,6 +69,14 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<UsageRefreshService>();
         services.AddSingleton<HookNotificationListener>();
         services.AddSingleton<UsagePollingService>();
+        services.AddSingleton<CodexApiCostSettingsStore>();
+        services.AddSingleton<CodexApiCostCache>();
+        services.AddSingleton<CodexRuntimeLogScanner>();
+        services.AddSingleton<CodexSessionLogScanner>();
+        services.AddSingleton<CodexPricingRegistry>();
+        services.AddSingleton<ClaudeSessionLogScanner>();
+        services.AddSingleton<ClaudePricingRegistry>();
+        services.AddSingleton<CodexApiCostService>();
         services.AddSingleton<CodexHookInstaller>();
         services.AddSingleton<ClaudeHookInstaller>();
         services.AddSingleton<AntigravityHookInstaller>();
@@ -88,6 +96,7 @@ public partial class App : System.Windows.Application, IApplicationController
         MainWindow.Show();
         MainWindow.Activate();
         await PromptForMissingHooksAsync();
+        _ = _services.GetRequiredService<CodexApiCostService>().RefreshAsync();
         await _services.GetRequiredService<UsagePollingService>().StartAsync();
     }
 
