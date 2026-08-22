@@ -229,8 +229,16 @@ public sealed class DashboardLayoutViewModel : ObservableObject
         if (IsEditMode)
         {
             EnsureEditableSpace();
-            SaveLayout();
         }
+        else
+        {
+            // API-cost cards can arrive after the initial provider cards during startup. Pack
+            // their restored positions then, so old parking rows never appear as a visible gap
+            // when the dashboard first opens.
+            CompactEmptyRows();
+        }
+
+        SaveLayout();
     }
 
     private void EnsureCard(

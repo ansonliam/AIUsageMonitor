@@ -41,6 +41,7 @@
         <system:Double x:Key="ProviderHeaderHeight">19</system:Double>
         <system:Double x:Key="ProviderIconSize">13</system:Double>
         <system:Double x:Key="MetricRowHeight">19</system:Double>
+        <GridLength x:Key="MetricLabelWidth">32</GridLength>
         <ItemsPanelTemplate x:Key="VerticalProvidersPanel">
             <StackPanel Orientation="Vertical" />
         </ItemsPanelTemplate>
@@ -76,7 +77,7 @@
                     <Grid.ColumnDefinitions>
                         <!-- Fixed label column keeps every Reset value aligned, regardless of
                              whether the provider uses W, G, C, or the wider 5H label. -->
-                        <ColumnDefinition Width="24" />
+                        <ColumnDefinition Width="{DynamicResource MetricLabelWidth}" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>

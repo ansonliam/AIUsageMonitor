@@ -46,6 +46,7 @@ public partial class MainWindow : Window
     // always - which DashboardCard's drag/resize snapping math depends on to convert pixels back
     // to whole cell deltas.
     private const double DefaultDashboardWidgetHeight = 56;
+    private const double DefaultMetricLabelWidth = 32;
 
     private readonly Dictionary<DashboardCardViewModel, DashboardCard> _dashboardElements = [];
     private HwndSource? _windowSource;
@@ -53,6 +54,7 @@ public partial class MainWindow : Window
     public bool IsWindowLocked { get; private set; }
     public bool IsDashboardLayoutEnabled { get; private set; }
     public double DashboardWidgetHeight { get; private set; } = DefaultDashboardWidgetHeight;
+    public double MetricLabelWidth { get; private set; } = DefaultMetricLabelWidth;
     public bool IsHorizontalLayout { get; private set; }
     public bool AlwaysOnTop { get; private set; } = true;
     public bool ShowCodex { get; private set; } = true;
@@ -201,9 +203,12 @@ public partial class MainWindow : Window
             IsWindowLocked = placement.IsLocked;
             IsDashboardLayoutEnabled = placement.IsDashboardLayoutEnabled;
             DashboardWidgetHeight = double.IsFinite(placement.DashboardWidgetHeight) &&
-                                    placement.DashboardWidgetHeight >= 36
+                                    placement.DashboardWidgetHeight >= 1
                 ? placement.DashboardWidgetHeight
                 : DefaultDashboardWidgetHeight;
+            MetricLabelWidth = double.IsFinite(placement.MetricLabelWidth) && placement.MetricLabelWidth >= 1
+                ? placement.MetricLabelWidth
+                : DefaultMetricLabelWidth;
             IsHorizontalLayout = placement.IsHorizontalLayout;
             AlwaysOnTop = placement.AlwaysOnTop;
             ShowCodex = placement.ShowCodex;
@@ -260,6 +265,7 @@ public partial class MainWindow : Window
         ApplySavedUsageColors();
         ApplyWidgetPresentation();
         ApplyFontSizePreset();
+        ApplyMetricLabelWidth();
         ApplyProviderLayout();
         ApplyProviderVisibility();
         ApplyDashboardLayoutMode();
@@ -315,7 +321,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        DashboardWidgetHeight = Math.Max(36, Math.Round(height));
+        DashboardWidgetHeight = Math.Max(1, Math.Round(height));
         if (IsDashboardLayoutEnabled)
         {
             RebuildDashboardGrid();
@@ -326,6 +332,18 @@ public partial class MainWindow : Window
             }, DispatcherPriority.ContextIdle);
         }
 
+        SavePlacement();
+    }
+
+    public void SetMetricLabelWidth(double width)
+    {
+        if (!double.IsFinite(width))
+        {
+            return;
+        }
+
+        MetricLabelWidth = Math.Max(1, Math.Round(width));
+        ApplyMetricLabelWidth();
         SavePlacement();
     }
 
@@ -990,6 +1008,9 @@ public partial class MainWindow : Window
         ApplyCompactHeight();
     }
 
+    private void ApplyMetricLabelWidth() =>
+        Resources["MetricLabelWidth"] = new GridLength(MetricLabelWidth);
+
     private static string NormalizeFontSizePreset(string? preset) => preset switch
     {
         "Compact" or "Small" or "Normal" or "Large" or "Extra Large" => preset,
@@ -1073,18 +1094,25 @@ public partial class MainWindow : Window
 
     private double GetHorizontalMinWidth()
     {
-        var visibleProviderCount =
-            (ShowCodex ? 1 : 0) +
-            (ShowClaude ? 1 : 0) +
-            (ShowAntigravity ? 1 : 0) +
-            (ShowCursor ? 1 : 0);
-        if (visibleProviderCount <= 1)
+        var visibleWidgetCount = _viewModel.Providers.Count + _viewModel.CodexApiCostPanels.Count;
+        if (visibleWidgetCount <= 1)
         {
             return GetVerticalMinWidth();
         }
 
-        return GetVerticalMinWidth() * visibleProviderCount;
+        // Horizontal cards share a row, so they can be substantially narrower than the
+        // standalone vertical widget. API-cost cards participate in the same calculation.
+        return Math.Max(GetVerticalMinWidth(), GetHorizontalWidgetMinWidth() * visibleWidgetCount);
     }
+
+    private double GetHorizontalWidgetMinWidth() => FontSizePreset switch
+    {
+        "Compact" => 80,
+        "Small" => 90,
+        "Large" => 140,
+        "Extra Large" => 175,
+        _ => 105
+    };
 
     private double GetVerticalMinWidth() => FontSizePreset switch
     {
@@ -1262,6 +1290,7 @@ public partial class MainWindow : Window
                 Width = ActualWidth,
                 Height = ActualHeight,
                 DashboardWidgetHeight = DashboardWidgetHeight,
+                MetricLabelWidth = MetricLabelWidth,
                 IsLocked = IsWindowLocked,
                 IsDashboardLayoutEnabled = IsDashboardLayoutEnabled,
                 IsHorizontalLayout = IsHorizontalLayout,
@@ -1329,6 +1358,7 @@ public partial class MainWindow : Window
         public double Width { get; init; } = 302;
         public double Height { get; init; } = 230;
         public double DashboardWidgetHeight { get; init; } = DefaultDashboardWidgetHeight;
+        public double MetricLabelWidth { get; init; } = DefaultMetricLabelWidth;
         public bool IsLocked { get; init; }
         public bool IsDashboardLayoutEnabled { get; init; }
         public bool IsHorizontalLayout { get; init; }

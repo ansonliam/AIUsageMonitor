@@ -263,11 +263,26 @@
                              BorderBrush="#FFBFC7D1"
                              Foreground="#FF20252B"
                              Text="{Binding DashboardWidgetHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock VerticalAlignment="Center" Text="px (minimum 36)" />
+                    <TextBlock VerticalAlignment="Center" Text="px (minimum 1)" />
                 </StackPanel>
                 <TextBlock Margin="0,3,0,0"
                            Foreground="#FF65717D"
                            Text="Used by Dashboard Layout. This is the height of one grid unit; widgets spanning two units are twice as tall." />
+                <StackPanel Margin="0,8,0,0" Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Usage label width:" />
+                    <TextBox Width="64"
+                             Margin="8,0,4,0"
+                             Padding="7,3"
+                             HorizontalContentAlignment="Right"
+                             Background="#FFFFFFFF"
+                             BorderBrush="#FFBFC7D1"
+                             Foreground="#FF20252B"
+                             Text="{Binding MetricLabelWidth, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock VerticalAlignment="Center" Text="px" />
+                </StackPanel>
+                <TextBlock Margin="0,3,0,0"
+                           Foreground="#FF65717D"
+                           Text="Controls the left usage label column (for example, 5H) while keeping Reset text aligned." />
                 <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
                     <TextBlock Margin="0,0,12,0"
                                VerticalAlignment="Center"
@@ -430,7 +445,7 @@
                                   ItemsSource="{Binding WidgetTextWeights}"
                                   SelectedItem="{Binding WidgetTextWeight, Mode=TwoWay}" />
                     </StackPanel>
-                    <StackPanel Margin="20,4,0,0" Orientation="Horizontal">
+                    <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Appearance" />
                         <ComboBox Width="110"
                                   Margin="16,0,0,0"
@@ -844,9 +859,6 @@
                    Foreground="#FF4E5964"
                    Text="{Binding TestResult}"
                    TextWrapping="Wrap" />
-        <StackPanel Grid.Row="10" HorizontalAlignment="Right" Orientation="Horizontal">
-            <Button MinWidth="76" IsCancel="True" IsDefault="True" Content="Close" />
-        </StackPanel>
     </Grid>
     </ScrollViewer>
 </Window>
