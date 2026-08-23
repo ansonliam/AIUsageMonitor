@@ -366,7 +366,7 @@
                     <TextBlock Margin="8,0,0,0"
                                VerticalAlignment="Center"
                                Foreground="#FF65717D"
-                               Text="(minimum time between automatic refreshes)" />
+                               Text="(minimum time between automatic refreshes; 0 = immediate)" />
                     <Button Margin="12,0,0,0"
                             VerticalAlignment="Center"
                             Command="{Binding ResetThrottleIntervalsCommand}"

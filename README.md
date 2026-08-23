@@ -31,7 +31,7 @@ The release is a self-contained single-file application and does not require a s
 - Manual refresh plus optional scheduled and hook-triggered refresh
 - Optional Codex, Claude Code, Antigravity, and Cursor Stop hooks for automatic refresh after a session
 - Scheduled refresh disabled by default, with an independent interval per provider, defaulted from each provider's own observed rate-limit behavior (Codex 15 min, Claude 20 min, Antigravity 20 min, Cursor 5 min)
-- Independent non-manual refresh throttle per provider (Codex 3 min, Claude 15 min, Antigravity 10 min, Cursor 5 min) to reduce rate-limit errors
+- Independent non-manual refresh throttle per provider (Codex 3 min, Claude 15 min, Antigravity 10 min, Cursor 5 min) to reduce rate-limit errors; set a provider to 0 for immediate hook refreshes
 - A hook that arrives inside the throttle window is not dropped: one follow-up refresh is scheduled for the moment the throttle clears, and the provider's scheduled-poll countdown restarts from that refresh rather than firing again shortly after
 - Hidden provider cards are never polled or hook-refreshed; showing a card again triggers an immediate catch-up refresh
 - Cached last-known usage and update times across restarts
@@ -146,7 +146,7 @@ Approved screenshots and icons are content-hash allowlisted in `scripts/privacy-
 - **Scheduled refresh** is disabled by default.
 - **Scheduled refresh intervals** are configured separately for Codex, Claude, Antigravity, and Cursor, from 5 to 1440 minutes.
 - **Installed hooks** request a provider refresh independently of the scheduled-refresh setting.
-- **Hook and scheduled refreshes** are limited by a per-provider minimum interval (Codex 3 min, Claude 15 min, Antigravity 10 min, Cursor 5 min), chosen from each provider's own observed rate-limit behavior rather than a single shared value.
+- **Hook and scheduled refreshes** are limited by a per-provider minimum interval (Codex 3 min, Claude 15 min, Antigravity 10 min, Cursor 5 min), chosen from each provider's own observed rate-limit behavior rather than a single shared value. Set a provider's throttle to **0** to remove that interval so its hook refreshes run immediately.
 - A hook that lands inside that minimum interval is not simply dropped: exactly one follow-up refresh is scheduled for when the interval clears, and the provider's scheduled-poll countdown restarts from that refresh so it isn't immediately polled again.
 - Hidden provider cards (unchecked in **Visible**) are skipped by scheduled and hook refreshes entirely; making a card visible again triggers one immediate refresh.
 - Claude `429 Too Many Requests` responses respect `Retry-After` when present and otherwise use capped exponential backoff.
@@ -164,7 +164,7 @@ The screenshot above shows the compact vertical layout. The same provider cards 
 - The Antigravity integration has been verified end-to-end against a signed-in Antigravity desktop backend, including dynamic language-server port discovery. Provider APIs may still change between desktop releases.
 - Hook paths are absolute, so portable copies require hook repair after being moved or renamed.
 - Cached values may be shown until the next successful refresh.
-- Hook-triggered refresh is throttled and is not intended as second-by-second monitoring.
+- Hook-triggered refresh uses the configured throttle and is not intended as second-by-second monitoring unless that provider's throttle is explicitly set to 0.
 - Automatic release executables are not code-signed and may trigger a Windows SmartScreen warning.
 - CSV history, alerts, and usage notifications are not currently implemented.
 - Automated tests cover Antigravity quota parsing and local-service discovery (including the dynamic `--https_server_port 0` case), notification parsing, refresh intervals, cached-snapshot compatibility, and the existing remaining-to-used conversion. The Antigravity path has additionally been verified live against a signed-in desktop backend; authenticated Codex and Claude calls still require runtime verification with each provider installed.

@@ -26,7 +26,8 @@ public sealed class AutoRefreshOptions
     // undocumented endpoint without reported issues.
     public const double CursorDefaultIntervalMinutes = 5;
 
-    public const double MinimumThrottleMinutes = 1;
+    // Zero disables the minimum interval so every hook notification can refresh immediately.
+    public const double MinimumThrottleMinutes = 0;
     public const double MaximumThrottleMinutes = 1440;
 
     // Hook/scheduled-refresh floor per provider - same research as the scheduled defaults above, just

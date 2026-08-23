@@ -51,4 +51,17 @@ public sealed class ExistingProviderRegressionTests
         Assert.AreEqual(TimeSpan.FromMinutes(25), options.GetInterval(ProviderKind.Antigravity));
         Assert.AreEqual(TimeSpan.FromMinutes(30), options.GetInterval(ProviderKind.Cursor));
     }
+
+    [TestMethod]
+    public void AutoRefreshOptions_ZeroThrottleAllowsImmediateRefresh()
+    {
+        var options = new AutoRefreshOptions();
+
+        options.UpdateThrottle(0, 0, 0, 0);
+
+        Assert.AreEqual(TimeSpan.Zero, options.GetThrottleInterval(ProviderKind.Codex));
+        Assert.AreEqual(TimeSpan.Zero, options.GetThrottleInterval(ProviderKind.Claude));
+        Assert.AreEqual(TimeSpan.Zero, options.GetThrottleInterval(ProviderKind.Antigravity));
+        Assert.AreEqual(TimeSpan.Zero, options.GetThrottleInterval(ProviderKind.Cursor));
+    }
 }
