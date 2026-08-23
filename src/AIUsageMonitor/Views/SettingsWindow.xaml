@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:AIUsageMonitor.ViewModels"
-        Title="AI Usage Monitor Settings"
+        Title="{Binding SettingsWindowTitle}"
         Width="780"
         Height="790"
         MinWidth="700"
@@ -361,6 +361,29 @@
                         <TextBlock VerticalAlignment="Center" Text="min" />
                     </StackPanel>
                 </WrapPanel>
+                <StackPanel Margin="22,7,0,0"
+                            IsEnabled="{Binding AutoRefreshEnabled}"
+                            Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" Text="When the computer has been idle for" />
+                    <TextBox Width="58"
+                             Margin="8,0,4,0"
+                             Padding="7,3"
+                             HorizontalContentAlignment="Right"
+                             Background="#FFFFFFFF"
+                             BorderBrush="#FFBFC7D1"
+                             Foreground="#FF20252B"
+                             Text="{Binding IdleAfterMinutes, Mode=TwoWay}" />
+                    <TextBlock VerticalAlignment="Center" Text="min, refresh every" />
+                    <TextBox Width="58"
+                             Margin="8,0,4,0"
+                             Padding="7,3"
+                             HorizontalContentAlignment="Right"
+                             Background="#FFFFFFFF"
+                             BorderBrush="#FFBFC7D1"
+                             Foreground="#FF20252B"
+                             Text="{Binding IdleRefreshIntervalMinutes, Mode=TwoWay}" />
+                    <TextBlock VerticalAlignment="Center" Text="min." />
+                </StackPanel>
                 <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
                     <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Hook throttle refresh" />
                     <TextBlock Margin="8,0,0,0"
@@ -498,24 +521,11 @@
                         <TextBlock VerticalAlignment="Center" Text="%" />
                     </StackPanel>
                 </UniformGrid>
-                <StackPanel Margin="0,8,0,0" HorizontalAlignment="Left" Orientation="Horizontal">
-                    <Button Width="112"
-                            Command="{Binding ApplyUsageColorsCommand}"
-                            Content="Apply Stages" />
-                    <StackPanel x:Name="DeveloperControls"
-                                Margin="10,0,0,0"
-                                Orientation="Horizontal"
-                                Visibility="Collapsed">
-                        <TextBlock Margin="0,0,8,0"
-                                   VerticalAlignment="Center"
-                                   FontSize="11"
-                                   FontWeight="SemiBold"
-                                   Foreground="#FF6B4F00"
-                                   Text="Developer mode" />
-                        <Button Command="{Binding OpenIconPreviewCommand}"
-                                Content="Open Icon Preview" />
-                    </StackPanel>
-                </StackPanel>
+                <Button Width="112"
+                        Margin="0,8,0,0"
+                        HorizontalAlignment="Left"
+                        Command="{Binding ApplyUsageColorsCommand}"
+                        Content="Apply Stages" />
             </StackPanel>
         </Border>
 
@@ -854,7 +864,52 @@
             </Grid>
         </StackPanel>
 
-        <TextBlock Grid.Row="9"
+        <StackPanel Grid.Row="9" Margin="0,14,0,0">
+            <TextBlock FontSize="16" FontWeight="SemiBold" Text="Developer" />
+            <Border Margin="0,8,0,0"
+                    Padding="10"
+                    Background="#FFFFFFFF"
+                    BorderBrush="#FFD6DBE1"
+                    BorderThickness="1"
+                    CornerRadius="6">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <CheckBox IsChecked="{Binding DeveloperModeEnabled, Mode=TwoWay}"
+                                  FontWeight="SemiBold"
+                                  Content="Developer mode" />
+                        <TextBlock Margin="22,4,12,0"
+                                   Foreground="#FF65717D"
+                                   Text="Enables diagnostic logging and developer tools. Ctrl+Alt+D toggles this same setting."
+                                   TextWrapping="Wrap" />
+                        <TextBlock Margin="22,4,12,0"
+                                   Foreground="#FF65717D"
+                                   Text="Logs record scheduled, hook, startup and manual refreshes, plus provider API status and timing. Authentication values and response bodies are never logged."
+                                   TextWrapping="Wrap" />
+                        <TextBlock Margin="22,4,12,0"
+                                   FontSize="10"
+                                   Foreground="#FF65717D"
+                                   Text="{Binding DeveloperLogFolder}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Visibility="{Binding DeveloperModeEnabled, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Button Command="{Binding OpenIconPreviewCommand}"
+                                Content="Open Icon Preview" />
+                        <Button Margin="0,6,0,0"
+                                Command="{Binding OpenDeveloperLogFolderCommand}"
+                                Content="Open Log Folder" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </StackPanel>
+
+        <TextBlock Grid.Row="10"
                    Margin="0,8,0,0"
                    Foreground="#FF4E5964"
                    Text="{Binding TestResult}"

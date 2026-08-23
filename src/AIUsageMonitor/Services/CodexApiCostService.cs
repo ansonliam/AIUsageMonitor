@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AIUsageMonitor.Models;
 using Microsoft.Extensions.Logging;
 
@@ -64,7 +65,7 @@ public sealed class CodexApiCostService
             // endpoints do.
             if (provider == ProviderKind.Codex || provider == ProviderKind.Claude)
             {
-                _ = RefreshAsync();
+                _ = RefreshAsync($"ProviderRefresh:{provider}");
             }
         };
     }
@@ -91,12 +92,16 @@ public sealed class CodexApiCostService
         }
     }
 
-    public Task RefreshAsync() => Task.Run(RefreshCore);
+    public Task RefreshAsync(string trigger = "Direct") => Task.Run(() => RefreshCore(trigger));
 
-    private void RefreshCore()
+    private void RefreshCore(string trigger)
     {
+        var startedAt = Stopwatch.GetTimestamp();
         try
         {
+            _logger.LogInformation(
+                "API cost scan started | Providers=OpenAI Codex,Claude Code | API=Local runtime/session logs | Trigger={Trigger}",
+                trigger);
             lock (_syncRoot)
             {
                 EnsureLoaded();
@@ -159,6 +164,10 @@ public sealed class CodexApiCostService
             }
 
             SummariesUpdated?.Invoke();
+            _logger.LogInformation(
+                "API cost scan completed | Providers=OpenAI Codex,Claude Code | API=Local runtime/session logs | Trigger={Trigger} | DurationMs={DurationMs}",
+                trigger,
+                Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds);
         }
         catch (Exception exception)
         {

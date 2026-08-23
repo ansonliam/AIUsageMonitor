@@ -18,6 +18,7 @@ public sealed class AntigravityUsageProvider : IUsageProvider
     }
 
     public string Name => "Google Antigravity";
+    public string ApiName => "Language Server RetrieveUserQuotaSummary RPC";
     public ProviderKind Kind => ProviderKind.Antigravity;
 
     public async Task<UsageSnapshot> GetUsageAsync(CancellationToken cancellationToken = default)
@@ -25,7 +26,10 @@ public sealed class AntigravityUsageProvider : IUsageProvider
         var retrievedAt = DateTimeOffset.Now;
         try
         {
-            _logger.LogInformation("Refreshing Antigravity usage through the local language server");
+            _logger.LogInformation(
+                "Provider API refresh started | Provider={Provider} | API={Api}",
+                Name,
+                ApiName);
             var response = await _client.RetrieveUserQuotaSummaryAsync(true, cancellationToken);
             var windows = AntigravityQuotaParser.Parse(response);
             if (windows.Count == 0)
@@ -37,7 +41,11 @@ public sealed class AntigravityUsageProvider : IUsageProvider
                     retrievedAt);
             }
 
-            _logger.LogInformation("Antigravity refresh completed with {WindowCount} windows", windows.Count);
+            _logger.LogInformation(
+                "Provider API refresh completed | Provider={Provider} | API={Api} | WindowCount={WindowCount}",
+                Name,
+                ApiName,
+                windows.Count);
             return new UsageSnapshot
             {
                 Provider = Name,

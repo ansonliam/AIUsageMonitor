@@ -67,6 +67,9 @@ public sealed class ClaudeAuthentication : IProviderAuthentication, IDisposable
             }
 
             var client = _httpClientFactory.CreateClient("ClaudeAuth");
+            var startedAt = Stopwatch.GetTimestamp();
+            _logger.LogInformation(
+                "Provider API call started | Provider=Claude Code | API=Anthropic OAuth token refresh POST /v1/oauth/token");
             using var response = await client.PostAsJsonAsync(TokenEndpoint, new
             {
                 grant_type = "refresh_token",
@@ -74,6 +77,10 @@ public sealed class ClaudeAuthentication : IProviderAuthentication, IDisposable
                 client_id = ClientId,
                 scope = string.Join(' ', credential.Scopes)
             }, cancellationToken);
+            _logger.LogInformation(
+                "Provider API call completed | Provider=Claude Code | API=Anthropic OAuth token refresh POST /v1/oauth/token | StatusCode={StatusCode} | DurationMs={DurationMs}",
+                (int)response.StatusCode,
+                Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds);
 
             if (!response.IsSuccessStatusCode)
             {

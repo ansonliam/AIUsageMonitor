@@ -20,6 +20,7 @@ public sealed class SettingsViewModel : ObservableObject
     private readonly MainWindow _mainWindow;
     private readonly CodexApiCostSettingsStore _codexApiCostSettingsStore;
     private readonly CodexApiCostService _codexApiCostService;
+    private readonly DeveloperLoggingService _developerLoggingService;
     private string _codexApiCostStatus = "";
     private string _codexHookStatus = "Checking…";
     private string _claudeHookStatus = "Checking…";
@@ -35,10 +36,13 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _showAntigravity = true;
     private bool _showCursor = true;
     private bool _autoRefreshEnabled;
+    private bool _developerModeEnabled;
     private double _codexRefreshIntervalMinutes = AutoRefreshOptions.CodexDefaultIntervalMinutes;
     private double _claudeRefreshIntervalMinutes = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
     private double _antigravityRefreshIntervalMinutes = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
     private double _cursorRefreshIntervalMinutes = AutoRefreshOptions.CursorDefaultIntervalMinutes;
+    private double _idleAfterMinutes = AutoRefreshOptions.DefaultIdleAfterMinutes;
+    private double _idleRefreshIntervalMinutes = AutoRefreshOptions.DefaultIdleRefreshIntervalMinutes;
     private double _codexThrottleIntervalMinutes = AutoRefreshOptions.CodexDefaultThrottleMinutes;
     private double _claudeThrottleIntervalMinutes = AutoRefreshOptions.ClaudeDefaultThrottleMinutes;
     private double _antigravityThrottleIntervalMinutes = AutoRefreshOptions.AntigravityDefaultThrottleMinutes;
@@ -66,7 +70,8 @@ public sealed class SettingsViewModel : ObservableObject
         MainWindow mainWindow,
         IApplicationController applicationController,
         CodexApiCostSettingsStore codexApiCostSettingsStore,
-        CodexApiCostService codexApiCostService)
+        CodexApiCostService codexApiCostService,
+        DeveloperLoggingService developerLoggingService)
     {
         _codexHookInstaller = codexHookInstaller;
         _claudeHookInstaller = claudeHookInstaller;
@@ -76,6 +81,7 @@ public sealed class SettingsViewModel : ObservableObject
         _applicationController = applicationController;
         _codexApiCostSettingsStore = codexApiCostSettingsStore;
         _codexApiCostService = codexApiCostService;
+        _developerLoggingService = developerLoggingService;
         CodexApiEndpoints = [];
         LoadCodexApiEndpoints();
         _isWindowLocked = mainWindow.IsWindowLocked;
@@ -87,10 +93,13 @@ public sealed class SettingsViewModel : ObservableObject
         _showAntigravity = mainWindow.ShowAntigravity;
         _showCursor = mainWindow.ShowCursor;
         _autoRefreshEnabled = mainWindow.AutoRefreshEnabled;
+        _developerModeEnabled = developerLoggingService.IsEnabled;
         _codexRefreshIntervalMinutes = mainWindow.CodexRefreshIntervalMinutes;
         _claudeRefreshIntervalMinutes = mainWindow.ClaudeRefreshIntervalMinutes;
         _antigravityRefreshIntervalMinutes = mainWindow.AntigravityRefreshIntervalMinutes;
         _cursorRefreshIntervalMinutes = mainWindow.CursorRefreshIntervalMinutes;
+        _idleAfterMinutes = mainWindow.IdleAfterMinutes;
+        _idleRefreshIntervalMinutes = mainWindow.IdleRefreshIntervalMinutes;
         _codexThrottleIntervalMinutes = mainWindow.CodexThrottleIntervalMinutes;
         _claudeThrottleIntervalMinutes = mainWindow.ClaudeThrottleIntervalMinutes;
         _antigravityThrottleIntervalMinutes = mainWindow.AntigravityThrottleIntervalMinutes;
@@ -140,6 +149,7 @@ public sealed class SettingsViewModel : ObservableObject
         });
         AddCodexApiEndpointCommand = new RelayCommand(AddCodexApiEndpoint);
         SaveCodexApiEndpointsCommand = new RelayCommand(SaveCodexApiEndpoints);
+        OpenDeveloperLogFolderCommand = new RelayCommand(OpenDeveloperLogFolder);
         RefreshStatus();
     }
 
@@ -257,6 +267,34 @@ public sealed class SettingsViewModel : ObservableObject
             }
         }
     }
+    public bool DeveloperModeEnabled
+    {
+        get => _developerModeEnabled;
+        set
+        {
+            if (_developerModeEnabled == value)
+            {
+                return;
+            }
+
+            if (!_developerLoggingService.TrySetEnabled(value))
+            {
+                TestResult = "Developer mode could not be saved. Check access to the local app-data folder.";
+                OnPropertyChanged();
+                return;
+            }
+
+            SetProperty(ref _developerModeEnabled, value);
+            OnPropertyChanged(nameof(SettingsWindowTitle));
+            TestResult = value
+                ? "Developer mode enabled. Diagnostic logs are now being written."
+                : "Developer mode disabled. Diagnostic file logging has stopped.";
+        }
+    }
+    public string SettingsWindowTitle => DeveloperModeEnabled
+        ? "AI Usage Monitor Settings — Developer Mode"
+        : "AI Usage Monitor Settings";
+    public string DeveloperLogFolder => _developerLoggingService.LogDirectory;
     public double CodexRefreshIntervalMinutes
     {
         get => _codexRefreshIntervalMinutes;
@@ -453,6 +491,7 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand ResetUsageColorsCommand { get; }
     public ICommand AddCodexApiEndpointCommand { get; }
     public ICommand SaveCodexApiEndpointsCommand { get; }
+    public ICommand OpenDeveloperLogFolderCommand { get; }
     public ObservableCollection<CodexApiEndpointSettingsViewModel> CodexApiEndpoints { get; }
     public string CodexApiCostStatus
     {
@@ -467,6 +506,47 @@ public sealed class SettingsViewModel : ObservableObject
         foreach (var endpoint in settings.Endpoints)
         {
             CodexApiEndpoints.Add(new CodexApiEndpointSettingsViewModel(endpoint, RemoveCodexApiEndpoint));
+        }
+    }
+    public double IdleAfterMinutes
+    {
+        get => _idleAfterMinutes;
+        set
+        {
+            var normalized = AutoRefreshOptions.NormalizeInterval(value);
+            if (SetProperty(ref _idleAfterMinutes, normalized))
+            {
+                _mainWindow.SetIdleRefreshOptions(normalized, _idleRefreshIntervalMinutes);
+            }
+        }
+    }
+    public double IdleRefreshIntervalMinutes
+    {
+        get => _idleRefreshIntervalMinutes;
+        set
+        {
+            var normalized = AutoRefreshOptions.NormalizeInterval(value);
+            if (SetProperty(ref _idleRefreshIntervalMinutes, normalized))
+            {
+                _mainWindow.SetIdleRefreshOptions(_idleAfterMinutes, normalized);
+            }
+        }
+    }
+
+    private void OpenDeveloperLogFolder()
+    {
+        try
+        {
+            Directory.CreateDirectory(_developerLoggingService.LogDirectory);
+            Process.Start(new ProcessStartInfo(_developerLoggingService.LogDirectory)
+            {
+                UseShellExecute = true
+            });
+            TestResult = "Opened the developer log folder.";
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+        {
+            TestResult = "The developer log folder could not be opened.";
         }
     }
 
@@ -512,7 +592,7 @@ public sealed class SettingsViewModel : ObservableObject
 
         _codexApiCostSettingsStore.Save(new CodexApiCostSettings { Endpoints = resolved });
         CodexApiCostStatus = "Saved.";
-        _ = _codexApiCostService.RefreshAsync();
+        _ = _codexApiCostService.RefreshAsync("SettingsSaved");
     }
     public string CodexHookPath => _codexHookInstaller.ConfigurationPath;
     public string ClaudeHookPath => _claudeHookInstaller.ConfigurationPath;
@@ -554,6 +634,11 @@ public sealed class SettingsViewModel : ObservableObject
             ref _cursorRefreshIntervalMinutes,
             _mainWindow.CursorRefreshIntervalMinutes,
             nameof(CursorRefreshIntervalMinutes));
+        SetProperty(ref _idleAfterMinutes, _mainWindow.IdleAfterMinutes, nameof(IdleAfterMinutes));
+        SetProperty(
+            ref _idleRefreshIntervalMinutes,
+            _mainWindow.IdleRefreshIntervalMinutes,
+            nameof(IdleRefreshIntervalMinutes));
         SetProperty(
             ref _codexThrottleIntervalMinutes,
             _mainWindow.CodexThrottleIntervalMinutes,
@@ -629,7 +714,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             await _codexHookInstaller.InstallOrRepairAsync();
             RefreshStatus();
-            TestResult = "Hook installed. Review and trust it in Codex using /hooks.";
+            TestResult = "Hook installed. Restart Codex, then use /hooks to confirm it is active and trusted.";
         }
         catch (Exception)
         {

@@ -29,6 +29,7 @@ public sealed class ClaudeUsageProvider : IUsageProvider
     }
 
     public string Name => "Claude Code";
+    public string ApiName => "Anthropic OAuth Usage API GET /api/oauth/usage";
     public ProviderKind Kind => ProviderKind.Claude;
 
     public Task StartLoginAsync(CancellationToken cancellationToken = default) =>
@@ -53,7 +54,10 @@ public sealed class ClaudeUsageProvider : IUsageProvider
                 return Failure(UsageStatus.AuthenticationRequired, "Authentication required", retrievedAt);
             }
 
-            _logger.LogInformation("Refreshing Claude usage");
+            _logger.LogInformation(
+                "Provider API refresh started | Provider={Provider} | API={Api}",
+                Name,
+                ApiName);
             var token = await _authentication.GetAccessTokenAsync(cancellationToken: cancellationToken);
             using var response = await SendUsageRequestAsync(token, cancellationToken);
             if (response.StatusCode == HttpStatusCode.Unauthorized)
@@ -85,13 +89,21 @@ public sealed class ClaudeUsageProvider : IUsageProvider
         string accessToken,
         CancellationToken cancellationToken)
     {
+        var startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
         var request = new HttpRequestMessage(HttpMethod.Get, UsageEndpoint);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         request.Headers.TryAddWithoutValidation("anthropic-beta", "oauth-2025-04-20");
         request.Headers.UserAgent.ParseAdd("AIUsageMonitor/1.0");
         try
         {
-            return await _httpClientFactory.CreateClient("Claude").SendAsync(request, cancellationToken);
+            var response = await _httpClientFactory.CreateClient("Claude").SendAsync(request, cancellationToken);
+            _logger.LogInformation(
+                "Provider API call completed | Provider={Provider} | API={Api} | StatusCode={StatusCode} | DurationMs={DurationMs}",
+                Name,
+                ApiName,
+                (int)response.StatusCode,
+                System.Diagnostics.Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds);
+            return response;
         }
         finally
         {
@@ -132,7 +144,10 @@ public sealed class ClaudeUsageProvider : IUsageProvider
         var sevenDay = ReadWindow(root, "seven_day");
         _rateLimitAttempts = 0;
         _nextAllowedAt = DateTimeOffset.MinValue;
-        _logger.LogInformation("Claude refresh completed");
+        _logger.LogInformation(
+            "Provider API refresh completed | Provider={Provider} | API={Api}",
+            Name,
+            ApiName);
 
         return new UsageSnapshot
         {

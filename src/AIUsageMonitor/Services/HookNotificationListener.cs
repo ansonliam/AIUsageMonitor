@@ -74,11 +74,17 @@ public sealed class HookNotificationListener : IAsyncDisposable
                 else if (TryParseProvider(message, out var provider))
                 {
                     await writer.WriteLineAsync("ok".AsMemory(), cancellationToken);
+                    _logger.LogInformation(
+                        "Hook notification received | Provider={Provider} | Action=QueueRefresh",
+                        provider);
                     _ = _refreshService.RequestRefreshAsync(provider, RefreshReason.Hook);
                 }
                 else
                 {
                     await writer.WriteLineAsync("unsupported".AsMemory(), cancellationToken);
+                    _logger.LogWarning(
+                        "Unsupported hook notification received | Value={NotificationValue}",
+                        message ?? "<empty>");
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

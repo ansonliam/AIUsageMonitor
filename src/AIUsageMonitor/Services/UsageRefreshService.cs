@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using AIUsageMonitor.Models;
 using AIUsageMonitor.Providers;
 using Microsoft.Extensions.Logging;
@@ -37,15 +38,30 @@ public sealed class UsageRefreshService : IDisposable
 
     public Task RequestRefreshAsync(ProviderKind provider, RefreshReason reason)
     {
-        if (!_providers.TryGetValue(provider, out _))
+        if (!_providers.TryGetValue(provider, out var usageProvider))
         {
+            _logger.LogWarning(
+                "Refresh request ignored because provider is not registered | Provider={Provider} | Trigger={Trigger}",
+                provider,
+                reason);
             return Task.CompletedTask;
         }
+
+        _logger.LogInformation(
+            "Refresh requested | Provider={Provider} | API={Api} | Trigger={Trigger}",
+            usageProvider.Name,
+            usageProvider.ApiName,
+            reason);
 
         if (reason is not (RefreshReason.Manual or RefreshReason.VisibilityRestored) && !IsVisible(provider))
         {
             // Hidden providers do not get scheduled or hook-triggered network calls; an explicit
             // Refresh-All click or the immediate catch-up on becoming visible still goes through.
+            _logger.LogInformation(
+                "Refresh skipped because provider is hidden | Provider={Provider} | API={Api} | Trigger={Trigger}",
+                usageProvider.Name,
+                usageProvider.ApiName,
+                reason);
             return Task.CompletedTask;
         }
 
@@ -145,6 +161,7 @@ public sealed class UsageRefreshService : IDisposable
 
     private async Task DebounceHookAsync(ProviderKind provider)
     {
+        var usageProvider = _providers[provider];
         var state = _states[provider];
         CancellationTokenSource debounce;
         lock (state.SyncRoot)
@@ -154,6 +171,12 @@ public sealed class UsageRefreshService : IDisposable
             state.DebounceCancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
             debounce = state.DebounceCancellation;
         }
+
+        _logger.LogInformation(
+            "Hook refresh debounced | Provider={Provider} | API={Api} | DelayMs={DelayMs}",
+            usageProvider.Name,
+            usageProvider.ApiName,
+            HookDebounce.TotalMilliseconds);
 
         try
         {
@@ -181,6 +204,13 @@ public sealed class UsageRefreshService : IDisposable
                 Interlocked.Exchange(ref state.ForceRefreshQueued, 1);
             }
 
+            var queuedProvider = _providers[provider];
+            _logger.LogInformation(
+                "Refresh queued behind an active refresh | Provider={Provider} | API={Api} | Trigger={Trigger}",
+                queuedProvider.Name,
+                queuedProvider.ApiName,
+                reason);
+
             return;
         }
 
@@ -191,19 +221,33 @@ public sealed class UsageRefreshService : IDisposable
             {
                 if (!TryReemitThrottledSnapshot(provider, state, nextReason))
                 {
+                    var usageProvider = _providers[provider];
+                    var startedAt = Stopwatch.GetTimestamp();
                     lock (state.SyncRoot)
                     {
                         state.LastAttemptAt = DateTimeOffset.Now;
                     }
 
+                    _logger.LogInformation(
+                        "Refresh started | Provider={Provider} | API={Api} | Trigger={Trigger}",
+                        usageProvider.Name,
+                        usageProvider.ApiName,
+                        nextReason);
                     RefreshStarted?.Invoke(provider);
-                    var snapshot = await _providers[provider].GetUsageAsync(_lifetime.Token);
+                    var snapshot = await usageProvider.GetUsageAsync(_lifetime.Token);
                     lock (state.SyncRoot)
                     {
                         state.LastSnapshot = snapshot;
                     }
 
                     _cacheStore.Save(snapshot);
+                    _logger.LogInformation(
+                        "Refresh completed | Provider={Provider} | API={Api} | Trigger={Trigger} | Status={Status} | DurationMs={DurationMs}",
+                        usageProvider.Name,
+                        usageProvider.ApiName,
+                        nextReason,
+                        snapshot.Status,
+                        Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds);
                     SnapshotUpdated?.Invoke(snapshot);
                     RefreshCompleted?.Invoke(provider);
                 }
@@ -251,10 +295,14 @@ public sealed class UsageRefreshService : IDisposable
             return false;
         }
 
+        var usageProvider = _providers[provider];
+        var nextAllowedAt = lastAttempt.Value + minInterval;
         _logger.LogInformation(
-            "Skipping {Reason} {Provider} refresh within the minimum interval",
+            "Refresh throttled | Provider={Provider} | API={Api} | Trigger={Trigger} | NextAllowedAt={NextAllowedAt}",
+            usageProvider.Name,
+            usageProvider.ApiName,
             reason,
-            provider);
+            nextAllowedAt);
         if (snapshot is not null)
         {
             SnapshotUpdated?.Invoke(snapshot);
@@ -287,6 +335,13 @@ public sealed class UsageRefreshService : IDisposable
         {
             delay = TimeSpan.Zero;
         }
+
+        var usageProvider = _providers[provider];
+        _logger.LogInformation(
+            "Deferred hook refresh scheduled | Provider={Provider} | API={Api} | RunAt={RunAt}",
+            usageProvider.Name,
+            usageProvider.ApiName,
+            runAt);
 
         _ = RunDeferredHookRetryAsync(provider, delay, cancellation);
     }

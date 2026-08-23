@@ -9,6 +9,8 @@ public sealed class AutoRefreshOptions
     public const double DefaultIntervalMinutes = 15;
     public const double MinimumIntervalMinutes = 5;
     public const double MaximumIntervalMinutes = 1440;
+    public const double DefaultIdleAfterMinutes = 5;
+    public const double DefaultIdleRefreshIntervalMinutes = 60;
 
     // Codex: local IPC to a reused app-server process, no documented remote rate limit.
     public const double CodexDefaultIntervalMinutes = 15;
@@ -43,6 +45,8 @@ public sealed class AutoRefreshOptions
     private double _claudeIntervalMinutes = ClaudeDefaultIntervalMinutes;
     private double _antigravityIntervalMinutes = AntigravityDefaultIntervalMinutes;
     private double _cursorIntervalMinutes = CursorDefaultIntervalMinutes;
+    private double _idleAfterMinutes = DefaultIdleAfterMinutes;
+    private double _idleRefreshIntervalMinutes = DefaultIdleRefreshIntervalMinutes;
     private double _codexThrottleMinutes = CodexDefaultThrottleMinutes;
     private double _claudeThrottleMinutes = ClaudeDefaultThrottleMinutes;
     private double _antigravityThrottleMinutes = AntigravityDefaultThrottleMinutes;
@@ -76,17 +80,42 @@ public sealed class AutoRefreshOptions
         }
     }
 
+    public TimeSpan GetScheduledInterval(ProviderKind provider, TimeSpan computerIdleTime)
+    {
+        lock (_syncRoot)
+        {
+            if (computerIdleTime >= TimeSpan.FromMinutes(_idleAfterMinutes))
+            {
+                return TimeSpan.FromMinutes(_idleRefreshIntervalMinutes);
+            }
+        }
+
+        return GetInterval(provider);
+    }
+
+    public bool IsComputerIdle(TimeSpan computerIdleTime)
+    {
+        lock (_syncRoot)
+        {
+            return computerIdleTime >= TimeSpan.FromMinutes(_idleAfterMinutes);
+        }
+    }
+
     public void Update(
         bool enabled,
         double codexIntervalMinutes,
         double claudeIntervalMinutes,
         double antigravityIntervalMinutes,
-        double cursorIntervalMinutes)
+        double cursorIntervalMinutes,
+        double idleAfterMinutes,
+        double idleRefreshIntervalMinutes)
     {
         codexIntervalMinutes = NormalizeInterval(codexIntervalMinutes);
         claudeIntervalMinutes = NormalizeInterval(claudeIntervalMinutes);
         antigravityIntervalMinutes = NormalizeInterval(antigravityIntervalMinutes);
         cursorIntervalMinutes = NormalizeInterval(cursorIntervalMinutes);
+        idleAfterMinutes = NormalizeInterval(idleAfterMinutes);
+        idleRefreshIntervalMinutes = NormalizeInterval(idleRefreshIntervalMinutes);
         var changed = false;
         lock (_syncRoot)
         {
@@ -94,13 +123,17 @@ public sealed class AutoRefreshOptions
                 Math.Abs(_codexIntervalMinutes - codexIntervalMinutes) > 0.001 ||
                 Math.Abs(_claudeIntervalMinutes - claudeIntervalMinutes) > 0.001 ||
                 Math.Abs(_antigravityIntervalMinutes - antigravityIntervalMinutes) > 0.001 ||
-                Math.Abs(_cursorIntervalMinutes - cursorIntervalMinutes) > 0.001)
+                Math.Abs(_cursorIntervalMinutes - cursorIntervalMinutes) > 0.001 ||
+                Math.Abs(_idleAfterMinutes - idleAfterMinutes) > 0.001 ||
+                Math.Abs(_idleRefreshIntervalMinutes - idleRefreshIntervalMinutes) > 0.001)
             {
                 _enabled = enabled;
                 _codexIntervalMinutes = codexIntervalMinutes;
                 _claudeIntervalMinutes = claudeIntervalMinutes;
                 _antigravityIntervalMinutes = antigravityIntervalMinutes;
                 _cursorIntervalMinutes = cursorIntervalMinutes;
+                _idleAfterMinutes = idleAfterMinutes;
+                _idleRefreshIntervalMinutes = idleRefreshIntervalMinutes;
                 changed = true;
             }
         }

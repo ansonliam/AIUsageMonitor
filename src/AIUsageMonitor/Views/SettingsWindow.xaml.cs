@@ -22,8 +22,11 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        DeveloperControls.Visibility = Visibility.Visible;
-        Title = "AI Usage Monitor Settings — Developer Mode";
+        if (DataContext is SettingsViewModel viewModel)
+        {
+            viewModel.DeveloperModeEnabled = !viewModel.DeveloperModeEnabled;
+        }
+
         e.Handled = true;
     }
 }

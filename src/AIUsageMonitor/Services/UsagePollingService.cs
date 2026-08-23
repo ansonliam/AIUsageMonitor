@@ -1,4 +1,5 @@
 using AIUsageMonitor.Models;
+using Microsoft.Extensions.Logging;
 
 namespace AIUsageMonitor.Services;
 
@@ -14,6 +15,8 @@ public sealed class UsagePollingService : IDisposable
 
     private readonly UsageRefreshService _refreshService;
     private readonly AutoRefreshOptions _options;
+    private readonly ISystemIdleTimeProvider _idleTimeProvider;
+    private readonly ILogger<UsagePollingService> _logger;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly List<Task> _pollingTasks = [];
     private readonly object _settingsChangeSyncRoot = new();
@@ -21,10 +24,16 @@ public sealed class UsagePollingService : IDisposable
         Providers.ToDictionary(provider => provider, _ => CreateSettingsChangedSource());
     private TaskCompletionSource _settingsChanged = CreateSettingsChangedSource();
 
-    public UsagePollingService(UsageRefreshService refreshService, AutoRefreshOptions options)
+    public UsagePollingService(
+        UsageRefreshService refreshService,
+        AutoRefreshOptions options,
+        ISystemIdleTimeProvider idleTimeProvider,
+        ILogger<UsagePollingService> logger)
     {
         _refreshService = refreshService;
         _options = options;
+        _idleTimeProvider = idleTimeProvider;
+        _logger = logger;
         _options.Changed += Options_Changed;
         _refreshService.RefreshCompleted += RefreshService_RefreshCompleted;
     }
@@ -38,6 +47,7 @@ public sealed class UsagePollingService : IDisposable
 
         if (_options.Enabled)
         {
+            _logger.LogInformation("Startup refresh requested for all visible providers");
             await Task.WhenAll(
                 Providers.Select(provider => _refreshService.RequestRefreshAsync(provider, RefreshReason.Startup)));
         }
@@ -62,7 +72,9 @@ public sealed class UsagePollingService : IDisposable
                     continue;
                 }
 
-                var delay = Task.Delay(_options.GetInterval(provider), cancellationToken);
+                var idleTime = _idleTimeProvider.GetIdleTime();
+                var interval = _options.GetScheduledInterval(provider, idleTime);
+                var delay = Task.Delay(interval, cancellationToken);
                 if (await Task.WhenAny(delay, settingsChanged, providerReset) != delay)
                 {
                     // Either the global settings changed, or a hook/manual/visibility refresh already
@@ -70,6 +82,12 @@ public sealed class UsagePollingService : IDisposable
                     continue;
                 }
 
+                _logger.LogInformation(
+                    "Scheduled refresh is due | Provider={Provider} | Interval={Interval} | ComputerIdle={ComputerIdle} | IdleDuration={IdleDuration}",
+                    provider,
+                    interval,
+                    _options.IsComputerIdle(idleTime),
+                    idleTime);
                 await _refreshService.RequestRefreshAsync(provider, RefreshReason.Scheduled);
             }
         }

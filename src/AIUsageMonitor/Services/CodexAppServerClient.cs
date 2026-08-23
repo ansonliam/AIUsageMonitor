@@ -108,20 +108,42 @@ public sealed class CodexAppServerClient : IAsyncDisposable
         object? parameters,
         CancellationToken cancellationToken)
     {
+        var startedAt = Stopwatch.GetTimestamp();
         var id = Interlocked.Increment(ref _nextId);
         var completion = new TaskCompletionSource<JsonElement>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pending[id] = completion;
 
         try
         {
+            _logger.LogInformation(
+                "Provider API call started | Provider=OpenAI Codex | API=Codex app-server | Method={Method}",
+                method);
             await WriteMessageAsync(new { method, id, @params = parameters }, cancellationToken);
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(30));
-            return await completion.Task.WaitAsync(timeout.Token);
+            var result = await completion.Task.WaitAsync(timeout.Token);
+            _logger.LogInformation(
+                "Provider API call completed | Provider=OpenAI Codex | API=Codex app-server | Method={Method} | DurationMs={DurationMs}",
+                method,
+                Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds);
+            return result;
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
+            _logger.LogWarning(
+                "Provider API call timed out | Provider=OpenAI Codex | API=Codex app-server | Method={Method} | DurationMs={DurationMs}",
+                method,
+                Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds);
             throw new CodexAppServerException("Codex did not respond in time.");
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(
+                exception,
+                "Provider API call failed | Provider=OpenAI Codex | API=Codex app-server | Method={Method} | DurationMs={DurationMs}",
+                method,
+                Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds);
+            throw;
         }
         finally
         {

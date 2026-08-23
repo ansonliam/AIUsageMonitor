@@ -10,6 +10,7 @@ using AIUsageMonitor.ViewModels;
 using AIUsageMonitor.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using NLog.Extensions.Logging;
 
 namespace AIUsageMonitor;
 
@@ -17,6 +18,7 @@ public partial class App : System.Windows.Application, IApplicationController
 {
     private ServiceProvider? _services;
     private SingleInstanceService? _singleInstance;
+    private DeveloperLoggingService? _developerLogging;
     private bool _exitStarted;
 
     public bool IsExiting { get; private set; }
@@ -44,7 +46,14 @@ public partial class App : System.Windows.Application, IApplicationController
         }
 
         var services = new ServiceCollection();
-        services.AddLogging(builder => builder.AddDebug().SetMinimumLevel(LogLevel.Information));
+        var developerModeSettings = new DeveloperModeSettingsStore();
+        _developerLogging = new DeveloperLoggingService(developerModeSettings);
+        services.AddSingleton(developerModeSettings);
+        services.AddSingleton(_developerLogging);
+        services.AddLogging(builder => builder
+            .AddDebug()
+            .AddNLog()
+            .SetMinimumLevel(LogLevel.Information));
         services.AddHttpClient("Codex");
         services.AddHttpClient("Claude", client => client.Timeout = TimeSpan.FromSeconds(15));
         services.AddHttpClient("ClaudeAuth", client => client.Timeout = TimeSpan.FromSeconds(15));
@@ -66,6 +75,7 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<IUsageProvider>(sp => sp.GetRequiredService<CursorUsageProvider>());
         services.AddSingleton<UsageCacheStore>();
         services.AddSingleton<AutoRefreshOptions>();
+        services.AddSingleton<ISystemIdleTimeProvider, SystemIdleTimeProvider>();
         services.AddSingleton<UsageRefreshService>();
         services.AddSingleton<HookNotificationListener>();
         services.AddSingleton<UsagePollingService>();
@@ -90,6 +100,10 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddTransient<IconPreviewWindow>();
 
         _services = services.BuildServiceProvider();
+        _services.GetRequiredService<ILogger<App>>().LogInformation(
+            "Application started | DeveloperMode={DeveloperMode} | LogFolder={LogFolder}",
+            _developerLogging.IsEnabled,
+            _developerLogging.LogDirectory);
         MainWindow = _services.GetRequiredService<MainWindow>();
         _services.GetRequiredService<TrayIconService>().Initialize();
         await _services.GetRequiredService<HookNotificationListener>().StartAsync();
@@ -97,7 +111,7 @@ public partial class App : System.Windows.Application, IApplicationController
         MainWindow.Show();
         MainWindow.Activate();
         await PromptForMissingHooksAsync();
-        _ = _services.GetRequiredService<CodexApiCostService>().RefreshAsync();
+        _ = _services.GetRequiredService<CodexApiCostService>().RefreshAsync("Startup");
         await _services.GetRequiredService<UsagePollingService>().StartAsync();
     }
 
@@ -186,12 +200,16 @@ public partial class App : System.Windows.Application, IApplicationController
 
         if (_services is not null)
         {
+            _services.GetRequiredService<ILogger<App>>().LogInformation("Application exit started");
             await _services.GetRequiredService<UsagePollingService>().StopAsync();
             await _services.GetRequiredService<HookNotificationListener>().StopAsync();
             _services.GetRequiredService<TrayIconService>().Dispose();
             await _services.DisposeAsync();
             _services = null;
         }
+
+        _developerLogging?.Dispose();
+        _developerLogging = null;
 
         _singleInstance?.Dispose();
         _singleInstance = null;

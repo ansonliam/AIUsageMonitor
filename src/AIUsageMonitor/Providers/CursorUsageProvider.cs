@@ -26,6 +26,7 @@ public sealed class CursorUsageProvider : IUsageProvider
     }
 
     public string Name => "Cursor";
+    public string ApiName => "Cursor Usage Summary API GET /api/usage-summary";
     public ProviderKind Kind => ProviderKind.Cursor;
 
     public async Task<UsageSnapshot> GetUsageAsync(CancellationToken cancellationToken = default)
@@ -39,7 +40,10 @@ public sealed class CursorUsageProvider : IUsageProvider
                 return Failure(UsageStatus.AuthenticationRequired, "Authentication required", retrievedAt);
             }
 
-            _logger.LogInformation("Refreshing Cursor usage");
+            _logger.LogInformation(
+                "Provider API refresh started | Provider={Provider} | API={Api}",
+                Name,
+                ApiName);
             var credential = _authentication.GetCredential();
             using var response = await SendUsageSummaryRequestAsync(credential, cancellationToken);
             if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
@@ -56,7 +60,10 @@ public sealed class CursorUsageProvider : IUsageProvider
             await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
             using var document = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
             var snapshot = ReadUsageSummary(document.RootElement, retrievedAt);
-            _logger.LogInformation("Cursor refresh completed");
+            _logger.LogInformation(
+                "Provider API refresh completed | Provider={Provider} | API={Api}",
+                Name,
+                ApiName);
             return snapshot;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -75,16 +82,24 @@ public sealed class CursorUsageProvider : IUsageProvider
         }
     }
 
-    private Task<HttpResponseMessage> SendUsageSummaryRequestAsync(
+    private async Task<HttpResponseMessage> SendUsageSummaryRequestAsync(
         CursorCredential credential,
         CancellationToken cancellationToken)
     {
+        var startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
         var request = new HttpRequestMessage(HttpMethod.Get, UsageSummaryEndpoint);
         request.Headers.TryAddWithoutValidation(
             "Cookie",
             $"WorkosCursorSessionToken={credential.UserId}::{credential.AccessToken}");
         request.Headers.UserAgent.ParseAdd("AIUsageMonitor/1.0");
-        return _httpClientFactory.CreateClient("Cursor").SendAsync(request, cancellationToken);
+        var response = await _httpClientFactory.CreateClient("Cursor").SendAsync(request, cancellationToken);
+        _logger.LogInformation(
+            "Provider API call completed | Provider={Provider} | API={Api} | StatusCode={StatusCode} | DurationMs={DurationMs}",
+            Name,
+            ApiName,
+            (int)response.StatusCode,
+            System.Diagnostics.Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds);
+        return response;
     }
 
     private UsageSnapshot ReadUsageSummary(JsonElement root, DateTimeOffset retrievedAt)

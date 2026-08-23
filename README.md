@@ -42,7 +42,7 @@ The release is a self-contained single-file application and does not require a s
 - Vertical or side-by-side provider layout with a 2 px horizontal gap, resizable down to a compact 160 px minimum width
 - Independently show or hide Codex, Claude, Antigravity, and Cursor
 - Five text-size presets from Compact to Extra Large
-- Developer-only 512 × 512 icon screenshot preview with large text and reset labels hidden (`Ctrl+Alt+D` in Settings)
+- Persisted Developer mode for diagnostic logs and the 512 × 512 icon screenshot preview; toggle it from Settings or with `Ctrl+Alt+D`
 - Tray-only operation without a taskbar button
 - Movable and resizable window with a shared lock setting
 - Remembered position, size, opacity, layout, visibility, typography, and usage stages
@@ -101,9 +101,12 @@ dotnet publish .\src\AIUsageMonitor\AIUsageMonitor.csproj `
 4. Right-click the widget or tray icon to open **Settings**.
 5. Enable **Scheduled refresh** if wanted and choose a separate interval for each provider.
 6. Use Settings to install, repair, uninstall, test, or inspect each provider hook.
-7. Choose the provider layout, visible cards, text size, colours, cutoff percentages, opacity, always-on-top, and window lock state.
+7. Enable **Developer mode** when investigating refreshes, or toggle it with `Ctrl+Alt+D`; the Developer section then provides **Open Icon Preview** and **Open Log Folder**.
+8. Choose the provider layout, visible cards, text size, colours, cutoff percentages, opacity, always-on-top, and window lock state.
 
 Hook installation and removal preserve unrelated provider settings and hooks. New handlers carry the unique owner marker `com.ansonliam.ai-usage-monitor`; executable-specific legacy handlers are migrated during repair.
+
+After installing or repairing the Codex hook, fully restart Codex so its app-server reloads `~/.codex/hooks.json`. Then use `/hooks` in Codex to confirm the Stop hook is active and trusted.
 
 Hooks contain the absolute path of the executable. After moving or renaming a portable copy, use **Settings → Install / Repair Hook** for both providers. Otherwise, the provider may continue invoking an older path.
 
@@ -113,12 +116,16 @@ AI Usage Monitor does not place provider credentials in this repository or its o
 
 - Widget settings: `%LOCALAPPDATA%\AIUsageMonitor\window-placement.json`
 - Last-known usage cache: `%LOCALAPPDATA%\AIUsageMonitor\usage-cache.json`
+- Persisted Developer mode setting: `%LOCALAPPDATA%\AIUsageMonitor\developer-settings.json`
+- Developer logs, only while Developer mode is enabled: `%LOCALAPPDATA%\AIUsageMonitor\logs`
 - Codex hook: `%USERPROFILE%\.codex\hooks.json`
 - Claude hook: `%USERPROFILE%\.claude\settings.json`, or the directory selected by `CLAUDE_CONFIG_DIR`
 - Antigravity hook: `%USERPROFILE%\.gemini\config\hooks.json`
 - Cursor hook: `%USERPROFILE%\.cursor\hooks.json`
 
 Codex authentication is accessed through the locally installed Codex app-server. Claude authentication uses the existing Claude Code credential cache; when required, the application follows the Claude OAuth refresh flow and updates the relevant credential fields in that existing cache. Antigravity usage is requested from the signed-in desktop application's loopback-only local language server. Cursor authentication reads the session token Cursor's own desktop app already stores locally and calls Cursor's usage-summary endpoint with it. AI Usage Monitor does not request an API key for any provider, and does not copy Antigravity's or Cursor's session credentials into its own settings or usage cache.
+
+Developer logs include refresh source (`Startup`, `Scheduled`, `Hook`, `Manual`, or visibility catch-up), provider and API names, completion status, duration, throttling, and deferred-hook scheduling. Separate files are created for refresh activity, each provider/API, and API-cost scans. Access tokens, cookies, CSRF tokens, request bodies, and response bodies are not logged. Each file rolls over at 5 MB and keeps up to five archives.
 
 Do not commit runtime caches, provider configuration, credential files, or locally published binaries. The repository `.gitignore` excludes these files and directories.
 
@@ -145,6 +152,7 @@ Approved screenshots and icons are content-hash allowlisted in `scripts/privacy-
 - **Manual refresh** always requests fresh data, bypassing the throttle.
 - **Scheduled refresh** is disabled by default.
 - **Scheduled refresh intervals** are configured separately for Codex, Claude, Antigravity, and Cursor, from 5 to 1440 minutes.
+- **Idle refresh** uses a separate, configurable interval after the current Windows session has had no keyboard or mouse input for the configured number of minutes (default: idle after 5 minutes, refresh every 60 minutes).
 - **Installed hooks** request a provider refresh independently of the scheduled-refresh setting.
 - **Hook and scheduled refreshes** are limited by a per-provider minimum interval (Codex 3 min, Claude 15 min, Antigravity 10 min, Cursor 5 min), chosen from each provider's own observed rate-limit behavior rather than a single shared value. Set a provider's throttle to **0** to remove that interval so its hook refreshes run immediately.
 - A hook that lands inside that minimum interval is not simply dropped: exactly one follow-up refresh is scheduled for when the interval clears, and the provider's scheduled-poll countdown restarts from that refresh so it isn't immediately polled again.

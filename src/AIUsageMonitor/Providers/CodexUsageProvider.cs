@@ -23,6 +23,7 @@ public sealed class CodexUsageProvider : IUsageProvider
     }
 
     public string Name => "OpenAI Codex";
+    public string ApiName => "Codex app-server account/rateLimits/read";
     public ProviderKind Kind => ProviderKind.Codex;
 
     public Task StartLoginAsync(CancellationToken cancellationToken = default) =>
@@ -39,7 +40,10 @@ public sealed class CodexUsageProvider : IUsageProvider
                 return Failure(UsageStatus.AuthenticationRequired, "Authentication required", retrievedAt);
             }
 
-            _logger.LogInformation("Refreshing Codex usage");
+            _logger.LogInformation(
+                "Provider API refresh started | Provider={Provider} | API={Api}",
+                Name,
+                ApiName);
             var result = await _client.SendRequestAsync("account/rateLimits/read", cancellationToken: cancellationToken);
             var windows = ReadCodexWindows(result);
             var fiveHour = windows
@@ -49,7 +53,11 @@ public sealed class CodexUsageProvider : IUsageProvider
                 .Where(window => window.DurationMinutes is >= 1440 and <= 20160)
                 .MinBy(window => Math.Abs(window.DurationMinutes - 10080));
 
-            _logger.LogInformation("Codex refresh completed");
+            _logger.LogInformation(
+                "Provider API refresh completed | Provider={Provider} | API={Api} | WindowCount={WindowCount}",
+                Name,
+                ApiName,
+                windows.Count);
             return new UsageSnapshot
             {
                 Provider = Name,
@@ -67,12 +75,18 @@ public sealed class CodexUsageProvider : IUsageProvider
         }
         catch (CodexAppServerException)
         {
-            _logger.LogWarning("Codex usage refresh failed");
+            _logger.LogWarning(
+                "Provider API refresh failed | Provider={Provider} | API={Api}",
+                Name,
+                ApiName);
             return Failure(UsageStatus.Error, "Unable to retrieve usage", retrievedAt);
         }
         catch (Exception)
         {
-            _logger.LogWarning("Unexpected Codex usage response");
+            _logger.LogWarning(
+                "Unexpected provider API response | Provider={Provider} | API={Api}",
+                Name,
+                ApiName);
             return Failure(UsageStatus.Error, "Unable to retrieve usage", retrievedAt);
         }
     }

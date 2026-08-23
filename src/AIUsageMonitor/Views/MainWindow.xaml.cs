@@ -80,6 +80,8 @@ public partial class MainWindow : Window
     public double ClaudeRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
     public double AntigravityRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
     public double CursorRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.CursorDefaultIntervalMinutes;
+    public double IdleAfterMinutes { get; private set; } = AutoRefreshOptions.DefaultIdleAfterMinutes;
+    public double IdleRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.DefaultIdleRefreshIntervalMinutes;
     public double CodexThrottleIntervalMinutes { get; private set; } = AutoRefreshOptions.CodexDefaultThrottleMinutes;
     public double ClaudeThrottleIntervalMinutes { get; private set; } = AutoRefreshOptions.ClaudeDefaultThrottleMinutes;
     public double AntigravityThrottleIntervalMinutes { get; private set; } = AutoRefreshOptions.AntigravityDefaultThrottleMinutes;
@@ -240,6 +242,8 @@ public partial class MainWindow : Window
                 placement.AntigravityRefreshIntervalMinutes);
             CursorRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(
                 placement.CursorRefreshIntervalMinutes);
+            IdleAfterMinutes = AutoRefreshOptions.NormalizeInterval(placement.IdleAfterMinutes);
+            IdleRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(placement.IdleRefreshIntervalMinutes);
             CodexThrottleIntervalMinutes = AutoRefreshOptions.NormalizeThrottle(
                 placement.CodexThrottleIntervalMinutes);
             ClaudeThrottleIntervalMinutes = AutoRefreshOptions.NormalizeThrottle(
@@ -817,6 +821,14 @@ public partial class MainWindow : Window
         SavePlacement();
     }
 
+    public void SetIdleRefreshOptions(double idleAfterMinutes, double idleRefreshIntervalMinutes)
+    {
+        IdleAfterMinutes = AutoRefreshOptions.NormalizeInterval(idleAfterMinutes);
+        IdleRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(idleRefreshIntervalMinutes);
+        ApplyAutoRefreshOptions();
+        SavePlacement();
+    }
+
     public void SetThrottleInterval(ProviderKind provider, double minutes)
     {
         var normalized = AutoRefreshOptions.NormalizeThrottle(minutes);
@@ -847,6 +859,8 @@ public partial class MainWindow : Window
         ClaudeRefreshIntervalMinutes = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
         AntigravityRefreshIntervalMinutes = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
         CursorRefreshIntervalMinutes = AutoRefreshOptions.CursorDefaultIntervalMinutes;
+        IdleAfterMinutes = AutoRefreshOptions.DefaultIdleAfterMinutes;
+        IdleRefreshIntervalMinutes = AutoRefreshOptions.DefaultIdleRefreshIntervalMinutes;
         ApplyAutoRefreshOptions();
         SavePlacement();
     }
@@ -872,7 +886,9 @@ public partial class MainWindow : Window
             CodexRefreshIntervalMinutes,
             ClaudeRefreshIntervalMinutes,
             AntigravityRefreshIntervalMinutes,
-            CursorRefreshIntervalMinutes);
+            CursorRefreshIntervalMinutes,
+            IdleAfterMinutes,
+            IdleRefreshIntervalMinutes);
 
     private void ApplyThrottleOptions() =>
         _autoRefreshOptions.UpdateThrottle(
@@ -1319,6 +1335,8 @@ public partial class MainWindow : Window
                 ClaudeRefreshIntervalMinutes = ClaudeRefreshIntervalMinutes,
                 AntigravityRefreshIntervalMinutes = AntigravityRefreshIntervalMinutes,
                 CursorRefreshIntervalMinutes = CursorRefreshIntervalMinutes,
+                IdleAfterMinutes = IdleAfterMinutes,
+                IdleRefreshIntervalMinutes = IdleRefreshIntervalMinutes,
                 CodexThrottleIntervalMinutes = CodexThrottleIntervalMinutes,
                 ClaudeThrottleIntervalMinutes = ClaudeThrottleIntervalMinutes,
                 AntigravityThrottleIntervalMinutes = AntigravityThrottleIntervalMinutes,
@@ -1387,6 +1405,8 @@ public partial class MainWindow : Window
         public double ClaudeRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
         public double AntigravityRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
         public double CursorRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.CursorDefaultIntervalMinutes;
+        public double IdleAfterMinutes { get; init; } = AutoRefreshOptions.DefaultIdleAfterMinutes;
+        public double IdleRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.DefaultIdleRefreshIntervalMinutes;
         public double CodexThrottleIntervalMinutes { get; init; } = AutoRefreshOptions.CodexDefaultThrottleMinutes;
         public double ClaudeThrottleIntervalMinutes { get; init; } = AutoRefreshOptions.ClaudeDefaultThrottleMinutes;
         public double AntigravityThrottleIntervalMinutes { get; init; } = AutoRefreshOptions.AntigravityDefaultThrottleMinutes;

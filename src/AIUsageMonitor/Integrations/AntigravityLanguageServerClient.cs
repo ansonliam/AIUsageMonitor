@@ -93,6 +93,7 @@ public sealed partial class AntigravityLanguageServerClient
         bool forceRefresh,
         CancellationToken cancellationToken)
     {
+        var startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
         using var handler = new HttpClientHandler
         {
             ServerCertificateCustomValidationCallback = (request, _, _, _) =>
@@ -110,7 +111,16 @@ public sealed partial class AntigravityLanguageServerClient
             Encoding.UTF8,
             "application/json");
 
+        _logger.LogInformation(
+            "Provider API call started | Provider=Google Antigravity | API=RetrieveUserQuotaSummary RPC | Port={Port} | ForceRefresh={ForceRefresh}",
+            port,
+            forceRefresh);
         using var response = await client.SendAsync(request, cancellationToken);
+        _logger.LogInformation(
+            "Provider API call completed | Provider=Google Antigravity | API=RetrieveUserQuotaSummary RPC | Port={Port} | StatusCode={StatusCode} | DurationMs={DurationMs}",
+            port,
+            (int)response.StatusCode,
+            System.Diagnostics.Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds);
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
             throw new AntigravityClientException(
