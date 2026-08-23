@@ -963,6 +963,12 @@ public sealed class CodexApiCostTests
 
     // ---- ClaudeSessionLogScanner ----
 
+    // Explicit inactive config for tests that must stay deterministic regardless of whatever
+    // Bedrock/Mantle settings happen to be configured for real on the machine running the suite -
+    // the scanner's default provider reads live from ~/.claude/settings.json/environment.
+    private static readonly Func<ClaudeBedrockRoutingConfig> InactiveBedrockConfig =
+        () => new ClaudeBedrockRoutingConfig(IsActive: false, Region: "");
+
     private static string ClaudeAssistantLine(
         DateTimeOffset timestamp,
         string messageId,
@@ -988,7 +994,7 @@ public sealed class CodexApiCostTests
             ""
         ]));
 
-        var scanner = new ClaudeSessionLogScanner(root);
+        var scanner = new ClaudeSessionLogScanner(root, InactiveBedrockConfig);
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
         Assert.AreEqual(1, events.Count);
@@ -1012,7 +1018,65 @@ public sealed class CodexApiCostTests
             ""
         ]));
 
-        var scanner = new ClaudeSessionLogScanner(root);
+        var scanner = new ClaudeSessionLogScanner(root, InactiveBedrockConfig);
+        var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
+
+        Assert.AreEqual(0, events.Count);
+    }
+
+    [TestMethod]
+    public void ClaudeSessionLogScanner_ConfigBedrockActive_CountsPlainModelIds_WithConfiguredRegion()
+    {
+        var root = CreateTempDirectory();
+        var now = DateTimeOffset.UtcNow;
+        WriteSessionFile(root, "session.jsonl", string.Join('\n',
+        [
+            ClaudeAssistantLine(now, "msg_1", "claude-sonnet-5", 100, 10, 5, 50),
+            ""
+        ]));
+
+        var scanner = new ClaudeSessionLogScanner(
+            root,
+            () => new ClaudeBedrockRoutingConfig(IsActive: true, Region: "ap-southeast-2"));
+        var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
+
+        Assert.AreEqual(1, events.Count);
+        Assert.AreEqual("ap-southeast-2", events[0].Region);
+        Assert.AreEqual("claude-sonnet", events[0].Model);
+        Assert.AreEqual("claude-sonnet-5", events[0].RawModelId);
+    }
+
+    [TestMethod]
+    public void ClaudeSessionLogScanner_ConfigBedrockActive_StillIgnoresSyntheticSentinel()
+    {
+        var root = CreateTempDirectory();
+        var now = DateTimeOffset.UtcNow;
+        WriteSessionFile(root, "session.jsonl", string.Join('\n',
+        [
+            ClaudeAssistantLine(now, "msg_1", "<synthetic>", 100, 0, 0, 50),
+            ""
+        ]));
+
+        var scanner = new ClaudeSessionLogScanner(
+            root,
+            () => new ClaudeBedrockRoutingConfig(IsActive: true, Region: "ap-southeast-2"));
+        var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
+
+        Assert.AreEqual(0, events.Count);
+    }
+
+    [TestMethod]
+    public void ClaudeSessionLogScanner_ConfigBedrockInactive_StillIgnoresPlainModelIds()
+    {
+        var root = CreateTempDirectory();
+        var now = DateTimeOffset.UtcNow;
+        WriteSessionFile(root, "session.jsonl", string.Join('\n',
+        [
+            ClaudeAssistantLine(now, "msg_1", "claude-sonnet-5", 100, 0, 0, 50),
+            ""
+        ]));
+
+        var scanner = new ClaudeSessionLogScanner(root, InactiveBedrockConfig);
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
         Assert.AreEqual(0, events.Count);
@@ -1034,7 +1098,7 @@ public sealed class CodexApiCostTests
             ""
         ]));
 
-        var scanner = new ClaudeSessionLogScanner(root);
+        var scanner = new ClaudeSessionLogScanner(root, InactiveBedrockConfig);
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
         Assert.AreEqual(2, events.Count);
@@ -1060,7 +1124,7 @@ public sealed class CodexApiCostTests
             "\"cache_read_input_tokens\":0,\"cache_creation_input_tokens\":0,\"output_tokens\":5}}}";
         WriteSessionFile(root, "session.jsonl", line + "\n");
 
-        var scanner = new ClaudeSessionLogScanner(root);
+        var scanner = new ClaudeSessionLogScanner(root, InactiveBedrockConfig);
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
         Assert.AreEqual(1, events.Count);
@@ -1071,7 +1135,7 @@ public sealed class CodexApiCostTests
     public void ClaudeSessionLogScanner_MissingDirectory_ReturnsEmptyWithoutThrowing()
     {
         var root = Path.Combine(CreateTempDirectory(), "does-not-exist");
-        var scanner = new ClaudeSessionLogScanner(root);
+        var scanner = new ClaudeSessionLogScanner(root, InactiveBedrockConfig);
 
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
@@ -1122,7 +1186,7 @@ public sealed class CodexApiCostTests
             new CodexPricingRegistry(),
             MakeRefreshService(),
             NullLogger<CodexApiCostService>.Instance,
-            new ClaudeSessionLogScanner(claudeProjectsRoot),
+            new ClaudeSessionLogScanner(claudeProjectsRoot, InactiveBedrockConfig),
             new ClaudePricingRegistry());
 
         await service.RefreshAsync();
@@ -1133,5 +1197,60 @@ public sealed class CodexApiCostTests
         Assert.AreEqual(expected, summary.MonthCost);
         Assert.IsFalse(summary.PricingUnavailable);
         Assert.AreEqual(1, summary.RequestCount);
+    }
+
+    // ---- ClaudeBedrockRoutingConfigReader ----
+
+    [TestMethod]
+    public void ClaudeBedrockRoutingConfigReader_ReadsBedrockFlagAndRegion_FromSettingsJson()
+    {
+        var root = CreateTempDirectory();
+        File.WriteAllText(Path.Combine(root, "settings.json"), """
+            { "env": { "CLAUDE_CODE_USE_BEDROCK": "1", "AWS_REGION": "ap-southeast-2" } }
+            """);
+
+        var config = ClaudeBedrockRoutingConfigReader.Read(root, _ => null);
+
+        Assert.IsTrue(config.IsActive);
+        Assert.AreEqual("ap-southeast-2", config.Region);
+    }
+
+    [TestMethod]
+    public void ClaudeBedrockRoutingConfigReader_ReadsMantleFlagAndRegion_FromEnvironmentVariables()
+    {
+        var root = CreateTempDirectory();
+        var env = new Dictionary<string, string?>
+        {
+            ["CLAUDE_CODE_USE_MANTLE"] = "1",
+            ["ANTHROPIC_BEDROCK_MANTLE_BASE_URL"] = "https://bedrock-mantle.ap-southeast-4.api.aws/anthropic"
+        };
+
+        var config = ClaudeBedrockRoutingConfigReader.Read(root, key => env.GetValueOrDefault(key));
+
+        Assert.IsTrue(config.IsActive);
+        Assert.AreEqual("ap-southeast-4", config.Region);
+    }
+
+    [TestMethod]
+    public void ClaudeBedrockRoutingConfigReader_MissingSettingsFileAndNoEnv_IsInactiveWithoutThrowing()
+    {
+        var root = Path.Combine(CreateTempDirectory(), "does-not-exist");
+
+        var config = ClaudeBedrockRoutingConfigReader.Read(root, _ => null);
+
+        Assert.IsFalse(config.IsActive);
+        Assert.AreEqual("", config.Region);
+    }
+
+    [TestMethod]
+    public void ClaudeBedrockRoutingConfigReader_MalformedSettingsJson_IsInactiveWithoutThrowing()
+    {
+        var root = CreateTempDirectory();
+        File.WriteAllText(Path.Combine(root, "settings.json"), "{ not valid json");
+
+        var config = ClaudeBedrockRoutingConfigReader.Read(root, _ => null);
+
+        Assert.IsFalse(config.IsActive);
+        Assert.AreEqual("", config.Region);
     }
 }

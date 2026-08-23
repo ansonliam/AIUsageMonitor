@@ -10,32 +10,43 @@ namespace AIUsageMonitor.Services;
 // looking for assistant turns that were actually routed through AWS Bedrock, and turns their token
 // usage into ClaudeApiUsageEvent records. Read-only - never modifies anything under ~/.claude.
 //
-// Detection heuristic (this is inherently a heuristic - Claude Code's JSONL schema has no explicit
-// "provider: bedrock" field to key off of):
-//   - A model id containing "bedrock" (seen on some Bedrock-routed records' metadata).
-//   - A model id starting with "anthropic.claude" (Bedrock's own non-cross-region model id format,
-//     e.g. "anthropic.claude-3-5-sonnet-20241022-v2:0" - Anthropic's first-party API instead uses
-//     bare ids like "claude-3-5-sonnet-20241022", never prefixed with "anthropic.").
-//   - A model id starting with a short geography prefix in front of that same "anthropic.claude..."
-//     id - Bedrock's cross-region inference profile id format, e.g. "us.anthropic.claude-...". The
-//     prefix ("us"/"eu"/"apac"/"jp"/"ap") is also the only widely-available signal for which AWS
-//     region served the request, so it doubles as the Region value used to attribute usage to a
-//     specific configured endpoint when more than one Claude Bedrock endpoint exists.
-// Records that don't match any of the above are assumed to be Anthropic's own first-party API and
-// are ignored entirely - they must never be counted as Bedrock spend.
+// Detection has two layers, because Claude Code's JSONL schema has no explicit "provider: bedrock"
+// field to key off of, and in practice real transcripts always log the bare short model id (e.g.
+// "claude-sonnet-5") regardless of which backend served the request - the string-based checks
+// below essentially never match on real logs. They're kept because they're harmless and would
+// match if a client ever did log a fuller id, but the config-driven fallback is what actually
+// carries real-world detection:
+//   - String heuristic: a model id containing "bedrock"; a model id starting with
+//     "anthropic.claude" (Bedrock's own non-cross-region model id format - Anthropic's first-party
+//     API instead uses bare ids like "claude-3-5-sonnet-20241022", never prefixed with
+//     "anthropic."); or a model id starting with a short geography prefix in front of that same
+//     "anthropic.claude..." id (Bedrock's cross-region inference profile format, e.g.
+//     "us.anthropic.claude-...") - the prefix also doubles as the Region value in that case.
+//   - Config-driven fallback (see ClaudeBedrockRoutingConfigReader): if this Claude Code install
+//     is configured to route through Bedrock at all (CLAUDE_CODE_USE_BEDROCK or
+//     CLAUDE_CODE_USE_MANTLE), every record whose model id looks like a genuine Claude model
+//     (contains "claude", which excludes the "<synthetic>" sentinel seen for non-billable
+//     placeholder turns) is treated as Bedrock-routed too, with the region taken from config
+//     rather than parsed out of the id.
+// Records that don't match either layer are assumed to be Anthropic's own first-party API and are
+// ignored entirely - they must never be counted as Bedrock spend.
 public sealed partial class ClaudeSessionLogScanner
 {
     private readonly string _projectsRoot;
+    private readonly Func<ClaudeBedrockRoutingConfig> _bedrockConfigProvider;
 
-    public ClaudeSessionLogScanner(string? rootDirectory = null)
+    public ClaudeSessionLogScanner(
+        string? rootDirectory = null,
+        Func<ClaudeBedrockRoutingConfig>? bedrockConfigProvider = null)
     {
         _projectsRoot = rootDirectory ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".claude",
             "projects");
+        _bedrockConfigProvider = bedrockConfigProvider ?? (() => ClaudeBedrockRoutingConfigReader.Read());
     }
 
-    [GeneratedRegex(@"^(us|eu|apac|jp|ap)\.anthropic\.claude", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"^(us|eu|apac|jp|ap|au)\.anthropic\.claude", RegexOptions.IgnoreCase)]
     private static partial Regex BedrockRegionPrefixPattern();
 
     public IReadOnlyList<ClaudeApiUsageEvent> ScanNew(Dictionary<string, CodexSessionFileState> fileStates)
@@ -45,6 +56,7 @@ public sealed partial class ClaudeSessionLogScanner
             return [];
         }
 
+        var bedrockConfig = _bedrockConfigProvider();
         var events = new List<ClaudeApiUsageEvent>();
         IEnumerable<string> files;
         try
@@ -64,7 +76,7 @@ public sealed partial class ClaudeSessionLogScanner
         {
             try
             {
-                ScanFile(path, fileStates, events);
+                ScanFile(path, fileStates, bedrockConfig, events);
             }
             catch (IOException)
             {
@@ -80,6 +92,7 @@ public sealed partial class ClaudeSessionLogScanner
     private static void ScanFile(
         string path,
         Dictionary<string, CodexSessionFileState> fileStates,
+        ClaudeBedrockRoutingConfig bedrockConfig,
         List<ClaudeApiUsageEvent> events)
     {
         var lastWriteTimeUtc = File.GetLastWriteTimeUtc(path);
@@ -144,14 +157,19 @@ public sealed partial class ClaudeSessionLogScanner
         {
             if (!string.IsNullOrWhiteSpace(line))
             {
-                ProcessLine(path, lineIndex, line, events);
+                ProcessLine(path, lineIndex, line, bedrockConfig, events);
             }
 
             lineIndex++;
         }
     }
 
-    private static void ProcessLine(string path, int lineIndex, string line, List<ClaudeApiUsageEvent> events)
+    private static void ProcessLine(
+        string path,
+        int lineIndex,
+        string line,
+        ClaudeBedrockRoutingConfig bedrockConfig,
+        List<ClaudeApiUsageEvent> events)
     {
         JsonDocument document;
         try
@@ -178,7 +196,7 @@ public sealed partial class ClaudeSessionLogScanner
             }
 
             var model = GetString(message, "model");
-            if (model is null || !TryDetectBedrock(model, out var region))
+            if (model is null || !TryDetectBedrock(model, bedrockConfig, out var region))
             {
                 return;
             }
@@ -222,7 +240,7 @@ public sealed partial class ClaudeSessionLogScanner
         }
     }
 
-    private static bool TryDetectBedrock(string model, out string? region)
+    private static bool TryDetectBedrock(string model, ClaudeBedrockRoutingConfig bedrockConfig, out string? region)
     {
         region = null;
 
@@ -240,6 +258,17 @@ public sealed partial class ClaudeSessionLogScanner
 
         if (model.StartsWith("anthropic.claude", StringComparison.OrdinalIgnoreCase))
         {
+            return true;
+        }
+
+        // Real Claude Code transcripts always log the bare short model id regardless of backend,
+        // so none of the string checks above ever match in practice - this is the signal that
+        // actually does the work. "<synthetic>" is a real sentinel value seen for non-billable
+        // placeholder turns and must never be counted just because it happens to contain no
+        // "claude" substring to match against.
+        if (bedrockConfig.IsActive && model.Contains("claude", StringComparison.OrdinalIgnoreCase))
+        {
+            region = bedrockConfig.Region.Length > 0 ? bedrockConfig.Region : null;
             return true;
         }
 

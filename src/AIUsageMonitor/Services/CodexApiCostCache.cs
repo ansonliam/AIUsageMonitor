@@ -12,7 +12,13 @@ public sealed record CodexTurnAttribution(string Host, DateTimeOffset FirstSeenA
 
 public sealed class CodexApiScanState
 {
-    public const int CurrentUsageCacheSchemaVersion = 2;
+    // Bumped to 3: ClaudeSessionLogScanner gained a config-driven Bedrock detection fallback
+    // (previously it only matched region-prefixed/"anthropic."-prefixed model ids, which real
+    // Claude Code transcripts never actually contain - see ClaudeBedrockRoutingConfigReader).
+    // Existing ClaudeSessionFiles entries already have their Offset advanced past every byte the
+    // old scanner "consumed" while finding nothing, so without this bump the fix would only ever
+    // apply to newly appended lines, not the historical backlog.
+    public const int CurrentUsageCacheSchemaVersion = 3;
 
     // Zero means a cache created before schema versioning; it must be rebuilt.
     public int UsageCacheSchemaVersion { get; set; }
