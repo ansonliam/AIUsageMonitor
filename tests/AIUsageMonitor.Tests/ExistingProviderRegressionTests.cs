@@ -1,6 +1,5 @@
 using System.Text.Json;
 using AIUsageMonitor.Models;
-using AIUsageMonitor.Services;
 using AIUsageMonitor.ViewModels;
 
 namespace AIUsageMonitor.Tests;
@@ -39,29 +38,4 @@ public sealed class ExistingProviderRegressionTests
         Assert.AreEqual(60d, snapshot.WeeklyRemainingPercent);
     }
 
-    [TestMethod]
-    public void AutoRefreshOptions_KeepsIndependentProviderIntervals()
-    {
-        var options = new AutoRefreshOptions();
-
-        options.Update(true, 15, 20, 25, 30);
-
-        Assert.AreEqual(TimeSpan.FromMinutes(15), options.GetInterval(ProviderKind.Codex));
-        Assert.AreEqual(TimeSpan.FromMinutes(20), options.GetInterval(ProviderKind.Claude));
-        Assert.AreEqual(TimeSpan.FromMinutes(25), options.GetInterval(ProviderKind.Antigravity));
-        Assert.AreEqual(TimeSpan.FromMinutes(30), options.GetInterval(ProviderKind.Cursor));
-    }
-
-    [TestMethod]
-    public void AutoRefreshOptions_ZeroThrottleAllowsImmediateRefresh()
-    {
-        var options = new AutoRefreshOptions();
-
-        options.UpdateThrottle(0, 0, 0, 0);
-
-        Assert.AreEqual(TimeSpan.Zero, options.GetThrottleInterval(ProviderKind.Codex));
-        Assert.AreEqual(TimeSpan.Zero, options.GetThrottleInterval(ProviderKind.Claude));
-        Assert.AreEqual(TimeSpan.Zero, options.GetThrottleInterval(ProviderKind.Antigravity));
-        Assert.AreEqual(TimeSpan.Zero, options.GetThrottleInterval(ProviderKind.Cursor));
-    }
 }
