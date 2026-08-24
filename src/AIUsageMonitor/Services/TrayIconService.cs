@@ -24,6 +24,7 @@ public sealed class TrayIconService : IDisposable
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Open Window Widget", null, (_, _) => _applicationController.ShowMainWindow());
         menu.Items.Add("Hide Window Widget", null, (_, _) => _applicationController.HideMainWindow());
+        menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Open Taskbar Widget", null, (_, _) => _applicationController.SetTaskbarWidgetVisibility(true));
         menu.Items.Add("Hide Taskbar Widget", null, (_, _) => _applicationController.SetTaskbarWidgetVisibility(false));
         menu.Items.Add(new Forms.ToolStripSeparator());
