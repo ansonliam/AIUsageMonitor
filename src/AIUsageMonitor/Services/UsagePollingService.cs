@@ -72,8 +72,8 @@ public sealed class UsagePollingService : IDisposable
                     continue;
                 }
 
-                var idleTime = _idleTimeProvider.GetIdleTime();
-                var interval = _options.GetScheduledInterval(provider, idleTime);
+                var idleTimeWhenScheduled = _idleTimeProvider.GetIdleTime();
+                var interval = _options.GetScheduledInterval(provider, idleTimeWhenScheduled);
                 var delay = Task.Delay(interval, cancellationToken);
                 if (await Task.WhenAny(delay, settingsChanged, providerReset) != delay)
                 {
@@ -82,12 +82,17 @@ public sealed class UsagePollingService : IDisposable
                     continue;
                 }
 
+                var idleTimeNow = _idleTimeProvider.GetIdleTime();
                 _logger.LogInformation(
-                    "Scheduled refresh is due | Provider={Provider} | Interval={Interval} | ComputerIdle={ComputerIdle} | IdleDuration={IdleDuration}",
+                    "Scheduled refresh is due | Provider={Provider} | Interval={Interval} | " +
+                    "ComputerIdleWhenScheduled={ComputerIdleWhenScheduled} | IdleDurationWhenScheduled={IdleDurationWhenScheduled} | " +
+                    "ComputerIdleNow={ComputerIdleNow} | IdleDurationNow={IdleDurationNow}",
                     provider,
                     interval,
-                    _options.IsComputerIdle(idleTime),
-                    idleTime);
+                    _options.IsComputerIdle(idleTimeWhenScheduled),
+                    idleTimeWhenScheduled,
+                    _options.IsComputerIdle(idleTimeNow),
+                    idleTimeNow);
                 await _refreshService.RequestRefreshAsync(provider, RefreshReason.Scheduled);
             }
         }
