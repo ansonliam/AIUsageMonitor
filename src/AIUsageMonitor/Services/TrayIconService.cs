@@ -1,5 +1,6 @@
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace AIUsageMonitor.Services;
@@ -10,6 +11,8 @@ public sealed class TrayIconService : IDisposable
     private readonly GitHubReleaseService _gitHubReleaseService;
     private Drawing.Icon? _applicationIcon;
     private Forms.NotifyIcon? _notifyIcon;
+    private Forms.ToolStripMenuItem? _updateMenuItem;
+    private Uri? _updateReleaseUrl;
 
     public TrayIconService(
         IApplicationController applicationController,
@@ -27,12 +30,15 @@ public sealed class TrayIconService : IDisposable
         }
 
         var menu = new Forms.ContextMenuStrip();
+        _updateMenuItem = new Forms.ToolStripMenuItem { Visible = false };
         var windowWidgetMenuItem = new Forms.ToolStripMenuItem();
         var taskbarWidgetMenuItem = new Forms.ToolStripMenuItem();
+        _updateMenuItem.Click += (_, _) => OpenUpdateRelease();
         windowWidgetMenuItem.Click += (_, _) => ToggleWindowWidget();
         taskbarWidgetMenuItem.Click += (_, _) => ToggleTaskbarWidget();
         menu.Opening += (_, _) => UpdateWidgetVisibilityMenuItems(windowWidgetMenuItem, taskbarWidgetMenuItem);
 
+        menu.Items.Add(_updateMenuItem);
         menu.Items.Add(windowWidgetMenuItem);
         menu.Items.Add(taskbarWidgetMenuItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
@@ -63,8 +69,28 @@ public sealed class TrayIconService : IDisposable
 
         var updateIcon = CreateUpdateAvailableIcon(_applicationIcon);
         _notifyIcon.Icon = updateIcon;
+        _notifyIcon.Text = $"AI Usage Monitor - Update available: {result.LatestReleaseTag}";
+        _updateReleaseUrl = result.ReleaseUrl;
+        if (_updateMenuItem is not null)
+        {
+            _updateMenuItem.Text = $"Update available: {result.LatestReleaseTag}";
+            _updateMenuItem.Visible = true;
+        }
         _applicationIcon.Dispose();
         _applicationIcon = updateIcon;
+    }
+
+    private void OpenUpdateRelease()
+    {
+        if (_updateReleaseUrl is null)
+        {
+            return;
+        }
+
+        Process.Start(new ProcessStartInfo(_updateReleaseUrl.AbsoluteUri)
+        {
+            UseShellExecute = true
+        });
     }
 
     private void ToggleWindowWidget()
@@ -106,6 +132,8 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon.ContextMenuStrip?.Dispose();
         _notifyIcon.Dispose();
         _notifyIcon = null;
+        _updateMenuItem = null;
+        _updateReleaseUrl = null;
         _applicationIcon?.Dispose();
         _applicationIcon = null;
     }
