@@ -16,6 +16,7 @@
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <converters:HookStatusColorConverter x:Key="HookStatusColorConverter" />
+        <converters:HexColorBrushConverter x:Key="HexColorBrushConverter" />
         <Style TargetType="Button">
             <Setter Property="MinHeight" Value="28" />
             <Setter Property="Padding" Value="10,4" />
@@ -361,35 +362,50 @@
                 <UniformGrid Columns="2">
                     <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
                         <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 1" />
-                        <TextBox Width="90" Text="{Binding GreenColorHex}" />
+                        <TextBox x:Name="GreenColorTextBox" Width="90" Text="{Binding GreenColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=GreenColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=GreenColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
                         <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
                         <TextBox Width="40" Text="{Binding Stage1MaxPercent}" />
                         <TextBlock VerticalAlignment="Center" Text="%" />
                     </StackPanel>
                     <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
                         <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 2" />
-                        <TextBox Width="90" Text="{Binding LimeColorHex}" />
+                        <TextBox x:Name="LimeColorTextBox" Width="90" Text="{Binding LimeColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=LimeColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=LimeColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
                         <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
                         <TextBox Width="40" Text="{Binding Stage2MaxPercent}" />
                         <TextBlock VerticalAlignment="Center" Text="%" />
                     </StackPanel>
                     <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
                         <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 3" />
-                        <TextBox Width="90" Text="{Binding YellowColorHex}" />
+                        <TextBox x:Name="YellowColorTextBox" Width="90" Text="{Binding YellowColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=YellowColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=YellowColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
                         <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
                         <TextBox Width="40" Text="{Binding Stage3MaxPercent}" />
                         <TextBlock VerticalAlignment="Center" Text="%" />
                     </StackPanel>
                     <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
                         <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 4" />
-                        <TextBox Width="90" Text="{Binding OrangeColorHex}" />
+                        <TextBox x:Name="OrangeColorTextBox" Width="90" Text="{Binding OrangeColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=OrangeColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=OrangeColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
                         <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
                         <TextBox Width="40" Text="{Binding Stage4MaxPercent}" />
                         <TextBlock VerticalAlignment="Center" Text="%" />
                     </StackPanel>
                     <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
                         <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 5" />
-                        <TextBox Width="90" Text="{Binding RedColorHex}" />
+                        <TextBox x:Name="RedColorTextBox" Width="90" Text="{Binding RedColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=RedColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=RedColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
                         <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
                         <TextBox Width="40" Text="{Binding Stage5MaxPercent}" />
                         <TextBlock VerticalAlignment="Center" Text="%" />
@@ -462,35 +478,50 @@
                 <UniformGrid Columns="2" IsEnabled="{Binding ShowTaskbarWidget}">
                     <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
                         <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 1" />
-                        <TextBox Width="90" Text="{Binding TaskbarGreenColorHex}" />
+                        <TextBox x:Name="TaskbarGreenColorTextBox" Width="90" Text="{Binding TaskbarGreenColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=TaskbarGreenColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=TaskbarGreenColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
                         <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
                         <TextBox Width="40" Text="{Binding TaskbarStage1MaxPercent}" />
                         <TextBlock VerticalAlignment="Center" Text="%" />
                     </StackPanel>
                     <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
                         <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 2" />
-                        <TextBox Width="90" Text="{Binding TaskbarLimeColorHex}" />
+                        <TextBox x:Name="TaskbarLimeColorTextBox" Width="90" Text="{Binding TaskbarLimeColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=TaskbarLimeColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=TaskbarLimeColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
                         <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
                         <TextBox Width="40" Text="{Binding TaskbarStage2MaxPercent}" />
                         <TextBlock VerticalAlignment="Center" Text="%" />
                     </StackPanel>
                     <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
                         <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 3" />
-                        <TextBox Width="90" Text="{Binding TaskbarYellowColorHex}" />
+                        <TextBox x:Name="TaskbarYellowColorTextBox" Width="90" Text="{Binding TaskbarYellowColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=TaskbarYellowColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=TaskbarYellowColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
                         <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
                         <TextBox Width="40" Text="{Binding TaskbarStage3MaxPercent}" />
                         <TextBlock VerticalAlignment="Center" Text="%" />
                     </StackPanel>
                     <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
                         <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 4" />
-                        <TextBox Width="90" Text="{Binding TaskbarOrangeColorHex}" />
+                        <TextBox x:Name="TaskbarOrangeColorTextBox" Width="90" Text="{Binding TaskbarOrangeColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=TaskbarOrangeColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=TaskbarOrangeColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
                         <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
                         <TextBox Width="40" Text="{Binding TaskbarStage4MaxPercent}" />
                         <TextBlock VerticalAlignment="Center" Text="%" />
                     </StackPanel>
                     <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
                         <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 5" />
-                        <TextBox Width="90" Text="{Binding TaskbarRedColorHex}" />
+                        <TextBox x:Name="TaskbarRedColorTextBox" Width="90" Text="{Binding TaskbarRedColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=TaskbarRedColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=TaskbarRedColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
                         <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
                         <TextBox Width="40" Text="{Binding TaskbarStage5MaxPercent}" />
                         <TextBlock VerticalAlignment="Center" Text="%" />
