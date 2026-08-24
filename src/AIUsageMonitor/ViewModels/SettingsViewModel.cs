@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Windows.Input;
+using AIUsageMonitor.Authentication;
 using AIUsageMonitor.Integrations;
 using AIUsageMonitor.Models;
 using AIUsageMonitor.Services;
@@ -14,6 +15,7 @@ public sealed class SettingsViewModel : ObservableObject
 {
     private readonly CodexHookInstaller _codexHookInstaller;
     private readonly ClaudeHookInstaller _claudeHookInstaller;
+    private readonly ClaudeAuthentication _claudeAuthentication;
     private readonly AntigravityHookInstaller _antigravityHookInstaller;
     private readonly CursorHookInstaller _cursorHookInstaller;
     private readonly IApplicationController _applicationController;
@@ -25,6 +27,7 @@ public sealed class SettingsViewModel : ObservableObject
     private string _codexApiCostStatus = "";
     private string _codexHookStatus = "Checking…";
     private string _claudeHookStatus = "Checking…";
+    private string _claudeCredentialSource = "Checking…";
     private string _antigravityHookStatus = "Checking…";
     private string _cursorHookStatus = "Checking…";
     private string _testResult = string.Empty;
@@ -84,6 +87,7 @@ public sealed class SettingsViewModel : ObservableObject
     public SettingsViewModel(
         CodexHookInstaller codexHookInstaller,
         ClaudeHookInstaller claudeHookInstaller,
+        ClaudeAuthentication claudeAuthentication,
         AntigravityHookInstaller antigravityHookInstaller,
         CursorHookInstaller cursorHookInstaller,
         MainWindow mainWindow,
@@ -95,6 +99,7 @@ public sealed class SettingsViewModel : ObservableObject
     {
         _codexHookInstaller = codexHookInstaller;
         _claudeHookInstaller = claudeHookInstaller;
+        _claudeAuthentication = claudeAuthentication;
         _antigravityHookInstaller = antigravityHookInstaller;
         _cursorHookInstaller = cursorHookInstaller;
         _mainWindow = mainWindow;
@@ -197,6 +202,7 @@ public sealed class SettingsViewModel : ObservableObject
     public string CodexHookStatus { get => _codexHookStatus; private set => SetProperty(ref _codexHookStatus, value); }
     public string TestResult { get => _testResult; private set => SetProperty(ref _testResult, value); }
     public string ClaudeHookStatus { get => _claudeHookStatus; private set => SetProperty(ref _claudeHookStatus, value); }
+    public string ClaudeCredentialSource { get => _claudeCredentialSource; private set => SetProperty(ref _claudeCredentialSource, value); }
     public string AntigravityHookStatus
     {
         get => _antigravityHookStatus;
@@ -787,6 +793,23 @@ public sealed class SettingsViewModel : ObservableObject
         ClaudeHookStatus = FormatStatus(_claudeHookInstaller.GetStatus());
         AntigravityHookStatus = FormatStatus(_antigravityHookInstaller.GetStatus());
         CursorHookStatus = FormatStatus(_cursorHookInstaller.GetStatus());
+        _ = RefreshClaudeCredentialSourceAsync();
+    }
+
+    private async Task RefreshClaudeCredentialSourceAsync()
+    {
+        try
+        {
+            // Reading falls back to probing WSL distributions when no Windows
+            // credential file exists, so keep the blocking work off the UI thread.
+            await Task.Run(() => _claudeAuthentication.RefreshAuthenticationStateAsync());
+        }
+        catch
+        {
+            // The credential source display is best-effort; failures surface as "Not found".
+        }
+
+        ClaudeCredentialSource = _claudeAuthentication.CredentialSourceDescription ?? "Not found";
     }
 
     public void RefreshWindowState()

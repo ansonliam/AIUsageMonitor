@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -15,6 +16,7 @@ public sealed class ClaudeAuthentication : IProviderAuthentication, IDisposable
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<ClaudeAuthentication> _logger;
     private readonly SemaphoreSlim _credentialGate = new(1, 1);
+    private CredentialLocation? _lastLocation;
 
     public ClaudeAuthentication(
         IHttpClientFactory httpClientFactory,
@@ -25,6 +27,18 @@ public sealed class ClaudeAuthentication : IProviderAuthentication, IDisposable
     }
 
     public bool IsAuthenticated { get; private set; }
+
+    /// <summary>
+    /// Where the currently loaded credential came from, for display in Settings.
+    /// Null until a credential has been read at least once.
+    /// </summary>
+    public string? CredentialSourceDescription => _lastLocation switch
+    {
+        null => null,
+        { Kind: CredentialSourceKind.Windows } => "Windows",
+        { Kind: CredentialSourceKind.Wsl } location => $"WSL ({location.WslDistro})",
+        _ => null
+    };
 
     public Task RefreshAuthenticationStateAsync(CancellationToken cancellationToken = default)
     {
@@ -140,55 +154,112 @@ public sealed class ClaudeAuthentication : IProviderAuthentication, IDisposable
     private ClaudeCredential? ReadCredential()
     {
         var path = GetCredentialPath();
-        if (!File.Exists(path))
+        if (File.Exists(path))
         {
-            return null;
+            var credential = ParseCredentialContent(File.ReadAllText(path));
+            if (credential is not null)
+            {
+                _lastLocation = new CredentialLocation(CredentialSourceKind.Windows, WslDistro: null);
+                return credential;
+            }
         }
 
-        using var document = JsonDocument.Parse(File.ReadAllText(path));
-        if (!document.RootElement.TryGetProperty("claudeAiOauth", out var oauth) ||
-            oauth.ValueKind != JsonValueKind.Object)
+        foreach (var distro in ListWslDistros())
         {
-            return null;
+            var content = TryReadWslCredentialFile(distro);
+            if (content is null)
+            {
+                continue;
+            }
+
+            var credential = ParseCredentialContent(content);
+            if (credential is not null)
+            {
+                _lastLocation = new CredentialLocation(CredentialSourceKind.Wsl, distro);
+                return credential;
+            }
         }
 
-        var expiresAt = oauth.TryGetProperty("expiresAt", out var expiresElement) &&
-                        expiresElement.TryGetInt64(out var milliseconds)
-            ? DateTimeOffset.FromUnixTimeMilliseconds(milliseconds)
-            : DateTimeOffset.MinValue;
-        var scopes = oauth.TryGetProperty("scopes", out var scopesElement) &&
-                     scopesElement.ValueKind == JsonValueKind.Array
-            ? scopesElement.EnumerateArray()
-                .Where(item => item.ValueKind == JsonValueKind.String)
-                .Select(item => item.GetString())
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .Cast<string>()
-                .ToArray()
-            : [];
-
-        return new ClaudeCredential(
-            ReadOptionalString(oauth, "accessToken") ?? string.Empty,
-            ReadOptionalString(oauth, "refreshToken") ?? string.Empty,
-            expiresAt,
-            scopes);
+        _lastLocation = null;
+        return null;
     }
 
-    private static async Task PersistCredentialAsync(
+    private static ClaudeCredential? ParseCredentialContent(string content)
+    {
+        JsonDocument document;
+        try
+        {
+            document = JsonDocument.Parse(content);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        using (document)
+        {
+            if (!document.RootElement.TryGetProperty("claudeAiOauth", out var oauth) ||
+                oauth.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            var expiresAt = oauth.TryGetProperty("expiresAt", out var expiresElement) &&
+                            expiresElement.TryGetInt64(out var milliseconds)
+                ? DateTimeOffset.FromUnixTimeMilliseconds(milliseconds)
+                : DateTimeOffset.MinValue;
+            var scopes = oauth.TryGetProperty("scopes", out var scopesElement) &&
+                         scopesElement.ValueKind == JsonValueKind.Array
+                ? scopesElement.EnumerateArray()
+                    .Where(item => item.ValueKind == JsonValueKind.String)
+                    .Select(item => item.GetString())
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Cast<string>()
+                    .ToArray()
+                : [];
+
+            return new ClaudeCredential(
+                ReadOptionalString(oauth, "accessToken") ?? string.Empty,
+                ReadOptionalString(oauth, "refreshToken") ?? string.Empty,
+                expiresAt,
+                scopes);
+        }
+    }
+
+    private async Task PersistCredentialAsync(
         string accessToken,
         string refreshToken,
         DateTimeOffset expiresAt,
         IReadOnlyList<string> scopes,
         CancellationToken cancellationToken)
     {
-        var path = GetCredentialPath();
-        var root = File.Exists(path)
-            ? JsonNode.Parse(await File.ReadAllTextAsync(path, cancellationToken)) as JsonObject
-            : new JsonObject();
-        if (root is null)
+        if (_lastLocation is { Kind: CredentialSourceKind.Wsl } wslLocation)
         {
-            throw new JsonException("Claude credential root is invalid.");
+            var existing = TryReadWslCredentialFile(wslLocation.WslDistro!);
+            var json = BuildCredentialJson(existing, accessToken, refreshToken, expiresAt, scopes);
+            await PersistWslCredentialAsync(wslLocation.WslDistro!, json, cancellationToken);
+            return;
         }
 
+        var path = GetCredentialPath();
+        var existingWindows = File.Exists(path) ? await File.ReadAllTextAsync(path, cancellationToken) : null;
+        var content = BuildCredentialJson(existingWindows, accessToken, refreshToken, expiresAt, scopes);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var temporaryPath = path + ".ai-usage-monitor.tmp";
+        await File.WriteAllTextAsync(temporaryPath, content, cancellationToken);
+        File.Move(temporaryPath, path, overwrite: true);
+        _lastLocation = new CredentialLocation(CredentialSourceKind.Windows, WslDistro: null);
+    }
+
+    private static string BuildCredentialJson(
+        string? existingContent,
+        string accessToken,
+        string refreshToken,
+        DateTimeOffset expiresAt,
+        IReadOnlyList<string> scopes)
+    {
+        var root = (existingContent is not null ? JsonNode.Parse(existingContent) as JsonObject : null) ?? new JsonObject();
         var oauth = root["claudeAiOauth"] as JsonObject ?? new JsonObject();
         root["claudeAiOauth"] = oauth;
         oauth["accessToken"] = accessToken;
@@ -196,17 +267,168 @@ public sealed class ClaudeAuthentication : IProviderAuthentication, IDisposable
         oauth["expiresAt"] = expiresAt.ToUnixTimeMilliseconds();
         oauth["scopes"] = new JsonArray(scopes.Select(scope => (JsonNode?)JsonValue.Create(scope)).ToArray());
 
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var temporaryPath = path + ".ai-usage-monitor.tmp";
         var options = new JsonSerializerOptions { WriteIndented = true };
-        await File.WriteAllTextAsync(
-            temporaryPath,
-            root.ToJsonString(options) + Environment.NewLine,
-            cancellationToken);
-        File.Move(temporaryPath, path, overwrite: true);
+        return root.ToJsonString(options) + Environment.NewLine;
     }
 
     private static string GetCredentialPath() => Path.Combine(GetClaudeDirectory(), ".credentials.json");
+
+    /// <summary>
+    /// Lists installed WSL distributions, cheapest-first so a machine with
+    /// Windows-side credentials never has to spawn wsl.exe at all.
+    /// </summary>
+    private IReadOnlyList<string> ListWslDistros()
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo("wsl.exe")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                StandardOutputEncoding = System.Text.Encoding.Unicode
+            };
+            startInfo.ArgumentList.Add("-l");
+            startInfo.ArgumentList.Add("-q");
+
+            using var process = Process.Start(startInfo);
+            if (process is null)
+            {
+                return [];
+            }
+
+            var output = process.StandardOutput.ReadToEnd();
+            if (!process.WaitForExit(5000))
+            {
+                process.Kill(entireProcessTree: true);
+                return [];
+            }
+
+            if (process.ExitCode != 0)
+            {
+                return [];
+            }
+
+            return output
+                .Split('\n')
+                .Select(line => line.Trim().TrimEnd('\0'))
+                .Where(line => line.Length > 0)
+                .ToArray();
+        }
+        catch (Win32Exception exception)
+        {
+            _logger.LogDebug(exception, "wsl.exe is not available to list distributions");
+            return [];
+        }
+    }
+
+    private string? TryReadWslCredentialFile(string distro)
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo("wsl.exe")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            startInfo.ArgumentList.Add("-d");
+            startInfo.ArgumentList.Add(distro);
+            startInfo.ArgumentList.Add("--");
+            startInfo.ArgumentList.Add("sh");
+            startInfo.ArgumentList.Add("-lc");
+            startInfo.ArgumentList.Add("cat ~/.claude/.credentials.json");
+
+            using var process = Process.Start(startInfo);
+            if (process is null)
+            {
+                return null;
+            }
+
+            var output = process.StandardOutput.ReadToEnd();
+            if (!process.WaitForExit(5000))
+            {
+                process.Kill(entireProcessTree: true);
+                return null;
+            }
+
+            return process.ExitCode == 0 ? output : null;
+        }
+        catch (Win32Exception exception)
+        {
+            _logger.LogDebug(exception, "Unable to probe WSL distro {Distro} for Claude credentials", distro);
+            return null;
+        }
+    }
+
+    private async Task PersistWslCredentialAsync(string distro, string json, CancellationToken cancellationToken)
+    {
+        var startInfo = new ProcessStartInfo("wsl.exe")
+        {
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        startInfo.ArgumentList.Add("-d");
+        startInfo.ArgumentList.Add(distro);
+        startInfo.ArgumentList.Add("--");
+        startInfo.ArgumentList.Add("sh");
+        startInfo.ArgumentList.Add("-lc");
+        startInfo.ArgumentList.Add("mkdir -p ~/.claude && cat > ~/.claude/.credentials.json");
+
+        Process process;
+        try
+        {
+            process = Process.Start(startInfo)
+                ?? throw new ClaudeAuthenticationException("Unable to start wsl.exe to update Claude credentials.");
+        }
+        catch (Win32Exception exception)
+        {
+            throw new ClaudeAuthenticationException("Unable to start wsl.exe to update Claude credentials.", exception);
+        }
+
+        using (process)
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(5));
+
+            try
+            {
+                await process.StandardInput.WriteAsync(json.AsMemory(), timeoutCts.Token);
+                process.StandardInput.Close();
+                await process.WaitForExitAsync(timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                TryKillProcess(process);
+                throw new ClaudeAuthenticationException($"Timed out updating Claude credentials inside WSL distro '{distro}'.");
+            }
+
+            if (process.ExitCode != 0)
+            {
+                throw new ClaudeAuthenticationException($"Unable to update Claude credentials inside WSL distro '{distro}'.");
+            }
+        }
+    }
+
+    private static void TryKillProcess(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Process already exited between the check and the kill attempt.
+        }
+    }
 
     internal static string GetClaudeDirectory()
     {
@@ -244,6 +466,14 @@ public sealed class ClaudeAuthentication : IProviderAuthentication, IDisposable
         string RefreshToken,
         DateTimeOffset ExpiresAt,
         IReadOnlyList<string> Scopes);
+
+    private enum CredentialSourceKind
+    {
+        Windows,
+        Wsl
+    }
+
+    private sealed record CredentialLocation(CredentialSourceKind Kind, string? WslDistro);
 }
 
 public sealed class ClaudeAuthenticationException : Exception

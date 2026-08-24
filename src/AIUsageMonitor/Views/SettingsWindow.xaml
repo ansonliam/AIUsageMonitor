@@ -750,6 +750,10 @@
                         <TextBlock Foreground="{Binding ClaudeHookStatus, Converter={StaticResource HookStatusColorConverter}, Mode=OneWay}"
                                    Text="{Binding ClaudeHookStatus, Mode=OneWay}" />
                     </StackPanel>
+                    <StackPanel Margin="0,3,12,0" Orientation="Horizontal">
+                        <TextBlock Text="Credentials read from: " />
+                        <TextBlock FontWeight="SemiBold" Text="{Binding ClaudeCredentialSource, Mode=OneWay}" />
+                    </StackPanel>
                     <TextBlock Margin="0,3,12,0"
                                FontSize="10"
                                Foreground="#FF65717D"
