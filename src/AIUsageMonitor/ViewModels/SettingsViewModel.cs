@@ -55,6 +55,7 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _showClaudeOnTaskbar = true;
     private bool _showAntigravityOnTaskbar = true;
     private bool _showCursorOnTaskbar = true;
+    private bool _syncTaskbarMonitorAppearance;
     private bool _showAtWindowsStartup;
     private bool _autoRefreshEnabled;
     private bool _developerModeEnabled;
@@ -134,6 +135,9 @@ public sealed class SettingsViewModel : ObservableObject
         _showClaudeOnTaskbar = taskbarWidgetWindow.ShowClaudeOnTaskbar;
         _showAntigravityOnTaskbar = taskbarWidgetWindow.ShowAntigravityOnTaskbar;
         _showCursorOnTaskbar = taskbarWidgetWindow.ShowCursorOnTaskbar;
+        _syncTaskbarMonitorAppearance = taskbarWidgetWindow.SyncTaskbarMonitorAppearance;
+        TaskbarMonitors = [];
+        RefreshTaskbarMonitors();
         _showAtWindowsStartup = windowsStartupService.IsEnabled();
         _taskbarFontSize = taskbarWidgetWindow.TaskbarFontSize;
         _taskbarIconSize = taskbarWidgetWindow.TaskbarIconSize;
@@ -669,6 +673,18 @@ public sealed class SettingsViewModel : ObservableObject
             SetProperty(ref _showAtWindowsStartup, value);
         }
     }
+
+    public bool SyncTaskbarMonitorAppearance
+    {
+        get => _syncTaskbarMonitorAppearance;
+        set
+        {
+            if (SetProperty(ref _syncTaskbarMonitorAppearance, value))
+            {
+                _taskbarWidgetWindow.SetSyncTaskbarMonitorAppearance(value);
+            }
+        }
+    }
     public string TaskbarFont
     {
         get => _taskbarFont;
@@ -729,6 +745,7 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand OpenDeveloperLogFolderCommand { get; }
     public ICommand OpenGitHubRepositoryCommand { get; }
     public ICommand OpenUpdateCommand { get; }
+    public ObservableCollection<TaskbarMonitorOption> TaskbarMonitors { get; }
     public ObservableCollection<CodexApiEndpointSettingsViewModel> CodexApiEndpoints { get; }
     public string CodexApiCostStatus
     {
@@ -934,6 +951,11 @@ public sealed class SettingsViewModel : ObservableObject
             ref _showCursorOnTaskbar,
             _taskbarWidgetWindow.ShowCursorOnTaskbar,
             nameof(ShowCursorOnTaskbar));
+        SetProperty(
+            ref _syncTaskbarMonitorAppearance,
+            _taskbarWidgetWindow.SyncTaskbarMonitorAppearance,
+            nameof(SyncTaskbarMonitorAppearance));
+        RefreshTaskbarMonitors();
         SetProperty(ref _taskbarFontSize, _taskbarWidgetWindow.TaskbarFontSize, nameof(TaskbarFontSize));
         SetProperty(ref _taskbarIconSize, _taskbarWidgetWindow.TaskbarIconSize, nameof(TaskbarIconSize));
         SetProperty(ref _taskbarFont, _taskbarWidgetWindow.TaskbarFont, nameof(TaskbarFont));
@@ -1047,6 +1069,39 @@ public sealed class SettingsViewModel : ObservableObject
 
         RefreshUsageColorState();
         TestResult = "Usage stages saved for the window and taskbar.";
+    }
+
+    private void RefreshTaskbarMonitors()
+    {
+        var latest = _taskbarWidgetWindow.GetMonitorOptions();
+        var latestIds = latest.Select(monitor => monitor.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        for (var index = TaskbarMonitors.Count - 1; index >= 0; index--)
+        {
+            if (!latestIds.Contains(TaskbarMonitors[index].Id))
+            {
+                TaskbarMonitors.RemoveAt(index);
+            }
+        }
+
+        foreach (var monitor in latest)
+        {
+            var existing = TaskbarMonitors.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, monitor.Id, StringComparison.OrdinalIgnoreCase));
+            if (existing is null)
+            {
+                TaskbarMonitors.Add(monitor);
+                continue;
+            }
+
+            existing.ApplyState(
+                monitor.DisplayName,
+                monitor.UsesRightOffset,
+                monitor.IsEnabled,
+                monitor.TextSize,
+                monitor.IconSize,
+                monitor.TextVerticalOffset,
+                monitor.RightOffset);
+        }
     }
 
     private bool ApplyMainUsageColorsToTaskbar() =>

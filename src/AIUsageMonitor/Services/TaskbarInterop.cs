@@ -108,6 +108,14 @@ internal static class TaskbarInterop
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string? lpszClass, string? lpszWindow);
 
+    public delegate bool EnumWindowsDelegate(IntPtr hWnd, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool EnumWindows(EnumWindowsDelegate callback, IntPtr lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder className, int maxCount);
+
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool GetWindowRect(IntPtr hWnd, out Rect lpRect);
 
@@ -164,6 +172,23 @@ internal static class TaskbarInterop
         SetWindowPos(hWnd, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpNoOwnerZOrder);
 
     public static IntPtr FindTaskbar() => FindWindow("Shell_TrayWnd", null);
+
+    public static IReadOnlyList<IntPtr> FindSecondaryTaskbars()
+    {
+        var handles = new List<IntPtr>();
+        EnumWindows((handle, _) =>
+        {
+            var className = new System.Text.StringBuilder(64);
+            if (GetClassName(handle, className, className.Capacity) > 0 &&
+                className.ToString() == "Shell_SecondaryTrayWnd")
+            {
+                handles.Add(handle);
+            }
+
+            return true;
+        }, IntPtr.Zero);
+        return handles;
+    }
 
     public static IntPtr FindTrayNotifyArea(IntPtr taskbarHandle) =>
         taskbarHandle == IntPtr.Zero

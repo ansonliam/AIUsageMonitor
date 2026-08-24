@@ -3,6 +3,12 @@ namespace AIUsageMonitor.Models;
 public sealed class TaskbarWidgetSettings
 {
     public bool ShowTaskbarWidget { get; init; } = true;
+    // False marks legacy settings written before monitor selection existed. Those keep the primary
+    // taskbar enabled when migrated; an empty list with this true intentionally means none.
+    public bool HasTaskbarMonitorSelection { get; init; }
+    public List<string> EnabledTaskbarMonitorIds { get; init; } = [];
+    public bool SyncTaskbarMonitorAppearance { get; init; }
+    public List<TaskbarMonitorAppearanceSettings> TaskbarMonitorAppearances { get; init; } = [];
     public bool ShowCodexOnTaskbar { get; init; } = true;
     public bool ShowClaudeOnTaskbar { get; init; } = true;
     public bool ShowAntigravityOnTaskbar { get; init; } = true;
@@ -27,4 +33,14 @@ public sealed class TaskbarWidgetSettings
     public double Stage3MaxPercent { get; init; } = 69;
     public double Stage4MaxPercent { get; init; } = 79;
     public double Stage5MaxPercent { get; init; } = 84;
+}
+
+public sealed class TaskbarMonitorAppearanceSettings
+{
+    public string MonitorId { get; init; } = string.Empty;
+    public double TextSize { get; init; }
+    public double IconSize { get; init; }
+    public double TextVerticalOffset { get; init; }
+    // Nullable distinguishes older settings with no offset from an intentional 0px offset.
+    public double? RightOffset { get; init; }
 }

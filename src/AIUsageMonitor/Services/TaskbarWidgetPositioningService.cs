@@ -4,8 +4,10 @@ using System.Windows.Media;
 namespace AIUsageMonitor.Services;
 
 // Computes where the taskbar widget should sit: flush against the left edge of the tray icon
-// cluster (TrayNotifyWnd), spanning the taskbar's full height (Shell_TrayWnd), on the primary
-// display only. GetWindowRect returns physical pixels; WPF's Window.Left/Top are DIPs, so results
+// cluster (TrayNotifyWnd) when that taskbar owns the tray, or offset from the taskbar's right edge
+// on a secondary display. Windows 11 draws secondary clocks inside its XAML surface without a
+// measurable child window, so the per-monitor offset is user-adjustable.
+// GetWindowRect returns physical pixels; WPF's Window.Left/Top are DIPs, so results
 // are converted through the same CompositionTarget.TransformFromDevice approach MainWindow already
 // uses for its own screen-relative placement (see MainWindow.SnapToBottomRight).
 //
@@ -26,6 +28,9 @@ public sealed class TaskbarWidgetPositioningService
     public bool TryComputePosition(
         Visual visual,
         double widgetWidthDip,
+        IntPtr taskbarHandle,
+        bool useTrayAnchor,
+        double secondaryRightOffsetDip,
         out double left,
         out double top,
         out double taskbarHeightDip)
@@ -34,17 +39,16 @@ public sealed class TaskbarWidgetPositioningService
         top = 0;
         taskbarHeightDip = 0;
 
-        var taskbarHandle = TaskbarInterop.FindTaskbar();
         if (taskbarHandle == IntPtr.Zero || !TaskbarInterop.GetWindowRect(taskbarHandle, out var taskbarRect))
         {
             return false;
         }
 
-        var trayNotifyHandle = TaskbarInterop.FindTrayNotifyArea(taskbarHandle);
-        var trayLeftPixels = taskbarRect.Right;
+        var trayNotifyHandle = useTrayAnchor ? TaskbarInterop.FindTrayNotifyArea(taskbarHandle) : IntPtr.Zero;
+        var anchorPixels = taskbarRect.Left;
         if (trayNotifyHandle != IntPtr.Zero && TaskbarInterop.GetWindowRect(trayNotifyHandle, out var trayRect))
         {
-            trayLeftPixels = trayRect.Left;
+            anchorPixels = trayRect.Left;
         }
 
         var transform = PresentationSource.FromVisual(visual)?.CompositionTarget?.TransformFromDevice;
@@ -55,7 +59,8 @@ public sealed class TaskbarWidgetPositioningService
 
         var taskbarTopLeftDip = transform.Value.Transform(new System.Windows.Point(taskbarRect.Left, taskbarRect.Top));
         var taskbarBottomDip = transform.Value.Transform(new System.Windows.Point(taskbarRect.Left, taskbarRect.Bottom));
-        var trayLeftDip = transform.Value.Transform(new System.Windows.Point(trayLeftPixels, taskbarRect.Top)).X;
+        var taskbarRightDip = transform.Value.Transform(new System.Windows.Point(taskbarRect.Right, taskbarRect.Top)).X;
+        var anchorDip = transform.Value.Transform(new System.Windows.Point(anchorPixels, taskbarRect.Top)).X;
 
         taskbarHeightDip = taskbarBottomDip.Y - taskbarTopLeftDip.Y;
         if (taskbarHeightDip < MinimumPlausibleTaskbarHeightDip)
@@ -64,7 +69,9 @@ public sealed class TaskbarWidgetPositioningService
             return false;
         }
 
-        left = trayLeftDip - widgetWidthDip;
+        left = trayNotifyHandle == IntPtr.Zero
+            ? taskbarRightDip - widgetWidthDip - Math.Max(0, secondaryRightOffsetDip)
+            : anchorDip - widgetWidthDip;
         top = taskbarTopLeftDip.Y;
         return true;
     }

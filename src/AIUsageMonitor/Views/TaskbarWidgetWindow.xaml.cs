@@ -17,6 +17,7 @@ public partial class TaskbarWidgetWindow : Window
     // at all, which would otherwise leave the widget hidden indefinitely.
     private static readonly TimeSpan WatchdogInterval = TimeSpan.FromSeconds(10);
     private const double PositionToleranceDip = 1.0;
+    private const double DefaultSecondaryRightOffset = 120;
 
     // Explorer re-asserts its own topmost slot as part of taskbar interaction, and can do so a
     // moment AFTER we re-assert ours - whichever SetWindowPos(HWND_TOPMOST) call lands last wins
@@ -40,6 +41,12 @@ public partial class TaskbarWidgetWindow : Window
     private readonly TaskbarWidgetViewModel _viewModel;
     private readonly TaskbarWidgetSettingsStore _settingsStore;
     private readonly TaskbarWidgetPositioningService _positioningService;
+    private readonly TaskbarMonitorService _monitorService;
+    private readonly TaskbarWidgetWindow? _owner;
+    private readonly string? _monitorId;
+    private readonly Dictionary<string, TaskbarWidgetWindow> _secondaryWindows = [];
+    private readonly HashSet<string> _enabledMonitorIds = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, TaskbarMonitorAppearanceSettings> _monitorAppearances = new(StringComparer.OrdinalIgnoreCase);
     // Only needed to force a redraw of every UsageMetricViewModel's colour after the shared
     // usage-colour-stage settings are applied - see TrySetUsageColors.
     private readonly MainViewModel _mainViewModel;
@@ -68,6 +75,7 @@ public partial class TaskbarWidgetWindow : Window
     public event Action? WidgetStateChanged;
 
     public bool ShowTaskbarWidget { get; private set; } = true;
+    public bool SyncTaskbarMonitorAppearance { get; private set; }
     public bool ShowCodexOnTaskbar { get; private set; } = true;
     public bool ShowClaudeOnTaskbar { get; private set; } = true;
     public bool ShowAntigravityOnTaskbar { get; private set; } = true;
@@ -77,6 +85,7 @@ public partial class TaskbarWidgetWindow : Window
     public string TaskbarFont { get; private set; } = "Chakra Petch";
     public string TaskbarTextWeight { get; private set; } = "Regular";
     public double TaskbarTextVerticalOffset { get; private set; }
+    public double TaskbarRightOffset { get; private set; } = DefaultSecondaryRightOffset;
     public string GreenColorHex { get; private set; } = "#2ECC71";
     public string LimeColorHex { get; private set; } = "#9ACD32";
     public string YellowColorHex { get; private set; } = "#FFD21E";
@@ -92,14 +101,32 @@ public partial class TaskbarWidgetWindow : Window
         TaskbarWidgetViewModel viewModel,
         TaskbarWidgetSettingsStore settingsStore,
         TaskbarWidgetPositioningService positioningService,
+        TaskbarMonitorService monitorService,
         MainViewModel mainViewModel,
         IApplicationController applicationController,
         ISystemIdleTimeProvider idleTimeProvider)
+        : this(viewModel, settingsStore, positioningService, monitorService, mainViewModel, applicationController, idleTimeProvider, null, null)
+    {
+    }
+
+    private TaskbarWidgetWindow(
+        TaskbarWidgetViewModel viewModel,
+        TaskbarWidgetSettingsStore settingsStore,
+        TaskbarWidgetPositioningService positioningService,
+        TaskbarMonitorService monitorService,
+        MainViewModel mainViewModel,
+        IApplicationController applicationController,
+        ISystemIdleTimeProvider idleTimeProvider,
+        string? monitorId,
+        TaskbarWidgetWindow? owner)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _settingsStore = settingsStore;
         _positioningService = positioningService;
+        _monitorService = monitorService;
+        _monitorId = monitorId;
+        _owner = owner;
         _mainViewModel = mainViewModel;
         _applicationController = applicationController;
         _idleTimeProvider = idleTimeProvider;
@@ -126,6 +153,25 @@ public partial class TaskbarWidgetWindow : Window
         Stage3MaxPercent = settings.Stage3MaxPercent;
         Stage4MaxPercent = settings.Stage4MaxPercent;
         Stage5MaxPercent = settings.Stage5MaxPercent;
+        if (owner is null)
+        {
+            var monitors = _monitorService.GetMonitors();
+            foreach (var id in settings.HasTaskbarMonitorSelection
+                         ? settings.EnabledTaskbarMonitorIds
+                         : monitors.Where(monitor => monitor.HasTrayIcons).Select(monitor => monitor.Id))
+            {
+                _enabledMonitorIds.Add(id);
+            }
+
+            SyncTaskbarMonitorAppearance = settings.SyncTaskbarMonitorAppearance;
+            foreach (var appearance in settings.TaskbarMonitorAppearances)
+            {
+                if (!string.IsNullOrWhiteSpace(appearance.MonitorId))
+                {
+                    _monitorAppearances[appearance.MonitorId] = appearance;
+                }
+            }
+        }
         ApplyProviderVisibility();
         ApplySavedUsageColors();
         ApplyFontPresentation();
@@ -150,6 +196,11 @@ public partial class TaskbarWidgetWindow : Window
 
     public void SetShowTaskbarWidget(bool isVisible)
     {
+        if (_owner is not null)
+        {
+            _owner.SetShowTaskbarWidget(isVisible);
+            return;
+        }
         if (ShowTaskbarWidget == isVisible)
         {
             return;
@@ -203,6 +254,124 @@ public partial class TaskbarWidgetWindow : Window
         TaskbarFontSize = normalized;
         ApplyFontPresentation();
         SaveSettings();
+    }
+
+    public IReadOnlyList<TaskbarMonitorOption> GetMonitorOptions() =>
+        _monitorService.GetMonitors()
+            .Select(monitor =>
+            {
+                var appearance = GetMonitorAppearance(monitor.Id);
+                return new TaskbarMonitorOption(
+                    monitor.Id,
+                    monitor.DisplayName,
+                    _enabledMonitorIds.Contains(monitor.Id),
+                    appearance.TextSize,
+                    appearance.IconSize,
+                    appearance.TextVerticalOffset,
+                    appearance.RightOffset ?? DefaultSecondaryRightOffset,
+                    !monitor.HasTrayIcons,
+                    SetMonitorEnabled,
+                    SetMonitorAppearance);
+            })
+            .ToArray();
+
+    public void SetSyncTaskbarMonitorAppearance(bool isEnabled)
+    {
+        if (SyncTaskbarMonitorAppearance == isEnabled)
+        {
+            return;
+        }
+
+        SyncTaskbarMonitorAppearance = isEnabled;
+        SaveSettings();
+    }
+
+    private void SetMonitorEnabled(string monitorId, bool isEnabled)
+    {
+        if (isEnabled)
+        {
+            _enabledMonitorIds.Add(monitorId);
+        }
+        else
+        {
+            _enabledMonitorIds.Remove(monitorId);
+        }
+
+        SynchronizeSecondaryWindows();
+        ApplyWindowVisibility();
+        SaveSettings();
+    }
+
+    private TaskbarMonitorAppearanceSettings GetMonitorAppearance(string monitorId) =>
+        _monitorAppearances.TryGetValue(monitorId, out var appearance)
+            ? appearance
+            : new TaskbarMonitorAppearanceSettings
+            {
+                MonitorId = monitorId,
+                TextSize = TaskbarFontSize,
+                IconSize = TaskbarIconSize,
+                TextVerticalOffset = TaskbarTextVerticalOffset,
+                RightOffset = DefaultSecondaryRightOffset
+            };
+
+    private void SetMonitorAppearance(string monitorId, double textSize, double iconSize, double verticalOffset, double rightOffset)
+    {
+        var normalizedTextSize = double.IsFinite(textSize) ? Math.Max(1, Math.Round(textSize)) : 1;
+        var normalizedIconSize = double.IsFinite(iconSize) ? Math.Max(1, Math.Round(iconSize)) : 1;
+        var normalizedOffset = double.IsFinite(verticalOffset) ? verticalOffset : 0;
+        var normalizedRightOffset = double.IsFinite(rightOffset) ? Math.Max(0, rightOffset) : DefaultSecondaryRightOffset;
+        var sourceAppearance = new TaskbarMonitorAppearanceSettings
+        {
+            MonitorId = monitorId,
+            TextSize = normalizedTextSize,
+            IconSize = normalizedIconSize,
+            TextVerticalOffset = normalizedOffset,
+            RightOffset = normalizedRightOffset
+        };
+        _monitorAppearances[monitorId] = sourceAppearance;
+        if (SyncTaskbarMonitorAppearance)
+        {
+            foreach (var id in _enabledMonitorIds.Where(id => !string.Equals(id, monitorId, StringComparison.OrdinalIgnoreCase)))
+            {
+                var current = GetMonitorAppearance(id);
+                _monitorAppearances[id] = new TaskbarMonitorAppearanceSettings
+                {
+                    MonitorId = id,
+                    TextSize = normalizedTextSize,
+                    IconSize = normalizedIconSize,
+                    TextVerticalOffset = normalizedOffset,
+                    RightOffset = current.RightOffset ?? DefaultSecondaryRightOffset
+                };
+            }
+        }
+
+        ApplyMonitorAppearances();
+        SaveSettings();
+    }
+
+    private void ApplyMonitorAppearances()
+    {
+        ApplyMonitorAppearance(this);
+        foreach (var window in _secondaryWindows.Values)
+        {
+            ApplyMonitorAppearance(window);
+        }
+    }
+
+    private void ApplyMonitorAppearance(TaskbarWidgetWindow window)
+    {
+        var monitor = window.GetTargetMonitor();
+        if (monitor is null)
+        {
+            return;
+        }
+
+        var appearance = GetMonitorAppearance(monitor.Id);
+        window.TaskbarFontSize = appearance.TextSize;
+        window.TaskbarIconSize = appearance.IconSize;
+        window.TaskbarTextVerticalOffset = appearance.TextVerticalOffset;
+        window.TaskbarRightOffset = appearance.RightOffset ?? DefaultSecondaryRightOffset;
+        window.ApplyFontPresentation();
     }
 
     public void SetTaskbarIconSize(double iconSize)
@@ -435,14 +604,37 @@ public partial class TaskbarWidgetWindow : Window
         _viewModel.SetProviderVisible(ProviderKind.Cursor, ShowCursorOnTaskbar);
     }
 
-    public void ApplyStartupVisibility() => ApplyWindowVisibility();
+    public void ApplyStartupVisibility()
+    {
+        SynchronizeSecondaryWindows();
+        ApplyWindowVisibility();
+    }
 
     private void ApplyWindowVisibility()
     {
-        if (ShowTaskbarWidget)
+        var isEnabledForMonitor = _owner is null
+            ? IsCurrentMonitorEnabled()
+            : _owner.ShowTaskbarWidget && _owner._enabledMonitorIds.Contains(_monitorId!);
+        if (ShowTaskbarWidget && isEnabledForMonitor)
         {
-            Show();
-            Reposition();
+            if (IsLoaded)
+            {
+                // A hidden WPF window retains its last coordinates. Move it while it is still
+                // hidden so re-enabling a monitor never paints one frame at the stale location.
+                Reposition();
+                Show();
+            }
+            else
+            {
+                // The first Show is required before ActualWidth and the per-monitor DPI transform
+                // exist. Keep that initial layout invisible, position it, then reveal it.
+                Opacity = 0;
+                Show();
+                UpdateLayout();
+                Reposition();
+                Opacity = 1;
+            }
+
             _watchdogTimer.Start();
         }
         else
@@ -451,6 +643,77 @@ public partial class TaskbarWidgetWindow : Window
             _settleTimer.Stop();
             Hide();
         }
+    }
+
+    private bool IsCurrentMonitorEnabled()
+    {
+        var monitor = GetTargetMonitor();
+        return monitor is not null && _enabledMonitorIds.Contains(monitor.Id);
+    }
+
+    private TaskbarMonitor? GetTargetMonitor()
+    {
+        var monitors = _monitorService.GetMonitors();
+        return _monitorId is null
+            ? monitors.FirstOrDefault(monitor => monitor.HasTrayIcons)
+            : monitors.FirstOrDefault(monitor => string.Equals(monitor.Id, _monitorId, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void SynchronizeSecondaryWindows()
+    {
+        if (_owner is not null)
+        {
+            return;
+        }
+
+        var monitors = _monitorService.GetMonitors();
+        var trayMonitorId = monitors.FirstOrDefault(monitor => monitor.HasTrayIcons)?.Id;
+        var requiredIds = _enabledMonitorIds.Where(id => !string.Equals(id, trayMonitorId, StringComparison.OrdinalIgnoreCase)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in _secondaryWindows.Keys.Where(id => !requiredIds.Contains(id)).ToArray())
+        {
+            _secondaryWindows[id].Close();
+            _secondaryWindows.Remove(id);
+        }
+
+        foreach (var monitor in monitors.Where(monitor => requiredIds.Contains(monitor.Id)))
+        {
+            if (!_secondaryWindows.TryGetValue(monitor.Id, out var window))
+            {
+                window = new TaskbarWidgetWindow(_viewModel, _settingsStore, _positioningService, _monitorService, _mainViewModel, _applicationController, _idleTimeProvider, monitor.Id, this);
+                _secondaryWindows.Add(monitor.Id, window);
+            }
+
+            window.ApplyOwnerState(this);
+            window.ApplyWindowVisibility();
+        }
+    }
+
+    private void ApplyOwnerState(TaskbarWidgetWindow owner)
+    {
+        ShowTaskbarWidget = owner.ShowTaskbarWidget;
+        ShowCodexOnTaskbar = owner.ShowCodexOnTaskbar;
+        ShowClaudeOnTaskbar = owner.ShowClaudeOnTaskbar;
+        ShowAntigravityOnTaskbar = owner.ShowAntigravityOnTaskbar;
+        ShowCursorOnTaskbar = owner.ShowCursorOnTaskbar;
+        var appearance = owner.GetMonitorAppearance(_monitorId!);
+        TaskbarFontSize = appearance.TextSize;
+        TaskbarIconSize = appearance.IconSize;
+        TaskbarFont = owner.TaskbarFont;
+        TaskbarTextWeight = owner.TaskbarTextWeight;
+        TaskbarTextVerticalOffset = appearance.TextVerticalOffset;
+        TaskbarRightOffset = appearance.RightOffset ?? DefaultSecondaryRightOffset;
+        GreenColorHex = owner.GreenColorHex;
+        LimeColorHex = owner.LimeColorHex;
+        YellowColorHex = owner.YellowColorHex;
+        OrangeColorHex = owner.OrangeColorHex;
+        RedColorHex = owner.RedColorHex;
+        Stage1MaxPercent = owner.Stage1MaxPercent;
+        Stage2MaxPercent = owner.Stage2MaxPercent;
+        Stage3MaxPercent = owner.Stage3MaxPercent;
+        Stage4MaxPercent = owner.Stage4MaxPercent;
+        Stage5MaxPercent = owner.Stage5MaxPercent;
+        ApplyFontPresentation();
+        TryConfigureUsageColors(GreenColorHex, LimeColorHex, YellowColorHex, OrangeColorHex, RedColorHex, Stage1MaxPercent, Stage2MaxPercent, Stage3MaxPercent, Stage4MaxPercent, Stage5MaxPercent);
     }
 
     private void TaskbarWidgetWindow_SourceInitialized(object? sender, EventArgs e)
@@ -578,6 +841,7 @@ public partial class TaskbarWidgetWindow : Window
             // Explorer restarting or a display change invalidates whichever handles were cached
             // for the location-change filter above.
             RefreshCachedTaskbarHandles();
+            SynchronizeSecondaryWindows();
             Dispatcher.BeginInvoke(Reposition, DispatcherPriority.Background);
         }
 
@@ -609,7 +873,7 @@ public partial class TaskbarWidgetWindow : Window
 
     private void RefreshCachedTaskbarHandles()
     {
-        _cachedTaskbarHandle = TaskbarInterop.FindTaskbar();
+        _cachedTaskbarHandle = GetTargetMonitor()?.TaskbarHandle ?? IntPtr.Zero;
         _cachedTrayNotifyHandle = TaskbarInterop.FindTrayNotifyArea(_cachedTaskbarHandle);
     }
 
@@ -620,7 +884,16 @@ public partial class TaskbarWidgetWindow : Window
             return;
         }
 
-        if (_positioningService.TryComputePosition(this, ActualWidth, out var left, out var top, out var taskbarHeight))
+        var monitor = GetTargetMonitor();
+        if (monitor is not null && _positioningService.TryComputePosition(
+                this,
+                ActualWidth,
+                monitor.TaskbarHandle,
+                monitor.HasTrayIcons,
+                TaskbarRightOffset,
+                out var left,
+                out var top,
+                out var taskbarHeight))
         {
             Left = left;
             Top = top;
@@ -662,7 +935,7 @@ public partial class TaskbarWidgetWindow : Window
 
         ReassertTopMost();
 
-        var currentTaskbarHandle = TaskbarInterop.FindTaskbar();
+        var currentTaskbarHandle = GetTargetMonitor()?.TaskbarHandle ?? IntPtr.Zero;
         var currentTrayNotifyHandle = TaskbarInterop.FindTrayNotifyArea(currentTaskbarHandle);
         if (currentTaskbarHandle != _cachedTaskbarHandle || currentTrayNotifyHandle != _cachedTrayNotifyHandle)
         {
@@ -679,7 +952,16 @@ public partial class TaskbarWidgetWindow : Window
             return;
         }
 
-        if (_positioningService.TryComputePosition(this, ActualWidth, out var expectedLeft, out var expectedTop, out var expectedHeight) &&
+        var monitor = GetTargetMonitor();
+        if (monitor is not null && _positioningService.TryComputePosition(
+                this,
+                ActualWidth,
+                monitor.TaskbarHandle,
+                monitor.HasTrayIcons,
+                TaskbarRightOffset,
+                out var expectedLeft,
+                out var expectedTop,
+                out var expectedHeight) &&
             (Math.Abs(Left - expectedLeft) > PositionToleranceDip ||
              Math.Abs(Top - expectedTop) > PositionToleranceDip ||
              Math.Abs(Height - expectedHeight) > PositionToleranceDip))
@@ -725,9 +1007,19 @@ public partial class TaskbarWidgetWindow : Window
 
     private void SaveSettings()
     {
+        if (_owner is not null)
+        {
+            return;
+        }
+
+        SynchronizeSecondaryWindows();
         _settingsStore.Save(new TaskbarWidgetSettings
         {
             ShowTaskbarWidget = ShowTaskbarWidget,
+            HasTaskbarMonitorSelection = true,
+            EnabledTaskbarMonitorIds = _enabledMonitorIds.ToList(),
+            SyncTaskbarMonitorAppearance = SyncTaskbarMonitorAppearance,
+            TaskbarMonitorAppearances = _monitorAppearances.Values.ToList(),
             ShowCodexOnTaskbar = ShowCodexOnTaskbar,
             ShowClaudeOnTaskbar = ShowClaudeOnTaskbar,
             ShowAntigravityOnTaskbar = ShowAntigravityOnTaskbar,

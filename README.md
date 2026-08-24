@@ -29,7 +29,7 @@ The release is a self-contained single-file application and does not require a s
 - Vertical or side-by-side provider cards
 - Customisable provider visibility, text size, colours, opacity, and window position
 - System-tray controls and optional automatic refresh hooks
-- Optional taskbar widget: a compact, independent strip that floats beside the system tray icons and clock, with its own per-provider visibility and a hover tooltip showing status, last updated, and reset times
+- Optional multi-monitor taskbar widget: enable a compact usage strip independently on each taskbar, with shared provider visibility/font styling, per-monitor text/icon sizing and positioning, and hover details for status, last updated, and reset times
 
 ## Requirements
 
