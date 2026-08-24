@@ -11,9 +11,18 @@ public sealed class HexColorBrushConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
+        // The ElementName binding is evaluated before its TextBox receives its bound value.
+        // Do not pass that initial empty (or a user's partial) value to WPF's colour parser:
+        // it throws a first-chance FormatException even though this preview deliberately
+        // treats invalid input as transparent.
+        if (value is not string text || !IsHexColor(text))
+        {
+            return MediaBrushes.Transparent;
+        }
+
         try
         {
-            if (value is string text && System.Windows.Media.ColorConverter.ConvertFromString(text) is MediaColor color)
+            if (System.Windows.Media.ColorConverter.ConvertFromString(text) is MediaColor color)
             {
                 var brush = new MediaSolidColorBrush(color);
                 brush.Freeze();
@@ -34,4 +43,9 @@ public sealed class HexColorBrushConverter : IValueConverter
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
         throw new NotSupportedException();
+
+    private static bool IsHexColor(string text) =>
+        text.Length is 4 or 5 or 7 or 9 &&
+        text[0] == '#' &&
+        text.AsSpan(1).ToString().All(Uri.IsHexDigit);
 }

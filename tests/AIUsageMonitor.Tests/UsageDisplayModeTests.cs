@@ -1,12 +1,33 @@
 using AIUsageMonitor.Converters;
 using AIUsageMonitor.Models;
 using AIUsageMonitor.ViewModels;
+using System.Windows.Media;
 
 namespace AIUsageMonitor.Tests;
 
 [TestClass]
 public sealed class UsageDisplayModeTests
 {
+    [TestMethod]
+    public void HexColourPreview_InvalidOrIncompleteText_IsTransparent()
+    {
+        var converter = new HexColorBrushConverter();
+
+        Assert.AreSame(Brushes.Transparent, converter.Convert(string.Empty, typeof(Brush), null!, null!));
+        Assert.AreSame(Brushes.Transparent, converter.Convert("#FF", typeof(Brush), null!, null!));
+        Assert.AreSame(Brushes.Transparent, converter.Convert("#GGGGGG", typeof(Brush), null!, null!));
+    }
+
+    [TestMethod]
+    public void HexColourPreview_ValidHexText_ReturnsItsColour()
+    {
+        var converter = new HexColorBrushConverter();
+
+        var brush = (SolidColorBrush)converter.Convert("#2ECC71", typeof(Brush), null!, null!);
+
+        Assert.AreEqual(Color.FromRgb(0x2E, 0xCC, 0x71), brush.Color);
+    }
+
     [TestMethod]
     public void UsageMetric_DefaultsToUsedPercentDisplay()
     {
