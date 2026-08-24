@@ -82,11 +82,6 @@ public sealed class CodexSessionLogScanner
             state = new CodexSessionFileState();
             fileStates[path] = state;
         }
-        else if (state.LastWriteTimeUtc == lastWriteTimeUtc)
-        {
-            // Unchanged since the last scan.
-            return;
-        }
 
         using var stream = new FileStream(
             path,

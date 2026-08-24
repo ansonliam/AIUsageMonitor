@@ -65,7 +65,7 @@ public partial class TaskbarWidgetWindow : Window
 
     // Same purpose as MainWindow.WidgetStateChanged: Settings is non-modal, and this widget's own
     // context menu can change state (Hide) while it is open.
-    public event Action? StateChanged;
+    public event Action? WidgetStateChanged;
 
     public bool ShowTaskbarWidget { get; private set; }
     public bool ShowCodexOnTaskbar { get; private set; } = true;
@@ -636,7 +636,7 @@ public partial class TaskbarWidgetWindow : Window
             Stage5MaxPercent = Stage5MaxPercent
         });
 
-        // Every state setter routes through here - see StateChanged.
-        StateChanged?.Invoke();
+        // Every state setter routes through here - see WidgetStateChanged.
+        WidgetStateChanged?.Invoke();
     }
 }

@@ -141,7 +141,7 @@ public sealed class CodexApiCostTests
         var scanner = new CodexRuntimeLogScanner(root);
         var (requests, checkpoint, _) = scanner.ScanNew(0);
 
-        Assert.AreEqual(1, requests.Count);
+        Assert.HasCount(1, requests);
         Assert.AreEqual("01a025d2-695f-77c1-b7b3-7f14ddec4a43", requests[0].TurnId);
         Assert.AreEqual("gpt-5.6-terra", requests[0].Model);
         Assert.AreEqual("example.openai.azure.com", requests[0].Url!.Host);
@@ -157,7 +157,7 @@ public sealed class CodexApiCostTests
         var scanner = new CodexRuntimeLogScanner(root);
         var (requests, _, _) = scanner.ScanNew(0);
 
-        Assert.AreEqual(0, requests.Count);
+        Assert.IsEmpty(requests);
     }
 
     [TestMethod]
@@ -173,7 +173,7 @@ public sealed class CodexApiCostTests
         var scanner = new CodexRuntimeLogScanner(root);
         var (requests, checkpoint, _) = scanner.ScanNew(1);
 
-        Assert.AreEqual(1, requests.Count);
+        Assert.HasCount(1, requests);
         Assert.AreEqual(2, checkpoint);
     }
 
@@ -185,7 +185,7 @@ public sealed class CodexApiCostTests
 
         var (requests, checkpoint, _) = scanner.ScanNew(0);
 
-        Assert.AreEqual(0, requests.Count);
+        Assert.IsEmpty(requests);
         Assert.AreEqual(0, checkpoint);
     }
 
@@ -214,7 +214,7 @@ public sealed class CodexApiCostTests
         var fileStates = new Dictionary<string, CodexSessionFileState>();
         var events = scanner.ScanNew(fileStates);
 
-        Assert.AreEqual(2, events.Count);
+        Assert.HasCount(2, events);
         Assert.AreEqual(19645, events[0].InputTokens);
         Assert.AreEqual(25359, events[1].InputTokens);
         Assert.IsTrue(events.All(e => e.TurnId == "turn-1"));
@@ -239,7 +239,7 @@ public sealed class CodexApiCostTests
 
         var events = new CodexSessionLogScanner(root).ScanNew(new Dictionary<string, CodexSessionFileState>());
 
-        Assert.AreEqual(2, events.Count);
+        Assert.HasCount(2, events);
         Assert.AreEqual(100, events[0].InputTokens);
         Assert.AreEqual(40, events[1].InputTokens);
         Assert.AreEqual(20, events[1].CachedInputTokens);
@@ -262,7 +262,7 @@ public sealed class CodexApiCostTests
         var scanner = new CodexSessionLogScanner(root);
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
-        Assert.AreEqual(2, events.Count);
+        Assert.HasCount(2, events);
         Assert.AreEqual("turn-a", events[0].TurnId);
         Assert.AreEqual("gpt-5.6-sol", events[0].Model);
         Assert.AreEqual("turn-b", events[1].TurnId);
@@ -284,7 +284,7 @@ public sealed class CodexApiCostTests
         var scanner = new CodexSessionLogScanner(root);
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
-        Assert.AreEqual(1, events.Count);
+        Assert.HasCount(1, events);
     }
 
     [TestMethod]
@@ -300,11 +300,11 @@ public sealed class CodexApiCostTests
         var scanner = new CodexSessionLogScanner(root);
         var fileStates = new Dictionary<string, CodexSessionFileState>();
         var firstPass = scanner.ScanNew(fileStates);
-        Assert.AreEqual(0, firstPass.Count);
+        Assert.IsEmpty(firstPass);
 
         File.AppendAllText(path, "_token_usage\":{\"input_tokens\":10,\"cached_input_tokens\":0,\"cache_write_input_tokens\":0,\"output_tokens\":5,\"reasoning_output_tokens\":0}}}}\n");
         var secondPass = scanner.ScanNew(fileStates);
-        Assert.AreEqual(1, secondPass.Count);
+        Assert.HasCount(1, secondPass);
     }
 
     // ---- CodexApiCostCalculator / CodexPricingRegistry ----
@@ -368,7 +368,7 @@ public sealed class CodexApiCostTests
             + 100_000m * 1m / 1_000_000m
             + 50_000m * 8m / 1_000_000m;
         Assert.AreEqual(expected, worstCase);
-        Assert.IsTrue(worstCase > bestCase, "worst case must never be cheaper than best case");
+        Assert.IsGreaterThan(bestCase, worstCase, "worst case must never be cheaper than best case");
     }
 
     [TestMethod]
@@ -411,8 +411,8 @@ public sealed class CodexApiCostTests
         foreach (var model in CodexPricingRegistry.KnownModels)
         {
             Assert.IsTrue(registry.TryGetEffectivePricing(endpoint, model, out var pricing), model);
-            Assert.IsTrue(pricing.InputPerMillion > 0, model);
-            Assert.IsTrue(pricing.OutputPerMillion > 0, model);
+            Assert.IsGreaterThan(0, pricing.InputPerMillion, model);
+            Assert.IsGreaterThan(0, pricing.OutputPerMillion, model);
         }
     }
 
@@ -561,7 +561,7 @@ public sealed class CodexApiCostTests
         await service.RefreshAsync();
         var summaries = service.GetCurrentSummaries();
 
-        Assert.AreEqual(1, summaries.Count);
+        Assert.HasCount(1, summaries);
         var summary = summaries[0];
         Assert.AreEqual(1, summary.TurnCount);
         // 1,000,000 input * $1/M + 100,000 output * $4/M = 1.00 + 0.40 = 1.40
@@ -665,7 +665,7 @@ public sealed class CodexApiCostTests
         await service.RefreshAsync();
         var summaries = service.GetCurrentSummaries();
 
-        Assert.AreEqual(2, summaries.Count);
+        Assert.HasCount(2, summaries);
         var summaryA = summaries.Single(s => s.EndpointId == endpointA.Id);
         var summaryB = summaries.Single(s => s.EndpointId == endpointB.Id);
         Assert.AreEqual(1, summaryA.TurnCount);
@@ -852,7 +852,7 @@ public sealed class CodexApiCostTests
         var store = new CodexApiCostSettingsStore(settingsPath);
         var loaded = store.Load();
 
-        Assert.AreEqual(1, loaded.Endpoints.Count);
+        Assert.HasCount(1, loaded.Endpoints);
         Assert.AreEqual(ApiEndpointType.CodexAzureOpenAI, loaded.Endpoints[0].Type);
         Assert.AreEqual("", loaded.Endpoints[0].AwsRegion);
     }
@@ -1048,7 +1048,7 @@ public sealed class CodexApiCostTests
         var scanner = new ClaudeSessionLogScanner(root, InactiveBedrockConfig);
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
-        Assert.AreEqual(1, events.Count);
+        Assert.HasCount(1, events);
         Assert.AreEqual("us", events[0].Region);
         Assert.AreEqual("claude-sonnet", events[0].Model);
         Assert.AreEqual("us.anthropic.claude-3-5-sonnet-20241022-v2:0", events[0].RawModelId);
@@ -1072,7 +1072,7 @@ public sealed class CodexApiCostTests
         var scanner = new ClaudeSessionLogScanner(root, InactiveBedrockConfig);
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
-        Assert.AreEqual(0, events.Count);
+        Assert.IsEmpty(events);
     }
 
     [TestMethod]
@@ -1091,7 +1091,7 @@ public sealed class CodexApiCostTests
             () => new ClaudeBedrockRoutingConfig(IsActive: true, Region: "ap-southeast-2"));
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
-        Assert.AreEqual(1, events.Count);
+        Assert.HasCount(1, events);
         Assert.AreEqual("ap-southeast-2", events[0].Region);
         Assert.AreEqual("claude-sonnet", events[0].Model);
         Assert.AreEqual("claude-sonnet-5", events[0].RawModelId);
@@ -1113,7 +1113,7 @@ public sealed class CodexApiCostTests
             () => new ClaudeBedrockRoutingConfig(IsActive: true, Region: "ap-southeast-2"));
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
-        Assert.AreEqual(0, events.Count);
+        Assert.IsEmpty(events);
     }
 
     [TestMethod]
@@ -1130,7 +1130,7 @@ public sealed class CodexApiCostTests
         var scanner = new ClaudeSessionLogScanner(root, InactiveBedrockConfig);
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
-        Assert.AreEqual(0, events.Count);
+        Assert.IsEmpty(events);
     }
 
     [TestMethod]
@@ -1152,7 +1152,7 @@ public sealed class CodexApiCostTests
         var scanner = new ClaudeSessionLogScanner(root, InactiveBedrockConfig);
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
-        Assert.AreEqual(2, events.Count);
+        Assert.HasCount(2, events);
         Assert.IsTrue(events.All(e => e.DedupeKey == "msg_1"));
 
         var keyed = new Dictionary<string, ClaudeApiUsageEvent>();
@@ -1161,7 +1161,7 @@ public sealed class CodexApiCostTests
             keyed[usageEvent.DedupeKey] = usageEvent;
         }
 
-        Assert.AreEqual(1, keyed.Count);
+        Assert.HasCount(1, keyed);
         Assert.AreEqual(100, keyed["msg_1"].InputTokens);
     }
 
@@ -1178,7 +1178,7 @@ public sealed class CodexApiCostTests
         var scanner = new ClaudeSessionLogScanner(root, InactiveBedrockConfig);
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
-        Assert.AreEqual(1, events.Count);
+        Assert.HasCount(1, events);
         Assert.AreEqual("req_1", events[0].DedupeKey);
     }
 
@@ -1190,7 +1190,7 @@ public sealed class CodexApiCostTests
 
         var events = scanner.ScanNew(new Dictionary<string, CodexSessionFileState>());
 
-        Assert.AreEqual(0, events.Count);
+        Assert.IsEmpty(events);
     }
 
     // ---- CodexApiCostService end-to-end: missing Claude pricing ----

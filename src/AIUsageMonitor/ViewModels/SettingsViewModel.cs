@@ -141,7 +141,7 @@ public sealed class SettingsViewModel : ObservableObject
         // menu (hide, lock, always-on-top, opacity, layout) while this window is open. Mirror
         // those changes back into these controls instead of leaving them showing stale values.
         mainWindow.WidgetStateChanged += RefreshWindowState;
-        taskbarWidgetWindow.StateChanged += RefreshWindowState;
+        taskbarWidgetWindow.WidgetStateChanged += RefreshWindowState;
         RefreshUsageColorState();
         InstallCodexHookCommand = new AsyncRelayCommand(InstallCodexHookAsync);
         UninstallCodexHookCommand = new AsyncRelayCommand(UninstallCodexHookAsync);
