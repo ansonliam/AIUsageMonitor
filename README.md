@@ -2,8 +2,6 @@
 
 AI Usage Monitor is a compact, always-on-top Windows desktop widget for monitoring subscription usage across OpenAI Codex, Claude Code, Google Antigravity, and Cursor. It displays used quota, reset times, and provider state without requiring a browser dashboard.
 
-![AI Usage Monitor compact vertical widget](docs/usage-widget.png)
-
 ![AI Usage Monitor taskbar widget](docs/taskbar-widget.jpg)
 
 ## Download
@@ -94,7 +92,7 @@ AI Usage Monitor uses the credentials already stored by each provider. It does n
 
 ## Screenshots
 
-The first screenshot above shows the compact widget alongside per-endpoint API cost tracking; the second shows the optional taskbar widget floating beside the system tray. Open **Settings** to choose the providers, appearance, and taskbar visibility that suit you.
+The screenshot above shows the optional taskbar widget floating beside the system tray. Open **Settings** to choose the providers, appearance, and taskbar visibility that suit you.
 
 ## Known limitations
 
