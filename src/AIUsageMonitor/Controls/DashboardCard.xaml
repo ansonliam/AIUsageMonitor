@@ -26,9 +26,10 @@
             <TranslateTransform x:Name="DragPreviewTransform" X="0" Y="0" />
         </Grid.RenderTransform>
 
-        <!-- Provider/cost templates retain their compact-widget bottom/right margins. Offset those
-             only inside the dashboard wrapper so neighbouring grid cards do not leave a wide gap. -->
-        <ContentPresenter Content="{Binding Content}" Margin="0,0,-2,-3" />
+        <!-- Provider/cost templates already carry a small bottom/right margin (2px/3px), which is
+             kept here so adjacent dashboard cards render with the same small gap as the compact
+             widget list. -->
+        <ContentPresenter Content="{Binding Content}" />
 
         <!-- Edit-mode-only chrome: a highlight border plus a top drag handle and a bottom-right
              resize handle. Hidden entirely outside Edit Layout so normal use of the app looks
