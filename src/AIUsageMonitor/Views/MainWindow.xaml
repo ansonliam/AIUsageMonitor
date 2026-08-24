@@ -270,7 +270,7 @@
                         </StackPanel>
                     </Grid>
                     <ProgressBar Margin="3,0,3,2"
-                                 Foreground="#F5B041"
+                                 Foreground="{Binding UsedPercent, Converter={StaticResource UsageColorConverter}}"
                                  Style="{StaticResource CompactProgressBarStyle}"
                                  Value="{Binding ProgressValue, Mode=OneWay}"
                                  Visibility="{Binding HasBudget, Converter={StaticResource BooleanToVisibilityConverter}}" />

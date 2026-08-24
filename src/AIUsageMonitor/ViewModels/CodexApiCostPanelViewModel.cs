@@ -17,6 +17,7 @@ public sealed class CodexApiCostPanelViewModel : ObservableObject
     // remaining toggle flips without waiting for the next cost refresh.
     private double? _budgetPercent;
     private bool _showRemaining;
+    private double? _usedPercent;
 
     public CodexApiCostPanelViewModel(Guid endpointId)
     {
@@ -30,6 +31,10 @@ public sealed class CodexApiCostPanelViewModel : ObservableObject
     public string TodayText { get => _todayText; private set => SetProperty(ref _todayText, value); }
     public string PercentText { get => _percentText; private set => SetProperty(ref _percentText, value); }
     public double ProgressValue { get => _progressValue; private set => SetProperty(ref _progressValue, value); }
+    // Always the raw "budget spent" percentage, regardless of the used/remaining display toggle,
+    // so the progress bar's stage colour (keyed to used%, see UsageColorConverter) doesn't invert
+    // when the toggle flips.
+    public double? UsedPercent { get => _usedPercent; private set => SetProperty(ref _usedPercent, value); }
     public bool HasBudget { get => _hasBudget; private set => SetProperty(ref _hasBudget, value); }
 
     // Surfaces *why* the cost figures read "n/a" - without this, "no turns matched yet" and
@@ -84,6 +89,7 @@ public sealed class CodexApiCostPanelViewModel : ObservableObject
         {
             PercentText = "";
             ProgressValue = 0;
+            UsedPercent = null;
             return;
         }
 
@@ -93,6 +99,7 @@ public sealed class CodexApiCostPanelViewModel : ObservableObject
         var display = UsageStagePercent.ToDisplay(spent, _showRemaining);
         PercentText = $"{display:0.#}%";
         ProgressValue = display;
+        UsedPercent = spent;
     }
 
     private static string FormatCost(decimal cost, decimal costHigh, bool pricingUnavailable)
