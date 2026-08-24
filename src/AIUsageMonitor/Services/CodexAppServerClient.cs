@@ -8,6 +8,7 @@ namespace AIUsageMonitor.Services;
 
 public sealed class CodexAppServerClient : IAsyncDisposable
 {
+    private static readonly TimeSpan GracefulExitTimeout = TimeSpan.FromMilliseconds(300);
     private readonly ILogger<CodexAppServerClient> _logger;
     private readonly SemaphoreSlim _startLock = new(1, 1);
     private readonly SemaphoreSlim _writeLock = new(1, 1);
@@ -266,6 +267,8 @@ public sealed class CodexAppServerClient : IAsyncDisposable
         _initialized = false;
         if (_writer is not null)
         {
+            // Closing stdin is the app-server's shutdown signal; the grace wait below gives it
+            // the few milliseconds it needs to act on it.
             await _writer.DisposeAsync();
             _writer = null;
         }
@@ -274,6 +277,7 @@ public sealed class CodexAppServerClient : IAsyncDisposable
         {
             try
             {
+                await WaitForGracefulExitAsync();
                 if (!_process.HasExited)
                 {
                     _process.Kill(entireProcessTree: true);
@@ -288,6 +292,30 @@ public sealed class CodexAppServerClient : IAsyncDisposable
 
             _process.Dispose();
             _process = null;
+        }
+    }
+
+    /// <summary>
+    /// Waits briefly for the app-server to exit on its own after its stdin was closed. It normally
+    /// does so within ~12ms, and exiting that way skips the forced kill below, whose
+    /// entireProcessTree walk inspects every process on the machine. The wait is bounded so a
+    /// wedged app-server cannot slow shutdown down.
+    /// </summary>
+    private async Task WaitForGracefulExitAsync()
+    {
+        if (_process is null)
+        {
+            return;
+        }
+
+        using var grace = new CancellationTokenSource(GracefulExitTimeout);
+        try
+        {
+            await _process.WaitForExitAsync(grace.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Still running; the caller falls through to the forced kill.
         }
     }
 
