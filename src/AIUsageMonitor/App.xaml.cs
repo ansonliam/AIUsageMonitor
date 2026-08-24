@@ -261,6 +261,9 @@ public partial class App : System.Windows.Application, IApplicationController
         if (_services is not null)
         {
             _services.GetRequiredService<ILogger<App>>().LogInformation("Application exit started");
+            // Cancel any in-flight/queued provider refresh first, so the polling loops below don't
+            // block waiting out a live HTTP call, Codex app-server round trip, or WSL subprocess.
+            _services.GetRequiredService<UsageRefreshService>().CancelPendingWork();
             await _services.GetRequiredService<UsagePollingService>().StopAsync();
             await _services.GetRequiredService<HookNotificationListener>().StopAsync();
             _services.GetRequiredService<TrayIconService>().Dispose();

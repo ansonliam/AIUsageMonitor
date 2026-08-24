@@ -36,6 +36,11 @@ public sealed class UsageRefreshService : IDisposable
     // can restart a provider's scheduled-poll countdown from this point instead of double-refreshing soon after.
     public event Action<ProviderKind>? RefreshCompleted;
 
+    // Lets a caller abort any in-flight or queued refresh before the polling/hook loops that
+    // depend on it are torn down, without disposing this service (which would also dispose
+    // _lifetime and blow up if Dispose() runs again afterwards during normal container teardown).
+    public void CancelPendingWork() => _lifetime.Cancel();
+
     public Task RequestRefreshAsync(ProviderKind provider, RefreshReason reason)
     {
         if (!_providers.TryGetValue(provider, out var usageProvider))
