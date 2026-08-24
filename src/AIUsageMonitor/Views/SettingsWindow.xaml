@@ -880,7 +880,7 @@
                                   Content="Developer mode" />
                         <TextBlock Margin="22,4,12,0"
                                    Foreground="#FF65717D"
-                                   Text="Enables diagnostic logging and developer tools. Ctrl+Alt+D toggles this same setting."
+                                   Text="Enables diagnostic logging and developer tools."
                                    TextWrapping="Wrap" />
                         <TextBlock Margin="22,4,12,0"
                                    Foreground="#FF65717D"
