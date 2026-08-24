@@ -11,11 +11,22 @@ public sealed class HexColorBrushConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        if (value is string text && System.Windows.Media.ColorConverter.ConvertFromString(text) is MediaColor color)
+        try
         {
-            var brush = new MediaSolidColorBrush(color);
-            brush.Freeze();
-            return brush;
+            if (value is string text && System.Windows.Media.ColorConverter.ConvertFromString(text) is MediaColor color)
+            {
+                var brush = new MediaSolidColorBrush(color);
+                brush.Freeze();
+                return brush;
+            }
+        }
+        catch (FormatException)
+        {
+            // While a user is editing the textbox, an incomplete HEX value is expected.
+        }
+        catch (NotSupportedException)
+        {
+            // Keep the settings window usable if WPF rejects an unexpected colour format.
         }
 
         return MediaBrushes.Transparent;
