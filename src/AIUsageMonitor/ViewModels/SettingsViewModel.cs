@@ -81,6 +81,7 @@ public sealed class SettingsViewModel : ObservableObject
     private double _taskbarFontSize = 12;
     private string _taskbarFont = "Segoe UI Variable Text";
     private string _taskbarTextWeight = "SemiBold";
+    private double _taskbarTextVerticalOffset;
     private bool _showUsageRemaining;
 
     public SettingsViewModel(
@@ -129,6 +130,7 @@ public sealed class SettingsViewModel : ObservableObject
         _taskbarFontSize = taskbarWidgetWindow.TaskbarFontSize;
         _taskbarFont = taskbarWidgetWindow.TaskbarFont;
         _taskbarTextWeight = taskbarWidgetWindow.TaskbarTextWeight;
+        _taskbarTextVerticalOffset = taskbarWidgetWindow.TaskbarTextVerticalOffset;
         _autoRefreshEnabled = mainWindow.AutoRefreshEnabled;
         _developerModeEnabled = developerLoggingService.IsEnabled;
         _codexRefreshIntervalMinutes = mainWindow.CodexRefreshIntervalMinutes;
@@ -653,6 +655,17 @@ public sealed class SettingsViewModel : ObservableObject
             }
         }
     }
+    public double TaskbarTextVerticalOffset
+    {
+        get => _taskbarTextVerticalOffset;
+        set
+        {
+            if (SetProperty(ref _taskbarTextVerticalOffset, value))
+            {
+                _taskbarWidgetWindow.SetTaskbarTextVerticalOffset(value);
+            }
+        }
+    }
     public ICommand InstallCodexHookCommand { get; }
     public ICommand UninstallCodexHookCommand { get; }
     public ICommand TestCodexHookCommand { get; }
@@ -873,6 +886,7 @@ public sealed class SettingsViewModel : ObservableObject
         SetProperty(ref _taskbarFontSize, _taskbarWidgetWindow.TaskbarFontSize, nameof(TaskbarFontSize));
         SetProperty(ref _taskbarFont, _taskbarWidgetWindow.TaskbarFont, nameof(TaskbarFont));
         SetProperty(ref _taskbarTextWeight, _taskbarWidgetWindow.TaskbarTextWeight, nameof(TaskbarTextWeight));
+        SetProperty(ref _taskbarTextVerticalOffset, _taskbarWidgetWindow.TaskbarTextVerticalOffset, nameof(TaskbarTextVerticalOffset));
         SetProperty(ref _autoRefreshEnabled, _mainWindow.AutoRefreshEnabled, nameof(AutoRefreshEnabled));
         SetProperty(
             ref _codexRefreshIntervalMinutes,

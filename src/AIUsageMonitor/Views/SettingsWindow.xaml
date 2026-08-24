@@ -473,12 +473,24 @@
                                   ItemsSource="{Binding TaskbarFonts}"
                                   SelectedItem="{Binding TaskbarFont, Mode=TwoWay}" />
                     </StackPanel>
-                    <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+                    <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text weight" />
                         <ComboBox Width="110"
                                   Margin="16,0,0,0"
                                   ItemsSource="{Binding TaskbarTextWeights}"
                                   SelectedItem="{Binding TaskbarTextWeight, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Vertical text adjustment" />
+                        <TextBox Width="64"
+                                 Margin="16,0,4,0"
+                                 Padding="7,3"
+                                 HorizontalContentAlignment="Right"
+                                 Background="#FFFFFFFF"
+                                 BorderBrush="#FFBFC7D1"
+                                 Foreground="#FF20252B"
+                                 Text="{Binding TaskbarTextVerticalOffset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock VerticalAlignment="Center" Text="px" />
                     </StackPanel>
                 </WrapPanel>
             </StackPanel>

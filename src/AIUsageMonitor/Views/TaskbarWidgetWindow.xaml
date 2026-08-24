@@ -56,6 +56,9 @@
                        FontFamily="{DynamicResource TaskbarMetricFontFamily}"
                        FontWeight="{DynamicResource TaskbarMetricFontWeight}"
                        Foreground="{Binding UsedPercent, Converter={StaticResource UsageColorConverter}}">
+                <TextBlock.RenderTransform>
+                    <TranslateTransform Y="{DynamicResource TaskbarMetricVerticalOffset}" />
+                </TextBlock.RenderTransform>
                 <TextBlock.Text>
                     <MultiBinding StringFormat="{}{0}:{1}">
                         <Binding Path="ShortLabel" />

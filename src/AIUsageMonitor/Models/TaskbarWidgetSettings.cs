@@ -12,6 +12,7 @@ public sealed class TaskbarWidgetSettings
     public double TaskbarFontSize { get; init; } = 13;
     public string TaskbarFont { get; init; } = "Chakra Petch";
     public string TaskbarTextWeight { get; init; } = "Regular";
+    public double TaskbarTextVerticalOffset { get; init; }
 
     // Retained for compatibility with existing settings files. Shared window stages overwrite
     // these values whenever the app starts or stages are changed.

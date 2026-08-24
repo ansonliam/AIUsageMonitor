@@ -75,6 +75,7 @@ public partial class TaskbarWidgetWindow : Window
     public double TaskbarFontSize { get; private set; } = 13;
     public string TaskbarFont { get; private set; } = "Chakra Petch";
     public string TaskbarTextWeight { get; private set; } = "Regular";
+    public double TaskbarTextVerticalOffset { get; private set; }
     public string GreenColorHex { get; private set; } = "#2ECC71";
     public string LimeColorHex { get; private set; } = "#9ACD32";
     public string YellowColorHex { get; private set; } = "#FFD21E";
@@ -112,6 +113,7 @@ public partial class TaskbarWidgetWindow : Window
         TaskbarFontSize = settings.TaskbarFontSize;
         TaskbarFont = NormalizeTaskbarFont(settings.TaskbarFont);
         TaskbarTextWeight = NormalizeTaskbarTextWeight(settings.TaskbarTextWeight);
+        TaskbarTextVerticalOffset = NormalizeTaskbarTextVerticalOffset(settings.TaskbarTextVerticalOffset);
         GreenColorHex = settings.GreenColorHex;
         LimeColorHex = settings.LimeColorHex;
         YellowColorHex = settings.YellowColorHex;
@@ -227,6 +229,23 @@ public partial class TaskbarWidgetWindow : Window
         SaveSettings();
     }
 
+    public void SetTaskbarTextVerticalOffset(double verticalOffset)
+    {
+        if (!double.IsFinite(verticalOffset))
+        {
+            return;
+        }
+
+        if (Math.Abs(TaskbarTextVerticalOffset - verticalOffset) < 0.01)
+        {
+            return;
+        }
+
+        TaskbarTextVerticalOffset = verticalOffset;
+        ApplyFontPresentation();
+        SaveSettings();
+    }
+
     private void ApplyFontPresentation()
     {
         Resources["TaskbarMetricFontSize"] = TaskbarFontSize;
@@ -237,6 +256,7 @@ public partial class TaskbarWidgetWindow : Window
             "SemiBold" => FontWeights.SemiBold,
             _ => FontWeights.Normal
         };
+        Resources["TaskbarMetricVerticalOffset"] = TaskbarTextVerticalOffset;
     }
 
     private static System.Windows.Media.FontFamily CreateTaskbarFontFamily(string font)
@@ -264,6 +284,9 @@ public partial class TaskbarWidgetWindow : Window
         "Regular" or "Bold" => weight,
         _ => "SemiBold"
     };
+
+    private static double NormalizeTaskbarTextVerticalOffset(double verticalOffset) =>
+        double.IsFinite(verticalOffset) ? verticalOffset : 0;
 
     // The taskbar has its own converter instance, but the app applies the main window's shared
     // usage-colour-stage settings to it whenever settings are loaded or changed.
@@ -688,6 +711,7 @@ public partial class TaskbarWidgetWindow : Window
             TaskbarFontSize = TaskbarFontSize,
             TaskbarFont = TaskbarFont,
             TaskbarTextWeight = TaskbarTextWeight,
+            TaskbarTextVerticalOffset = TaskbarTextVerticalOffset,
             GreenColorHex = GreenColorHex,
             LimeColorHex = LimeColorHex,
             YellowColorHex = YellowColorHex,
