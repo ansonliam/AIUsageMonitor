@@ -4,9 +4,9 @@
         xmlns:converters="clr-namespace:AIUsageMonitor.Converters"
         xmlns:vm="clr-namespace:AIUsageMonitor.ViewModels"
         Title="{Binding SettingsWindowTitle}"
-        Width="780"
+        Width="940"
         Height="790"
-        MinWidth="700"
+        MinWidth="900"
         MinHeight="500"
         Background="#FFF7F8FA"
         Foreground="#FF20252B"
@@ -413,7 +413,7 @@
                 <WrapPanel Margin="0,12,0,0" Orientation="Horizontal">
                     <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text size" />
-                        <ComboBox Width="110"
+                        <ComboBox Width="95"
                                   Margin="16,0,0,0"
                                   ItemsSource="{Binding FontSizePresets}"
                                   SelectedItem="{Binding FontSizePreset, Mode=TwoWay}" />
@@ -427,14 +427,14 @@
                     </StackPanel>
                     <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text weight" />
-                        <ComboBox Width="110"
+                        <ComboBox Width="90"
                                   Margin="16,0,0,0"
                                   ItemsSource="{Binding WidgetTextWeights}"
                                   SelectedItem="{Binding WidgetTextWeight, Mode=TwoWay}" />
                     </StackPanel>
                     <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Appearance" />
-                        <ComboBox Width="110"
+                        <ComboBox Width="90"
                                   Margin="16,0,0,0"
                                   ItemsSource="{Binding WidgetAppearances}"
                                   SelectedItem="{Binding WidgetAppearance, Mode=TwoWay}" />
