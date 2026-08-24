@@ -493,14 +493,10 @@
                 BorderThickness="1"
                 CornerRadius="6">
             <StackPanel>
-                <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
-                    <TextBlock VerticalAlignment="Center" Text="Show" />
-                    <CheckBox Margin="8,0,0,0"
-                              VerticalAlignment="Center"
-                              Content="usage remaining instead of usage used"
-                              IsChecked="{Binding ShowUsageRemaining, Mode=TwoWay}"
-                              ToolTip="Displays 100% minus the used percentage on both widgets. Stage percentages below auto-convert between used and remaining." />
-                </StackPanel>
+                <CheckBox Margin="0,0,0,8"
+                          Content="Show remaining instead of used"
+                          IsChecked="{Binding ShowUsageRemaining, Mode=TwoWay}"
+                          ToolTip="Displays 100% minus the used percentage on both widgets. Stage percentages below auto-convert between used and remaining." />
                 <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
                     <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Window widget stages" />
                     <Button Margin="12,0,0,0"
