@@ -7,8 +7,9 @@ namespace AIUsageMonitor.Services;
 public sealed class GitHubReleaseService(IHttpClientFactory httpClientFactory)
 {
     private const string LatestReleaseApiUrl = "https://api.github.com/repos/ansonliam/AIUsageMonitor/releases/latest";
+    private readonly InstalledBuildVersion _installedBuildVersion = GetInstalledBuildVersion();
 
-    public string InstalledVersion { get; } = GetInstalledVersion();
+    public string InstalledVersion => _installedBuildVersion.DisplayVersion;
 
     public async Task<GitHubReleaseCheckResult> CheckAsync(CancellationToken cancellationToken = default)
     {
@@ -40,7 +41,7 @@ public sealed class GitHubReleaseService(IHttpClientFactory httpClientFactory)
                 InstalledVersion,
                 tag,
                 new Uri(releaseUrl),
-                latestVersion > GetInstalledVersionValue(),
+                _installedBuildVersion.IsReleaseBuild && latestVersion > _installedBuildVersion.Version,
                 IsAvailable: true);
         }
         catch (HttpRequestException)
@@ -61,20 +62,29 @@ public sealed class GitHubReleaseService(IHttpClientFactory httpClientFactory)
         }
     }
 
-    private static string GetInstalledVersion()
+    private static InstalledBuildVersion GetInstalledBuildVersion()
     {
-        var version = Assembly.GetEntryAssembly()?.GetName().Version
+        var assembly = Assembly.GetEntryAssembly()
+            ?? Assembly.GetExecutingAssembly();
+        var version = assembly.GetName().Version
             ?? Assembly.GetExecutingAssembly().GetName().Version
             ?? new Version(1, 0, 0);
-        return version.ToString(3);
+        var informationalVersion = assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion
+            ?.Split('+', 2)[0];
+        var displayVersion = string.IsNullOrWhiteSpace(informationalVersion)
+            ? version.ToString(3)
+            : informationalVersion;
+
+        return new InstalledBuildVersion(
+            displayVersion,
+            version,
+            Version.TryParse(displayVersion, out var parsedVersion)
+            && parsedVersion.ToString(3) == displayVersion);
     }
 
-    private static Version GetInstalledVersionValue()
-    {
-        return Assembly.GetEntryAssembly()?.GetName().Version
-            ?? Assembly.GetExecutingAssembly().GetName().Version
-            ?? new Version(1, 0, 0);
-    }
+    private sealed record InstalledBuildVersion(string DisplayVersion, Version Version, bool IsReleaseBuild);
 }
 
 public sealed record GitHubReleaseCheckResult(
