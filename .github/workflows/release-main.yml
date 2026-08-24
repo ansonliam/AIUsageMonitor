@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-    tags:
-      - "v*.*.*"
   pull_request:
     branches:
       - main
@@ -45,8 +43,11 @@ jobs:
 
   publish-release:
     needs: build-and-test
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: windows-latest
+    env:
+      RELEASE_TAG: v1.0.${{ github.run_number }}
+      RELEASE_VERSION: 1.0.${{ github.run_number }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -61,13 +62,13 @@ jobs:
       - name: Publish single-file application
         shell: pwsh
         run: |
-          $tag = $env:GITHUB_REF_NAME
-          if ($tag -notmatch '^v\d+\.\d+\.\d+$')
+          $tag = $env:RELEASE_TAG
+          $version = $env:RELEASE_VERSION
+          if ($tag -notmatch '^v\d+\.\d+\.\d+$' -or $version -notmatch '^\d+\.\d+\.\d+$')
           {
-              throw "Release tags must use semantic versions such as v1.0.0."
+              throw "Generated release version is not a semantic version."
           }
 
-          $version = $tag.Substring(1)
           dotnet publish ./src/AIUsageMonitor/AIUsageMonitor.csproj `
             --configuration Release `
             --runtime win-x64 `
@@ -93,7 +94,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = $env:GITHUB_REF_NAME
+          $tag = $env:RELEASE_TAG
           $title = "AI Usage Monitor $tag"
           $notes = @"
           Windows x64 release $tag.
@@ -104,11 +105,23 @@ jobs:
           This executable is unsigned, so Windows SmartScreen may show an Unknown publisher warning.
           "@
 
-          gh release create $tag `
-            ./release/AIUsageMonitor.exe `
-            ./release/AIUsageMonitor.exe.sha256 `
-            --repo $env:GITHUB_REPOSITORY `
-            --target $env:GITHUB_SHA `
-            --title $title `
-            --notes $notes `
-            --latest
+          gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null
+          if ($LASTEXITCODE -eq 0)
+          {
+              gh release upload $tag `
+                ./release/AIUsageMonitor.exe `
+                ./release/AIUsageMonitor.exe.sha256 `
+                --repo $env:GITHUB_REPOSITORY `
+                --clobber
+          }
+          else
+          {
+              gh release create $tag `
+                ./release/AIUsageMonitor.exe `
+                ./release/AIUsageMonitor.exe.sha256 `
+                --repo $env:GITHUB_REPOSITORY `
+                --target $env:GITHUB_SHA `
+                --title $title `
+                --notes $notes `
+                --latest
+          }
