@@ -728,7 +728,7 @@
                                             <StackPanel Visibility="{Binding IsCodexType, Converter={StaticResource BooleanToVisibilityConverter}}">
                                                 <TextBlock FontSize="10" Foreground="#FF65717D" Text="Azure OpenAI Endpoint" />
                                                 <TextBox Text="{Binding Endpoint, UpdateSourceTrigger=PropertyChanged}"
-                                                         ToolTip="The Azure/OpenAI host your Codex config points at for this API key (e.g. b2c-codex.openai.azure.com). Used only to match usage from Codex's own logs to this endpoint - never called or contacted directly." />
+                                                         ToolTip="The Azure/OpenAI host your Codex config points at for this API key (e.g. example.openai.azure.com). Used only to match usage from Codex's own logs to this endpoint - never called or contacted directly." />
                                             </StackPanel>
                                             <StackPanel Visibility="{Binding IsClaudeType, Converter={StaticResource BooleanToVisibilityConverter}}">
                                                 <TextBlock FontSize="10" Foreground="#FF65717D" Text="AWS Region (optional)" />

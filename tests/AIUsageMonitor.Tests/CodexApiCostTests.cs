@@ -126,11 +126,11 @@ public sealed class CodexApiCostTests
     private const string TurnRequestBody =
         "session_loop{thread_id=01a025c8-1fae-7563-87e2-ad8b2d4e33f4}:turn{turn.id=01a025d2-695f-77c1-b7b3-7f14ddec4a43 model=gpt-5.6-terra}:" +
         "run_sampling_request{turn_id=01a025d2-695f-77c1-b7b3-7f14ddec4a43 model=gpt-5.6-terra}: Request completed method=POST " +
-        "url=https://b2c-codex.openai.azure.com/openai/v1/responses status=200 OK";
+        "url=https://example.openai.azure.com/openai/v1/responses status=200 OK";
 
     private const string NoTurnEvidenceBody =
         "list_models{refresh_strategy=online}: Request completed method=GET " +
-        "url=https://b2c-codex.openai.azure.com/openai/v1/models?client_version=0.149.0 status=200 OK";
+        "url=https://example.openai.azure.com/openai/v1/models?client_version=0.149.0 status=200 OK";
 
     [TestMethod]
     public void RuntimeLogScanner_ParsesTurnIdModelAndHost_FromRealTracingSpanFormat()
@@ -144,7 +144,7 @@ public sealed class CodexApiCostTests
         Assert.AreEqual(1, requests.Count);
         Assert.AreEqual("01a025d2-695f-77c1-b7b3-7f14ddec4a43", requests[0].TurnId);
         Assert.AreEqual("gpt-5.6-terra", requests[0].Model);
-        Assert.AreEqual("b2c-codex.openai.azure.com", requests[0].Url!.Host);
+        Assert.AreEqual("example.openai.azure.com", requests[0].Url!.Host);
         Assert.AreEqual(1, checkpoint);
     }
 
@@ -533,7 +533,7 @@ public sealed class CodexApiCostTests
 
         SeedRuntimeLog(Path.Combine(runtimeRoot, "logs_2.sqlite"),
         [
-            (1, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-attributed", "gpt-5.6-terra", "b2c-codex.openai.azure.com", 1, now.ToUnixTimeSeconds()))
+            (1, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-attributed", "gpt-5.6-terra", "example.openai.azure.com", 1, now.ToUnixTimeSeconds()))
         ]);
 
         WriteSessionFile(sessionsRoot, "session.jsonl", string.Join('\n',
@@ -545,7 +545,7 @@ public sealed class CodexApiCostTests
             ""
         ]));
 
-        var endpoint = MakeEndpoint("B2C Azure Codex", "b2c-codex.openai.azure.com", trackFrom);
+        var endpoint = MakeEndpoint("Example Azure Codex", "example.openai.azure.com", trackFrom);
         var settingsStore = new CodexApiCostSettingsStore(Path.Combine(root, "settings.json"));
         settingsStore.Save(new CodexApiCostSettings { Endpoints = [endpoint] });
 
@@ -582,7 +582,7 @@ public sealed class CodexApiCostTests
 
         SeedRuntimeLog(Path.Combine(runtimeRoot, "logs_2.sqlite"),
         [
-            (1, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-adjusted", "gpt-5.6-terra", "b2c-codex.openai.azure.com", 1, now.ToUnixTimeSeconds()))
+            (1, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-adjusted", "gpt-5.6-terra", "example.openai.azure.com", 1, now.ToUnixTimeSeconds()))
         ]);
 
         WriteSessionFile(sessionsRoot, "session.jsonl", string.Join('\n',
@@ -592,7 +592,7 @@ public sealed class CodexApiCostTests
             ""
         ]));
 
-        var endpoint = MakeEndpoint("B2C Azure Codex", "b2c-codex.openai.azure.com", trackFrom);
+        var endpoint = MakeEndpoint("Example Azure Codex", "example.openai.azure.com", trackFrom);
         endpoint.ManualCostAdjustment = 2.50m;
         var settingsStore = new CodexApiCostSettingsStore(Path.Combine(root, "settings.json"));
         settingsStore.Save(new CodexApiCostSettings { Endpoints = [endpoint] });
@@ -635,8 +635,8 @@ public sealed class CodexApiCostTests
 
         SeedRuntimeLog(Path.Combine(runtimeRoot, "logs_2.sqlite"),
         [
-            (1, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-a", "gpt-5.6-terra", "b2c-codex.openai.azure.com", 1, now.ToUnixTimeSeconds())),
-            (2, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-b", "gpt-5.6-luna", "sb-codex.openai.azure.com", 2, now.ToUnixTimeSeconds()))
+            (1, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-a", "gpt-5.6-terra", "example.openai.azure.com", 1, now.ToUnixTimeSeconds())),
+            (2, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-b", "gpt-5.6-luna", "second-example.openai.azure.com", 2, now.ToUnixTimeSeconds()))
         ]);
 
         WriteSessionFile(sessionsRoot, "session.jsonl", string.Join('\n',
@@ -648,8 +648,8 @@ public sealed class CodexApiCostTests
             ""
         ]));
 
-        var endpointA = MakeEndpoint("B2C Azure Codex", "b2c-codex.openai.azure.com", trackFrom);
-        var endpointB = MakeEndpoint("Smokeball Azure Codex", "sb-codex.openai.azure.com", trackFrom);
+        var endpointA = MakeEndpoint("Example Azure Codex", "example.openai.azure.com", trackFrom);
+        var endpointB = MakeEndpoint("Second Example Azure Codex", "second-example.openai.azure.com", trackFrom);
         var settingsStore = new CodexApiCostSettingsStore(Path.Combine(root, "settings.json"));
         settingsStore.Save(new CodexApiCostSettings { Endpoints = [endpointA, endpointB] });
 
@@ -689,7 +689,7 @@ public sealed class CodexApiCostTests
 
         SeedRuntimeLog(Path.Combine(runtimeRoot, "logs_2.sqlite"),
         [
-            (1, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-a", "gpt-5.6-terra", "b2c-codex.openai.azure.com", 1, now.ToUnixTimeSeconds()))
+            (1, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-a", "gpt-5.6-terra", "example.openai.azure.com", 1, now.ToUnixTimeSeconds()))
         ]);
 
         WriteSessionFile(sessionsRoot, "session.jsonl", string.Join('\n',
@@ -699,7 +699,7 @@ public sealed class CodexApiCostTests
             ""
         ]));
 
-        var endpoint = MakeEndpoint("B2C Azure Codex", "b2c-codex.openai.azure.com", trackFrom);
+        var endpoint = MakeEndpoint("Example Azure Codex", "example.openai.azure.com", trackFrom);
         var settingsStore = new CodexApiCostSettingsStore(Path.Combine(root, "settings.json"));
         settingsStore.Save(new CodexApiCostSettings { Endpoints = [endpoint] });
 
@@ -733,7 +733,7 @@ public sealed class CodexApiCostTests
 
         SeedRuntimeLog(Path.Combine(runtimeRoot, "logs_2.sqlite"),
         [
-            (1, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-a", "gpt-5.6-terra", "b2c-codex.openai.azure.com", 1, now.ToUnixTimeSeconds()))
+            (1, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-a", "gpt-5.6-terra", "example.openai.azure.com", 1, now.ToUnixTimeSeconds()))
         ]);
 
         WriteSessionFile(sessionsRoot, "session.jsonl", string.Join('\n',
@@ -744,7 +744,7 @@ public sealed class CodexApiCostTests
         ]));
 
         // terra input pricing is $1/M -> 15,000,000 tokens = $15.00 cost against a $30 budget = 50%.
-        var endpoint = MakeEndpoint("B2C Azure Codex", "b2c-codex.openai.azure.com", trackFrom, budget: 30m);
+        var endpoint = MakeEndpoint("Example Azure Codex", "example.openai.azure.com", trackFrom, budget: 30m);
         var settingsStore = new CodexApiCostSettingsStore(Path.Combine(root, "settings.json"));
         settingsStore.Save(new CodexApiCostSettings { Endpoints = [endpoint] });
 
@@ -779,7 +779,7 @@ public sealed class CodexApiCostTests
 
         SeedRuntimeLog(Path.Combine(runtimeRoot, "logs_2.sqlite"),
         [
-            (1, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-a", "gpt-5.6-terra", "b2c-codex.openai.azure.com", 1, now.ToUnixTimeSeconds()))
+            (1, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-a", "gpt-5.6-terra", "example.openai.azure.com", 1, now.ToUnixTimeSeconds()))
         ]);
 
         WriteSessionFile(sessionsRoot, "session.jsonl", string.Join('\n',
@@ -789,7 +789,7 @@ public sealed class CodexApiCostTests
             ""
         ]));
 
-        var endpoint = MakeEndpoint("B2C Azure Codex", "b2c-codex.openai.azure.com", trackFrom);
+        var endpoint = MakeEndpoint("Example Azure Codex", "example.openai.azure.com", trackFrom);
         var settingsPath = Path.Combine(root, "settings.json");
         var cachePath = Path.Combine(root, "cache");
         var settingsStore = new CodexApiCostSettingsStore(settingsPath);
@@ -839,8 +839,8 @@ public sealed class CodexApiCostTests
             {
               "Id": "11111111-1111-1111-1111-111111111111",
               "Name": "Old Codex Endpoint",
-              "Endpoint": "b2c-codex.openai.azure.com",
-              "NormalizedHost": "b2c-codex.openai.azure.com",
+              "Endpoint": "example.openai.azure.com",
+              "NormalizedHost": "example.openai.azure.com",
               "TrackFrom": "2026-01-01T00:00:00+00:00",
               "PricingOverrides": {},
               "ShowInWidget": true
