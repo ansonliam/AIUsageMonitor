@@ -581,6 +581,68 @@
                            Text="Shared by the Window Widget and Taskbar Widget above - both read from the same underlying refresh."
                            TextWrapping="Wrap" />
                 <StackPanel Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Hook throttle refresh" />
+                    <TextBlock Margin="8,0,0,0"
+                               VerticalAlignment="Center"
+                               Foreground="#FF65717D"
+                               Text="(minimum time between automatic refreshes; 0 = immediate)" />
+                    <Button Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            Command="{Binding ResetThrottleIntervalsCommand}"
+                            Content="Reset to default"
+                            Style="{StaticResource LinkButtonStyle}" />
+                </StackPanel>
+                <WrapPanel Margin="22,7,0,0" Orientation="Horizontal">
+                    <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" Text="Codex every" />
+                        <TextBox Width="58"
+                                 Margin="8,0,4,0"
+                                 Padding="7,3"
+                                 HorizontalContentAlignment="Right"
+                                 Background="#FFFFFFFF"
+                                 BorderBrush="#FFBFC7D1"
+                                 Foreground="#FF20252B"
+                                 Text="{Binding CodexThrottleIntervalMinutes, Mode=TwoWay}" />
+                        <TextBlock VerticalAlignment="Center" Text="min" />
+                    </StackPanel>
+                    <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" Text="Claude every" />
+                        <TextBox Width="58"
+                                 Margin="8,0,4,0"
+                                 Padding="7,3"
+                                 HorizontalContentAlignment="Right"
+                                 Background="#FFFFFFFF"
+                                 BorderBrush="#FFBFC7D1"
+                                 Foreground="#FF20252B"
+                                 Text="{Binding ClaudeThrottleIntervalMinutes, Mode=TwoWay}" />
+                        <TextBlock VerticalAlignment="Center" Text="min" />
+                    </StackPanel>
+                    <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" Text="Antigravity every" />
+                        <TextBox Width="58"
+                                 Margin="8,0,4,0"
+                                 Padding="7,3"
+                                 HorizontalContentAlignment="Right"
+                                 Background="#FFFFFFFF"
+                                 BorderBrush="#FFBFC7D1"
+                                 Foreground="#FF20252B"
+                                 Text="{Binding AntigravityThrottleIntervalMinutes, Mode=TwoWay}" />
+                        <TextBlock VerticalAlignment="Center" Text="min" />
+                    </StackPanel>
+                    <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" Text="Cursor every" />
+                        <TextBox Width="58"
+                                 Margin="8,0,4,0"
+                                 Padding="7,3"
+                                 HorizontalContentAlignment="Right"
+                                 Background="#FFFFFFFF"
+                                 BorderBrush="#FFBFC7D1"
+                                 Foreground="#FF20252B"
+                                 Text="{Binding CursorThrottleIntervalMinutes, Mode=TwoWay}" />
+                        <TextBlock VerticalAlignment="Center" Text="min" />
+                    </StackPanel>
+                </WrapPanel>
+                <StackPanel Orientation="Horizontal">
                     <CheckBox IsChecked="{Binding AutoRefreshEnabled, Mode=TwoWay}"
                               FontWeight="SemiBold"
                               Content="Scheduled refresh" />
@@ -665,68 +727,6 @@
                              Text="{Binding IdleRefreshIntervalMinutes, Mode=TwoWay}" />
                     <TextBlock VerticalAlignment="Center" Text="min." />
                 </StackPanel>
-                <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
-                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Hook throttle refresh" />
-                    <TextBlock Margin="8,0,0,0"
-                               VerticalAlignment="Center"
-                               Foreground="#FF65717D"
-                               Text="(minimum time between automatic refreshes; 0 = immediate)" />
-                    <Button Margin="12,0,0,0"
-                            VerticalAlignment="Center"
-                            Command="{Binding ResetThrottleIntervalsCommand}"
-                            Content="Reset to default"
-                            Style="{StaticResource LinkButtonStyle}" />
-                </StackPanel>
-                <WrapPanel Margin="22,7,0,0" Orientation="Horizontal">
-                    <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
-                        <TextBlock VerticalAlignment="Center" Text="Codex every" />
-                        <TextBox Width="58"
-                                 Margin="8,0,4,0"
-                                 Padding="7,3"
-                                 HorizontalContentAlignment="Right"
-                                 Background="#FFFFFFFF"
-                                 BorderBrush="#FFBFC7D1"
-                                 Foreground="#FF20252B"
-                                 Text="{Binding CodexThrottleIntervalMinutes, Mode=TwoWay}" />
-                        <TextBlock VerticalAlignment="Center" Text="min" />
-                    </StackPanel>
-                    <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
-                        <TextBlock VerticalAlignment="Center" Text="Claude every" />
-                        <TextBox Width="58"
-                                 Margin="8,0,4,0"
-                                 Padding="7,3"
-                                 HorizontalContentAlignment="Right"
-                                 Background="#FFFFFFFF"
-                                 BorderBrush="#FFBFC7D1"
-                                 Foreground="#FF20252B"
-                                 Text="{Binding ClaudeThrottleIntervalMinutes, Mode=TwoWay}" />
-                        <TextBlock VerticalAlignment="Center" Text="min" />
-                    </StackPanel>
-                    <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
-                        <TextBlock VerticalAlignment="Center" Text="Antigravity every" />
-                        <TextBox Width="58"
-                                 Margin="8,0,4,0"
-                                 Padding="7,3"
-                                 HorizontalContentAlignment="Right"
-                                 Background="#FFFFFFFF"
-                                 BorderBrush="#FFBFC7D1"
-                                 Foreground="#FF20252B"
-                                 Text="{Binding AntigravityThrottleIntervalMinutes, Mode=TwoWay}" />
-                        <TextBlock VerticalAlignment="Center" Text="min" />
-                    </StackPanel>
-                    <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
-                        <TextBlock VerticalAlignment="Center" Text="Cursor every" />
-                        <TextBox Width="58"
-                                 Margin="8,0,4,0"
-                                 Padding="7,3"
-                                 HorizontalContentAlignment="Right"
-                                 Background="#FFFFFFFF"
-                                 BorderBrush="#FFBFC7D1"
-                                 Foreground="#FF20252B"
-                                 Text="{Binding CursorThrottleIntervalMinutes, Mode=TwoWay}" />
-                        <TextBlock VerticalAlignment="Center" Text="min" />
-                    </StackPanel>
-                </WrapPanel>
             </StackPanel>
         </Border>
 
