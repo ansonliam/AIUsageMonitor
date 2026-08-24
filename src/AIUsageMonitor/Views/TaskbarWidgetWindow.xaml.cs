@@ -669,9 +669,6 @@ public partial class TaskbarWidgetWindow : Window
     // EVENT_SYSTEM_FOREGROUND.
     private void ContextMenu_Closed(object sender, RoutedEventArgs e) => BeginTopMostSettle();
 
-    // Mirrors TrayIconService's menu exactly - same items, same underlying actions.
-    private void OpenMenuItem_Click(object sender, RoutedEventArgs e) => _applicationController.ShowMainWindow();
-
     private void SettingsMenuItem_Click(object sender, RoutedEventArgs e) => _applicationController.ShowSettings();
 
     private async void RefreshAllMenuItem_Click(object sender, RoutedEventArgs e) =>

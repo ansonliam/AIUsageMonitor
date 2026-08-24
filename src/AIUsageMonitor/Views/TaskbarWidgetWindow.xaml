@@ -17,8 +17,6 @@
         TextOptions.TextFormattingMode="Display">
     <Window.ContextMenu>
         <ContextMenu Closed="ContextMenu_Closed">
-            <MenuItem Header="Open Window Widget" Click="OpenMenuItem_Click" />
-            <!-- Keep the two widget visibility actions together at the top of this menu. -->
             <MenuItem Header="Hide Taskbar Widget" Click="HideMenuItem_Click" />
             <Separator />
             <MenuItem Header="Settings" Click="SettingsMenuItem_Click" />
