@@ -38,8 +38,8 @@ jobs:
         shell: pwsh
         run: |
           dotnet restore ./AIUsageMonitor.slnx
-          dotnet build ./AIUsageMonitor.slnx --configuration Release --no-restore
-          dotnet test ./AIUsageMonitor.slnx --configuration Release --no-build --no-restore
+          dotnet build ./AIUsageMonitor.slnx --configuration Release --no-restore -m:1
+          dotnet test ./AIUsageMonitor.slnx --configuration Release --no-build --no-restore -m:1
 
   publish-release:
     needs: build-and-test
