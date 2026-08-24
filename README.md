@@ -70,6 +70,7 @@ dotnet publish .\src\AIUsageMonitor\AIUsageMonitor.csproj `
   -r win-x64 `
   --self-contained true `
   -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true `
   -p:EnableCompressionInSingleFile=true `
   -o .\dist
 ```

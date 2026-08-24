@@ -74,6 +74,7 @@ jobs:
             --runtime win-x64 `
             --self-contained true `
             -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
             -p:Version=$version `
             -p:EnableCompressionInSingleFile=true `
             --output ./release
@@ -82,6 +83,13 @@ jobs:
           if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf))
           {
               throw "Published executable was not created."
+          }
+
+          $looseNativeLibraries = Get-ChildItem -LiteralPath ./release -Filter *.dll -File
+          if ($looseNativeLibraries)
+          {
+              $names = $looseNativeLibraries.Name -join ", "
+              throw "Single-file release left native libraries outside the executable: $names"
           }
 
           $hash = (Get-FileHash -LiteralPath $executablePath -Algorithm SHA256).Hash.ToLowerInvariant()
