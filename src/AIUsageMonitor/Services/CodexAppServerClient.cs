@@ -35,7 +35,7 @@ public sealed class CodexAppServerClient : IAsyncDisposable
 
     private async Task EnsureStartedAsync(CancellationToken cancellationToken)
     {
-        if (_initialized && _process is { HasExited: false })
+        if (_initialized && IsProcessRunning())
         {
             return;
         }
@@ -43,7 +43,7 @@ public sealed class CodexAppServerClient : IAsyncDisposable
         await _startLock.WaitAsync(cancellationToken);
         try
         {
-            if (_initialized && _process is { HasExited: false })
+            if (_initialized && IsProcessRunning())
             {
                 return;
             }
@@ -270,14 +270,42 @@ public sealed class CodexAppServerClient : IAsyncDisposable
             _writer = null;
         }
 
-        if (_process is { HasExited: false })
+        if (_process is not null)
         {
-            _process.Kill(entireProcessTree: true);
-            await _process.WaitForExitAsync();
-        }
+            try
+            {
+                if (!_process.HasExited)
+                {
+                    _process.Kill(entireProcessTree: true);
+                    await _process.WaitForExitAsync();
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // The process never started (Start() threw) or has already been reaped,
+                // so there is nothing left to kill. Fall through and release the object.
+            }
 
-        _process?.Dispose();
-        _process = null;
+            _process.Dispose();
+            _process = null;
+        }
+    }
+
+    /// <summary>
+    /// True only when a child process was started and is still alive. The process object left
+    /// behind by a failed <see cref="Process.Start()"/> throws from every member, so it is
+    /// reported as not running instead of being allowed to poison later calls.
+    /// </summary>
+    private bool IsProcessRunning()
+    {
+        try
+        {
+            return _process is { HasExited: false };
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
     }
 
     public async ValueTask DisposeAsync()
