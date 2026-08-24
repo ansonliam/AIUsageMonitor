@@ -18,6 +18,7 @@ public sealed class SettingsViewModel : ObservableObject
     private readonly CursorHookInstaller _cursorHookInstaller;
     private readonly IApplicationController _applicationController;
     private readonly MainWindow _mainWindow;
+    private readonly TaskbarWidgetWindow _taskbarWidgetWindow;
     private readonly CodexApiCostSettingsStore _codexApiCostSettingsStore;
     private readonly CodexApiCostService _codexApiCostService;
     private readonly DeveloperLoggingService _developerLoggingService;
@@ -30,11 +31,17 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _isWindowLocked;
     private double _dashboardWidgetHeight = 56;
     private double _metricLabelWidth = 32;
+    private bool _showDashboardWidget = true;
     private bool _alwaysOnTop = true;
     private bool _showCodex = true;
     private bool _showClaude = true;
     private bool _showAntigravity = true;
     private bool _showCursor = true;
+    private bool _showTaskbarWidget;
+    private bool _showCodexOnTaskbar = true;
+    private bool _showClaudeOnTaskbar = true;
+    private bool _showAntigravityOnTaskbar = true;
+    private bool _showCursorOnTaskbar = true;
     private bool _autoRefreshEnabled;
     private bool _developerModeEnabled;
     private double _codexRefreshIntervalMinutes = AutoRefreshOptions.CodexDefaultIntervalMinutes;
@@ -68,6 +75,7 @@ public sealed class SettingsViewModel : ObservableObject
         AntigravityHookInstaller antigravityHookInstaller,
         CursorHookInstaller cursorHookInstaller,
         MainWindow mainWindow,
+        TaskbarWidgetWindow taskbarWidgetWindow,
         IApplicationController applicationController,
         CodexApiCostSettingsStore codexApiCostSettingsStore,
         CodexApiCostService codexApiCostService,
@@ -78,6 +86,7 @@ public sealed class SettingsViewModel : ObservableObject
         _antigravityHookInstaller = antigravityHookInstaller;
         _cursorHookInstaller = cursorHookInstaller;
         _mainWindow = mainWindow;
+        _taskbarWidgetWindow = taskbarWidgetWindow;
         _applicationController = applicationController;
         _codexApiCostSettingsStore = codexApiCostSettingsStore;
         _codexApiCostService = codexApiCostService;
@@ -87,11 +96,17 @@ public sealed class SettingsViewModel : ObservableObject
         _isWindowLocked = mainWindow.IsWindowLocked;
         _dashboardWidgetHeight = mainWindow.DashboardWidgetHeight;
         _metricLabelWidth = mainWindow.MetricLabelWidth;
+        _showDashboardWidget = mainWindow.ShowDashboardWidget;
         _alwaysOnTop = mainWindow.AlwaysOnTop;
         _showCodex = mainWindow.ShowCodex;
         _showClaude = mainWindow.ShowClaude;
         _showAntigravity = mainWindow.ShowAntigravity;
         _showCursor = mainWindow.ShowCursor;
+        _showTaskbarWidget = taskbarWidgetWindow.ShowTaskbarWidget;
+        _showCodexOnTaskbar = taskbarWidgetWindow.ShowCodexOnTaskbar;
+        _showClaudeOnTaskbar = taskbarWidgetWindow.ShowClaudeOnTaskbar;
+        _showAntigravityOnTaskbar = taskbarWidgetWindow.ShowAntigravityOnTaskbar;
+        _showCursorOnTaskbar = taskbarWidgetWindow.ShowCursorOnTaskbar;
         _autoRefreshEnabled = mainWindow.AutoRefreshEnabled;
         _developerModeEnabled = developerLoggingService.IsEnabled;
         _codexRefreshIntervalMinutes = mainWindow.CodexRefreshIntervalMinutes;
@@ -144,6 +159,7 @@ public sealed class SettingsViewModel : ObservableObject
         ResetUsageColorsCommand = new RelayCommand(() =>
         {
             _mainWindow.ResetUsageColorsToDefault();
+            _taskbarWidgetWindow.RefreshUsageColors();
             RefreshWindowState();
             TestResult = "Usage colour stages reset to defaults.";
         });
@@ -253,6 +269,72 @@ public sealed class SettingsViewModel : ObservableObject
             if (SetProperty(ref _showCursor, value))
             {
                 _mainWindow.SetProviderVisibility(ProviderKind.Cursor, value);
+            }
+        }
+    }
+    public bool ShowDashboardWidget
+    {
+        get => _showDashboardWidget;
+        set
+        {
+            if (SetProperty(ref _showDashboardWidget, value))
+            {
+                _mainWindow.SetDashboardWidgetVisible(value);
+            }
+        }
+    }
+    public bool ShowTaskbarWidget
+    {
+        get => _showTaskbarWidget;
+        set
+        {
+            if (SetProperty(ref _showTaskbarWidget, value))
+            {
+                _taskbarWidgetWindow.SetShowTaskbarWidget(value);
+            }
+        }
+    }
+    public bool ShowCodexOnTaskbar
+    {
+        get => _showCodexOnTaskbar;
+        set
+        {
+            if (SetProperty(ref _showCodexOnTaskbar, value))
+            {
+                _taskbarWidgetWindow.SetProviderVisibility(ProviderKind.Codex, value);
+            }
+        }
+    }
+    public bool ShowClaudeOnTaskbar
+    {
+        get => _showClaudeOnTaskbar;
+        set
+        {
+            if (SetProperty(ref _showClaudeOnTaskbar, value))
+            {
+                _taskbarWidgetWindow.SetProviderVisibility(ProviderKind.Claude, value);
+            }
+        }
+    }
+    public bool ShowAntigravityOnTaskbar
+    {
+        get => _showAntigravityOnTaskbar;
+        set
+        {
+            if (SetProperty(ref _showAntigravityOnTaskbar, value))
+            {
+                _taskbarWidgetWindow.SetProviderVisibility(ProviderKind.Antigravity, value);
+            }
+        }
+    }
+    public bool ShowCursorOnTaskbar
+    {
+        get => _showCursorOnTaskbar;
+        set
+        {
+            if (SetProperty(ref _showCursorOnTaskbar, value))
+            {
+                _taskbarWidgetWindow.SetProviderVisibility(ProviderKind.Cursor, value);
             }
         }
     }
@@ -611,6 +693,7 @@ public sealed class SettingsViewModel : ObservableObject
         SetProperty(ref _isWindowLocked, _mainWindow.IsWindowLocked, nameof(IsWindowLocked));
         SetProperty(ref _dashboardWidgetHeight, _mainWindow.DashboardWidgetHeight, nameof(DashboardWidgetHeight));
         SetProperty(ref _metricLabelWidth, _mainWindow.MetricLabelWidth, nameof(MetricLabelWidth));
+        SetProperty(ref _showDashboardWidget, _mainWindow.ShowDashboardWidget, nameof(ShowDashboardWidget));
         SetProperty(ref _alwaysOnTop, _mainWindow.AlwaysOnTop, nameof(AlwaysOnTop));
         SetProperty(ref _showCodex, _mainWindow.ShowCodex, nameof(ShowCodex));
         SetProperty(ref _showClaude, _mainWindow.ShowClaude, nameof(ShowClaude));
@@ -687,7 +770,7 @@ public sealed class SettingsViewModel : ObservableObject
             return;
         }
 
-        TestResult = _mainWindow.TrySetUsageColors(
+        var succeeded = _mainWindow.TrySetUsageColors(
             GreenColorHex,
             LimeColorHex,
             YellowColorHex,
@@ -697,7 +780,13 @@ public sealed class SettingsViewModel : ObservableObject
             stage2Maximum,
             stage3Maximum,
             stage4Maximum,
-            stage5Maximum)
+            stage5Maximum);
+        if (succeeded)
+        {
+            _taskbarWidgetWindow.RefreshUsageColors();
+        }
+
+        TestResult = succeeded
             ? "Usage stages saved."
             : "Use valid HEX colours and five increasing percentages from 0 to 100.";
     }

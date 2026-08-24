@@ -12,7 +12,7 @@
         Foreground="#FF20252B"
         Icon="/AIUsageMonitor;component/Assets/AIUsageMonitor.ico"
         PreviewKeyDown="Window_PreviewKeyDown"
-        ResizeMode="NoResize"
+        ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
         <converters:HookStatusColorConverter x:Key="HookStatusColorConverter" />
@@ -227,6 +227,10 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" FontSize="16" FontWeight="SemiBold" Text="Window" />
@@ -238,7 +242,26 @@
                 BorderThickness="1"
                 CornerRadius="6">
             <StackPanel>
-                <Grid>
+                <CheckBox IsChecked="{Binding ShowDashboardWidget, Mode=TwoWay}"
+                          FontWeight="SemiBold"
+                          Content="Show main window" />
+                <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
+                    <TextBlock Margin="0,0,12,0"
+                               VerticalAlignment="Center"
+                               FontWeight="SemiBold"
+                               Text="Visible:" />
+                    <CheckBox IsChecked="{Binding ShowCodex, Mode=TwoWay}" Content="Codex" />
+                    <CheckBox Margin="18,0,0,0"
+                              IsChecked="{Binding ShowClaude, Mode=TwoWay}"
+                              Content="Claude" />
+                    <CheckBox Margin="18,0,0,0"
+                              IsChecked="{Binding ShowAntigravity, Mode=TwoWay}"
+                              Content="Antigravity" />
+                    <CheckBox Margin="18,0,0,0"
+                              IsChecked="{Binding ShowCursor, Mode=TwoWay}"
+                              Content="Cursor" />
+                </StackPanel>
+                <Grid Margin="0,12,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
@@ -285,23 +308,87 @@
                 <TextBlock Margin="0,3,0,0"
                            Foreground="#FF65717D"
                            Text="Controls the left usage label column (for example, 5H) while keeping Reset text aligned." />
-                <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
-                    <TextBlock Margin="0,0,12,0"
-                               VerticalAlignment="Center"
-                               FontWeight="SemiBold"
-                               Text="Visible:" />
-                    <CheckBox IsChecked="{Binding ShowCodex, Mode=TwoWay}" Content="Codex" />
+                <WrapPanel Margin="0,12,0,0" Orientation="Horizontal">
+                    <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text size" />
+                        <ComboBox Width="110"
+                                  Margin="16,0,0,0"
+                                  ItemsSource="{Binding FontSizePresets}"
+                                  SelectedItem="{Binding FontSizePreset, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Margin="20,4,0,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Font" />
+                        <ComboBox Width="160"
+                                  Margin="16,0,0,0"
+                                  ItemsSource="{Binding WidgetFonts}"
+                                  SelectedItem="{Binding WidgetFont, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Margin="20,4,0,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text weight" />
+                        <ComboBox Width="110"
+                                  Margin="16,0,0,0"
+                                  ItemsSource="{Binding WidgetTextWeights}"
+                                  SelectedItem="{Binding WidgetTextWeight, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Appearance" />
+                        <ComboBox Width="110"
+                                  Margin="16,0,0,0"
+                                  ItemsSource="{Binding WidgetAppearances}"
+                                  SelectedItem="{Binding WidgetAppearance, Mode=TwoWay}" />
+                    </StackPanel>
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Row="2" FontSize="16" FontWeight="SemiBold" Text="Taskbar Widget" />
+        <Border Grid.Row="3"
+                Margin="0,8,0,10"
+                Padding="10"
+                Background="#FFFFFFFF"
+                BorderBrush="#FFD6DBE1"
+                BorderThickness="1"
+                CornerRadius="6">
+            <StackPanel>
+                <CheckBox IsChecked="{Binding ShowTaskbarWidget, Mode=TwoWay}"
+                          FontWeight="SemiBold"
+                          Content="Show usage in Windows taskbar" />
+                <TextBlock Margin="22,4,0,0"
+                           Foreground="#FF65717D"
+                           Text="Displays a compact, read-only usage strip beside the system tray icons and clock. Independent of the main window above."
+                           TextWrapping="Wrap" />
+                <StackPanel Margin="0,10,0,0"
+                            IsEnabled="{Binding ShowTaskbarWidget}"
+                            Orientation="Horizontal">
+                    <TextBlock Margin="0,0,12,0" VerticalAlignment="Center" FontWeight="SemiBold" Text="Visible:" />
+                    <CheckBox IsChecked="{Binding ShowCodexOnTaskbar, Mode=TwoWay}" Content="Codex" />
                     <CheckBox Margin="18,0,0,0"
-                              IsChecked="{Binding ShowClaude, Mode=TwoWay}"
+                              IsChecked="{Binding ShowClaudeOnTaskbar, Mode=TwoWay}"
                               Content="Claude" />
                     <CheckBox Margin="18,0,0,0"
-                              IsChecked="{Binding ShowAntigravity, Mode=TwoWay}"
+                              IsChecked="{Binding ShowAntigravityOnTaskbar, Mode=TwoWay}"
                               Content="Antigravity" />
                     <CheckBox Margin="18,0,0,0"
-                              IsChecked="{Binding ShowCursor, Mode=TwoWay}"
+                              IsChecked="{Binding ShowCursorOnTaskbar, Mode=TwoWay}"
                               Content="Cursor" />
                 </StackPanel>
-                <StackPanel Margin="0,12,0,0" Orientation="Horizontal">
+            </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Row="4" FontSize="16" FontWeight="SemiBold" Text="Refresh &amp; Colour Stages" />
+        <Border Grid.Row="5"
+                Margin="0,8,0,10"
+                Padding="10"
+                Background="#FFFFFFFF"
+                BorderBrush="#FFD6DBE1"
+                BorderThickness="1"
+                CornerRadius="6">
+            <StackPanel>
+                <TextBlock Margin="0,0,0,8"
+                           Foreground="#FF65717D"
+                           Text="Shared by the Window and Taskbar Widget above."
+                           TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal">
                     <CheckBox IsChecked="{Binding AutoRefreshEnabled, Mode=TwoWay}"
                               FontWeight="SemiBold"
                               Content="Scheduled refresh" />
@@ -448,36 +535,6 @@
                         <TextBlock VerticalAlignment="Center" Text="min" />
                     </StackPanel>
                 </WrapPanel>
-                <WrapPanel Margin="0,12,0,0" Orientation="Horizontal">
-                    <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
-                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text size" />
-                        <ComboBox Width="110"
-                                  Margin="16,0,0,0"
-                                  ItemsSource="{Binding FontSizePresets}"
-                                  SelectedItem="{Binding FontSizePreset, Mode=TwoWay}" />
-                    </StackPanel>
-                    <StackPanel Margin="20,4,0,0" Orientation="Horizontal">
-                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Font" />
-                        <ComboBox Width="160"
-                                  Margin="16,0,0,0"
-                                  ItemsSource="{Binding WidgetFonts}"
-                                  SelectedItem="{Binding WidgetFont, Mode=TwoWay}" />
-                    </StackPanel>
-                    <StackPanel Margin="20,4,0,0" Orientation="Horizontal">
-                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text weight" />
-                        <ComboBox Width="110"
-                                  Margin="16,0,0,0"
-                                  ItemsSource="{Binding WidgetTextWeights}"
-                                  SelectedItem="{Binding WidgetTextWeight, Mode=TwoWay}" />
-                    </StackPanel>
-                    <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
-                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Appearance" />
-                        <ComboBox Width="110"
-                                  Margin="16,0,0,0"
-                                  ItemsSource="{Binding WidgetAppearances}"
-                                  SelectedItem="{Binding WidgetAppearance, Mode=TwoWay}" />
-                    </StackPanel>
-                </WrapPanel>
                 <StackPanel Margin="0,14,0,4" Orientation="Horizontal">
                     <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Usage colour stages" />
                     <Button Margin="12,0,0,0"
@@ -531,8 +588,8 @@
             </StackPanel>
         </Border>
 
-        <TextBlock Grid.Row="2" FontSize="16" FontWeight="SemiBold" Text="Integrations" />
-        <Border Grid.Row="3"
+        <TextBlock Grid.Row="6" FontSize="16" FontWeight="SemiBold" Text="Integrations" />
+        <Border Grid.Row="7"
                 Margin="0,8,0,6"
                 Padding="10"
                 Background="#FFFFFFFF"
@@ -564,7 +621,7 @@
                 </StackPanel>
             </Grid>
         </Border>
-        <Border Grid.Row="4"
+        <Border Grid.Row="8"
                 Padding="10"
                 Background="#FFFFFFFF"
                 BorderBrush="#FFD6DBE1"
@@ -596,7 +653,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="5"
+        <Border Grid.Row="9"
                 Margin="0,6,0,0"
                 Padding="10"
                 Background="#FFFFFFFF"
@@ -629,7 +686,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="6"
+        <Border Grid.Row="10"
                 Margin="0,6,0,0"
                 Padding="10"
                 Background="#FFFFFFFF"
@@ -662,7 +719,7 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="7" Margin="0,14,0,0">
+        <Grid Grid.Row="11" Margin="0,14,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -680,7 +737,7 @@
             </StackPanel>
             <Button Grid.Column="1" VerticalAlignment="Top" Command="{Binding AddCodexApiEndpointCommand}" Content="+ Add Endpoint" />
         </Grid>
-        <StackPanel Grid.Row="8" Margin="0,8,0,0">
+        <StackPanel Grid.Row="12" Margin="0,8,0,0">
             <ItemsControl ItemsSource="{Binding CodexApiEndpoints}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
@@ -870,7 +927,7 @@
             </Grid>
         </StackPanel>
 
-        <StackPanel Grid.Row="9" Margin="0,14,0,0">
+        <StackPanel Grid.Row="13" Margin="0,14,0,0">
             <TextBlock FontSize="16" FontWeight="SemiBold" Text="Developer" />
             <Border Margin="0,8,0,0"
                     Padding="10"
@@ -915,7 +972,7 @@
             </Border>
         </StackPanel>
 
-        <TextBlock Grid.Row="10"
+        <TextBlock Grid.Row="14"
                    Margin="0,8,0,0"
                    Foreground="#FF4E5964"
                    Text="{Binding TestResult}"

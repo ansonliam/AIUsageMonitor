@@ -88,6 +88,10 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<ClaudePricingRegistry>();
         services.AddSingleton<CodexApiCostService>();
         services.AddSingleton<DashboardLayoutStore>();
+        services.AddSingleton<TaskbarWidgetSettingsStore>();
+        services.AddSingleton<TaskbarWidgetPositioningService>();
+        services.AddSingleton<TaskbarWidgetViewModel>();
+        services.AddSingleton<TaskbarWidgetWindow>();
         services.AddSingleton<CodexHookInstaller>();
         services.AddSingleton<ClaudeHookInstaller>();
         services.AddSingleton<AntigravityHookInstaller>();
@@ -104,12 +108,19 @@ public partial class App : System.Windows.Application, IApplicationController
             "Application started | DeveloperMode={DeveloperMode} | LogFolder={LogFolder}",
             _developerLogging.IsEnabled,
             _developerLogging.LogDirectory);
-        MainWindow = _services.GetRequiredService<MainWindow>();
+        var mainWindow = _services.GetRequiredService<MainWindow>();
+        MainWindow = mainWindow;
         _services.GetRequiredService<TrayIconService>().Initialize();
         await _services.GetRequiredService<HookNotificationListener>().StartAsync();
 
-        MainWindow.Show();
-        MainWindow.Activate();
+        mainWindow.Show();
+        mainWindow.Activate();
+        if (!mainWindow.ShowDashboardWidget)
+        {
+            mainWindow.Hide();
+        }
+
+        _services.GetRequiredService<TaskbarWidgetWindow>().ApplyStartupVisibility();
         await PromptForMissingHooksAsync();
         _ = _services.GetRequiredService<CodexApiCostService>().RefreshAsync("Startup");
         await _services.GetRequiredService<UsagePollingService>().StartAsync();

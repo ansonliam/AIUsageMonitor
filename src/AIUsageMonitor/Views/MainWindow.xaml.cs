@@ -56,6 +56,7 @@ public partial class MainWindow : Window
     public double DashboardWidgetHeight { get; private set; } = DefaultDashboardWidgetHeight;
     public double MetricLabelWidth { get; private set; } = DefaultMetricLabelWidth;
     public bool IsHorizontalLayout { get; private set; }
+    public bool ShowDashboardWidget { get; private set; } = true;
     public bool AlwaysOnTop { get; private set; } = true;
     public bool ShowCodex { get; private set; } = true;
     public bool ShowClaude { get; private set; } = true;
@@ -212,6 +213,7 @@ public partial class MainWindow : Window
                 ? placement.MetricLabelWidth
                 : DefaultMetricLabelWidth;
             IsHorizontalLayout = placement.IsHorizontalLayout;
+            ShowDashboardWidget = placement.ShowDashboardWidget;
             AlwaysOnTop = placement.AlwaysOnTop;
             ShowCodex = placement.ShowCodex;
             ShowClaude = placement.ShowClaude;
@@ -298,6 +300,32 @@ public partial class MainWindow : Window
 
         IsHorizontalLayout = isHorizontal;
         ApplyProviderLayout();
+        SavePlacement();
+    }
+
+    public void SetDashboardWidgetVisible(bool isVisible)
+    {
+        if (ShowDashboardWidget == isVisible)
+        {
+            return;
+        }
+
+        ShowDashboardWidget = isVisible;
+        if (isVisible)
+        {
+            Show();
+            if (WindowState == WindowState.Minimized)
+            {
+                WindowState = WindowState.Normal;
+            }
+
+            Activate();
+        }
+        else
+        {
+            Hide();
+        }
+
         SavePlacement();
     }
 
@@ -1310,6 +1338,7 @@ public partial class MainWindow : Window
                 IsLocked = IsWindowLocked,
                 IsDashboardLayoutEnabled = IsDashboardLayoutEnabled,
                 IsHorizontalLayout = IsHorizontalLayout,
+                ShowDashboardWidget = ShowDashboardWidget,
                 AlwaysOnTop = AlwaysOnTop,
                 ShowCodex = ShowCodex,
                 ShowClaude = ShowClaude,
@@ -1380,6 +1409,7 @@ public partial class MainWindow : Window
         public bool IsLocked { get; init; }
         public bool IsDashboardLayoutEnabled { get; init; }
         public bool IsHorizontalLayout { get; init; }
+        public bool ShowDashboardWidget { get; init; } = true;
         public bool AlwaysOnTop { get; init; } = true;
         public bool ShowCodex { get; init; } = true;
         public bool ShowClaude { get; init; } = true;

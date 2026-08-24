@@ -73,6 +73,10 @@ public sealed class MainViewModel
     public ObservableCollection<object> CompactPanels { get; }
     public DashboardLayoutViewModel DashboardLayout { get; }
     public ProviderViewModel ClaudeProvider => _providers[ProviderKind.Claude];
+    // All 4 subscription providers, regardless of dashboard visibility - unlike Providers (which
+    // only holds whichever are currently shown on the dashboard), this is a stable set for other
+    // consumers (e.g. TaskbarWidgetViewModel) that have their own, independent visibility.
+    public IReadOnlyList<ProviderViewModel> AllProviders => _providerOrder;
     public event Action? LayoutChanged;
 
     private void ApplyCodexApiCostSummaries()
