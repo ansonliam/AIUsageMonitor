@@ -289,7 +289,7 @@
         <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="8,10,8,8">
 
-        <TextBlock FontSize="16" FontWeight="SemiBold" Text="Window Widget" />
+        <TextBlock FontSize="16" FontWeight="SemiBold" Text="Widget Visibility" />
         <Border Margin="0,8,0,10"
                 Padding="10"
                 Background="#FFFFFFFF"
@@ -297,11 +297,12 @@
                 BorderThickness="1"
                 CornerRadius="6">
             <StackPanel>
+                <TextBlock Margin="0,0,0,6" FontSize="11" Foreground="#FF65717D" Text="WINDOW WIDGET" />
                 <CheckBox IsChecked="{Binding ShowDashboardWidget, Mode=TwoWay}"
                           FontWeight="SemiBold"
                           Content="Show main window" />
                 <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
-                    <TextBlock Margin="0,0,12,0"
+                    <TextBlock Width="55"
                                VerticalAlignment="Center"
                                FontWeight="SemiBold"
                                Text="Visible:" />
@@ -316,7 +317,41 @@
                               IsChecked="{Binding ShowCursor, Mode=TwoWay}"
                               Content="Cursor" />
                 </StackPanel>
-                <Grid Margin="0,12,0,0">
+
+                <TextBlock Margin="0,16,0,6" FontSize="11" Foreground="#FF65717D" Text="TASKBAR WIDGET" />
+                <CheckBox IsChecked="{Binding ShowTaskbarWidget, Mode=TwoWay}"
+                          FontWeight="SemiBold"
+                          Content="Show usage in Windows taskbar" />
+                <StackPanel Margin="0,10,0,0"
+                            IsEnabled="{Binding ShowTaskbarWidget}"
+                            Orientation="Horizontal">
+                    <TextBlock Width="55"
+                               VerticalAlignment="Center"
+                               FontWeight="SemiBold"
+                               Text="Visible:" />
+                    <CheckBox IsChecked="{Binding ShowCodexOnTaskbar, Mode=TwoWay}" Content="Codex" />
+                    <CheckBox Margin="18,0,0,0"
+                              IsChecked="{Binding ShowClaudeOnTaskbar, Mode=TwoWay}"
+                              Content="Claude" />
+                    <CheckBox Margin="18,0,0,0"
+                              IsChecked="{Binding ShowAntigravityOnTaskbar, Mode=TwoWay}"
+                              Content="Antigravity" />
+                    <CheckBox Margin="18,0,0,0"
+                              IsChecked="{Binding ShowCursorOnTaskbar, Mode=TwoWay}"
+                              Content="Cursor" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <TextBlock FontSize="16" FontWeight="SemiBold" Text="Window Widget" />
+        <Border Margin="0,8,0,10"
+                Padding="10"
+                Background="#FFFFFFFF"
+                BorderBrush="#FFD6DBE1"
+                BorderThickness="1"
+                CornerRadius="6">
+            <StackPanel>
+                <Grid Margin="0,0,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
@@ -416,28 +451,9 @@
                 BorderThickness="1"
                 CornerRadius="6">
             <StackPanel>
-                <CheckBox IsChecked="{Binding ShowTaskbarWidget, Mode=TwoWay}"
-                          FontWeight="SemiBold"
-                          Content="Show usage in Windows taskbar" />
-                <TextBlock Margin="22,4,0,0"
-                           Foreground="#FF65717D"
-                           Text="Displays a compact, read-only usage strip beside the system tray icons and clock. Independent of the main window above."
+                <TextBlock Foreground="#FF65717D"
+                           Text="Displays a compact, read-only usage strip beside the system tray icons and clock. Independent of the main window. Visibility and toggles are controlled from the Show section above."
                            TextWrapping="Wrap" />
-                <StackPanel Margin="0,10,0,0"
-                            IsEnabled="{Binding ShowTaskbarWidget}"
-                            Orientation="Horizontal">
-                    <TextBlock Margin="0,0,12,0" VerticalAlignment="Center" FontWeight="SemiBold" Text="Visible:" />
-                    <CheckBox IsChecked="{Binding ShowCodexOnTaskbar, Mode=TwoWay}" Content="Codex" />
-                    <CheckBox Margin="18,0,0,0"
-                              IsChecked="{Binding ShowClaudeOnTaskbar, Mode=TwoWay}"
-                              Content="Claude" />
-                    <CheckBox Margin="18,0,0,0"
-                              IsChecked="{Binding ShowAntigravityOnTaskbar, Mode=TwoWay}"
-                              Content="Antigravity" />
-                    <CheckBox Margin="18,0,0,0"
-                              IsChecked="{Binding ShowCursorOnTaskbar, Mode=TwoWay}"
-                              Content="Cursor" />
-                </StackPanel>
                 <WrapPanel Margin="0,10,0,0" IsEnabled="{Binding ShowTaskbarWidget}">
                     <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text size" />
