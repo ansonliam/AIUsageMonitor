@@ -51,6 +51,8 @@ public partial class MainWindow : Window
 
     private readonly Dictionary<DashboardCardViewModel, DashboardCard> _dashboardElements = [];
     private HwndSource? _windowSource;
+    private bool _isDraggingWindow;
+    private System.Windows.Point _dragStartPosition;
 
     // Raised whenever widget state that Settings also displays has changed. Settings is shown
     // non-modally, so the widget's own context menu (opacity, layout, lock, always-on-top, hide)
@@ -84,6 +86,7 @@ public partial class MainWindow : Window
     public double Stage3MaxPercent { get; private set; } = 69;
     public double Stage4MaxPercent { get; private set; } = 79;
     public double Stage5MaxPercent { get; private set; } = 84;
+    public bool ShowUsageRemaining { get; private set; }
     public bool AutoRefreshEnabled { get; private set; } = true;
     public double CodexRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.CodexDefaultIntervalMinutes;
     public double ClaudeRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
@@ -142,7 +145,33 @@ public partial class MainWindow : Window
             return;
         }
 
-        DragMove();
+        _isDraggingWindow = true;
+        _dragStartPosition = e.GetPosition(this);
+        Mouse.Capture(this);
+        e.Handled = true;
+    }
+
+    private void Window_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (!_isDraggingWindow)
+        {
+            return;
+        }
+
+        var currentPosition = e.GetPosition(null);
+        Left += currentPosition.X - (_dragStartPosition.X + Left);
+        Top += currentPosition.Y - (_dragStartPosition.Y + Top);
+    }
+
+    private void Window_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_isDraggingWindow)
+        {
+            return;
+        }
+
+        _isDraggingWindow = false;
+        Mouse.Capture(null);
         SavePlacement();
         e.Handled = true;
     }
@@ -246,6 +275,7 @@ public partial class MainWindow : Window
             Stage3MaxPercent = placement.Stage3MaxPercent;
             Stage4MaxPercent = placement.Stage4MaxPercent;
             Stage5MaxPercent = placement.Stage5MaxPercent;
+            ShowUsageRemaining = placement.ShowUsageRemaining;
             AutoRefreshEnabled = placement.AutoRefreshEnabled;
             CodexRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(
                 placement.CodexRefreshIntervalMinutes);
@@ -280,6 +310,7 @@ public partial class MainWindow : Window
         ApplyAutoRefreshOptions();
         ApplyThrottleOptions();
         ApplySavedUsageColors();
+        _viewModel.SetUsageDisplayMode(ShowUsageRemaining);
         ApplyWidgetPresentation();
         ApplyFontSizePreset();
         ApplyMetricLabelWidth();
@@ -932,6 +963,18 @@ public partial class MainWindow : Window
         TrySetUsageColors("#2ECC71", "#9ACD32", "#FFD21E", "#FF9800", "#FF4D4F", 29, 49, 69, 79, 84);
     }
 
+    public void SetShowUsageRemaining(bool showRemaining)
+    {
+        if (ShowUsageRemaining == showRemaining)
+        {
+            return;
+        }
+
+        ShowUsageRemaining = showRemaining;
+        _viewModel.SetUsageDisplayMode(showRemaining);
+        SavePlacement();
+    }
+
     private void ApplyAutoRefreshOptions() =>
         _autoRefreshOptions.Update(
             AutoRefreshEnabled,
@@ -1375,6 +1418,7 @@ public partial class MainWindow : Window
                 Stage3MaxPercent = Stage3MaxPercent,
                 Stage4MaxPercent = Stage4MaxPercent,
                 Stage5MaxPercent = Stage5MaxPercent,
+                ShowUsageRemaining = ShowUsageRemaining,
                 AutoRefreshEnabled = AutoRefreshEnabled,
                 CodexRefreshIntervalMinutes = CodexRefreshIntervalMinutes,
                 ClaudeRefreshIntervalMinutes = ClaudeRefreshIntervalMinutes,
@@ -1451,6 +1495,7 @@ public partial class MainWindow : Window
         public double Stage3MaxPercent { get; init; } = 69;
         public double Stage4MaxPercent { get; init; } = 79;
         public double Stage5MaxPercent { get; init; } = 84;
+        public bool ShowUsageRemaining { get; init; }
         public bool AutoRefreshEnabled { get; init; } = true;
         public double CodexRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.CodexDefaultIntervalMinutes;
         public double ClaudeRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
