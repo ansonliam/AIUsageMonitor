@@ -13,12 +13,31 @@ internal static class TaskbarInterop
     public const int WsExToolWindow = 0x00000080;
     public const int WsExNoActivate = 0x08000000;
     public const int WmDisplayChange = 0x007E;
+    public const int WmWindowPosChanging = 0x0046;
     public const uint SwpNoActivate = 0x0010;
     public const uint SwpNoZOrder = 0x0004;
     public const uint SwpNoMove = 0x0002;
     public const uint SwpNoSize = 0x0001;
     public const uint SwpNoOwnerZOrder = 0x0200;
     public static readonly IntPtr HwndTopmost = new(-1);
+
+    // Mirrors the Win32 WINDOWPOS struct pointed to by WM_WINDOWPOSCHANGING/CHANGED's lParam.
+    // Sent to a window when ITS OWN position or z-order is about to change, synchronously and
+    // before the change is applied, so rewriting hwndInsertAfter here overrides that change.
+    // Importantly this is NOT sent when a sibling merely jumps above us (e.g. Explorer raising
+    // Shell_TrayWnd to the top of the topmost band): our window hasn't moved, so there is no
+    // message - Windows never notifies a window that something else went in front of it.
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WindowPos
+    {
+        public IntPtr Hwnd;
+        public IntPtr HwndInsertAfter;
+        public int X;
+        public int Y;
+        public int Cx;
+        public int Cy;
+        public uint Flags;
+    }
 
     // WinEvent hook constants (SetWinEventHook) - system-wide, out-of-process notifications, not
     // to be confused with window messages. EventSystemForeground fires the instant any window
@@ -61,6 +80,26 @@ internal static class TaskbarInterop
         public int Top;
         public int Right;
         public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct PointL
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr WindowFromPoint(PointL point);
+
+    // Answers "is something drawn in front of us at this pixel" in a single call: WindowFromPoint
+    // returns whichever window is topmost at that point. Used to skip redundant SetWindowPos
+    // calls - this window is layered (AllowsTransparency), so every needless z-order change costs
+    // a repaint, which is itself visible as a flicker.
+    public static bool IsObscuredAt(IntPtr hWnd, int x, int y)
+    {
+        var topMostAtPoint = WindowFromPoint(new PointL { X = x, Y = y });
+        return topMostAtPoint != IntPtr.Zero && topMostAtPoint != hWnd;
     }
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]

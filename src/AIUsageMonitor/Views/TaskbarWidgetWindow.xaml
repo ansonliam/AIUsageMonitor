@@ -10,11 +10,20 @@
         ResizeMode="NoResize"
         ShowActivated="False"
         ShowInTaskbar="False"
-        SizeToContent="WidthAndHeight"
+        SizeToContent="Width"
         Topmost="True"
         WindowStartupLocation="Manual"
         WindowStyle="None"
         TextOptions.TextFormattingMode="Display">
+    <Window.ContextMenu>
+        <ContextMenu Closed="ContextMenu_Closed">
+            <MenuItem Header="Open" Click="OpenMenuItem_Click" />
+            <MenuItem Header="Settings" Click="SettingsMenuItem_Click" />
+            <MenuItem Header="Refresh All" Click="RefreshAllMenuItem_Click" />
+            <Separator />
+            <MenuItem Header="Close" Click="CloseMenuItem_Click" />
+        </ContextMenu>
+    </Window.ContextMenu>
     <Window.Resources>
         <converters:UsageColorConverter x:Key="UsageColorConverter" />
 
@@ -98,10 +107,12 @@
         </DataTemplate>
     </Window.Resources>
 
-    <!-- Hit-testable so hover tooltips work, but no click handlers exist anywhere in this window,
-         and it never steals focus/activation regardless (ShowActivated, Focusable, and the
-         WS_EX_NOACTIVATE style applied in code-behind). -->
-    <ItemsControl x:Name="ProvidersItemsControl" ItemTemplate="{StaticResource TaskbarProviderTemplate}">
+    <!-- Hit-testable so hover tooltips and the right-click menu work; left-click still does
+         nothing (no handler wired to it), and the window never steals focus/activation regardless
+         (ShowActivated, Focusable, and the WS_EX_NOACTIVATE style applied in code-behind). -->
+    <ItemsControl x:Name="ProvidersItemsControl"
+                  VerticalAlignment="Center"
+                  ItemTemplate="{StaticResource TaskbarProviderTemplate}">
         <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
                 <StackPanel Orientation="Horizontal" />

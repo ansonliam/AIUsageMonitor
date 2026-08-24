@@ -4,16 +4,35 @@ using System.Windows.Media;
 namespace AIUsageMonitor.Services;
 
 // Computes where the taskbar widget should sit: flush against the left edge of the tray icon
-// cluster (TrayNotifyWnd), vertically centered in the taskbar (Shell_TrayWnd), on the primary
+// cluster (TrayNotifyWnd), spanning the taskbar's full height (Shell_TrayWnd), on the primary
 // display only. GetWindowRect returns physical pixels; WPF's Window.Left/Top are DIPs, so results
 // are converted through the same CompositionTarget.TransformFromDevice approach MainWindow already
 // uses for its own screen-relative placement (see MainWindow.SnapToBottomRight).
+//
+// The window's own height is set to match the taskbar's full height (not just its content) so
+// its hit-test bounds cover the whole strip - otherwise a window sized to its (shorter) content
+// and merely centered within the taskbar's height leaves a sliver of the real Shell_TrayWnd
+// exposed above/below it, which then swallows clicks meant for this widget (e.g. right-click
+// showing the taskbar's own context menu instead of this one). The content itself is centered
+// vertically inside that taller window via VerticalAlignment, not by the window's own placement.
 public sealed class TaskbarWidgetPositioningService
 {
-    public bool TryComputePosition(Visual visual, double widgetWidthDip, double widgetHeightDip, out double left, out double top)
+    // Guards against a transient/degenerate GetWindowRect reading (e.g. captured mid-transition
+    // while a context menu or shell flyout is opening/closing near the taskbar) collapsing the
+    // window to a near-zero height, which makes it invisible until something else happens to
+    // trigger another reposition. A real taskbar is always much taller than this at any DPI.
+    private const double MinimumPlausibleTaskbarHeightDip = 8;
+
+    public bool TryComputePosition(
+        Visual visual,
+        double widgetWidthDip,
+        out double left,
+        out double top,
+        out double taskbarHeightDip)
     {
         left = 0;
         top = 0;
+        taskbarHeightDip = 0;
 
         var taskbarHandle = TaskbarInterop.FindTaskbar();
         if (taskbarHandle == IntPtr.Zero || !TaskbarInterop.GetWindowRect(taskbarHandle, out var taskbarRect))
@@ -38,9 +57,15 @@ public sealed class TaskbarWidgetPositioningService
         var taskbarBottomDip = transform.Value.Transform(new System.Windows.Point(taskbarRect.Left, taskbarRect.Bottom));
         var trayLeftDip = transform.Value.Transform(new System.Windows.Point(trayLeftPixels, taskbarRect.Top)).X;
 
-        var taskbarHeightDip = taskbarBottomDip.Y - taskbarTopLeftDip.Y;
+        taskbarHeightDip = taskbarBottomDip.Y - taskbarTopLeftDip.Y;
+        if (taskbarHeightDip < MinimumPlausibleTaskbarHeightDip)
+        {
+            taskbarHeightDip = 0;
+            return false;
+        }
+
         left = trayLeftDip - widgetWidthDip;
-        top = taskbarTopLeftDip.Y + (taskbarHeightDip - widgetHeightDip) / 2;
+        top = taskbarTopLeftDip.Y;
         return true;
     }
 }

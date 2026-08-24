@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
@@ -10,18 +11,42 @@ namespace AIUsageMonitor.Views;
 
 public partial class TaskbarWidgetWindow : Window
 {
-    // Defensive-only: normal recovery happens instantly via the WinEvent hooks below (foreground
-    // change / taskbar location change). This just catches whatever those don't - e.g. a WinEvent
-    // hook that silently failed to install, or a state mismatch neither hook happened to fire for.
-    // Deliberately slow: it should almost never need to do anything.
-    private static readonly TimeSpan WatchdogInterval = TimeSpan.FromSeconds(8);
+    // Backstop that guarantees recovery. It re-asserts topmost unconditionally (a single cheap
+    // SetWindowPos) rather than only when position/size look wrong, because being *covered* by
+    // the taskbar changes neither our position nor our size - a conditional check can't detect it
+    // at all, which would otherwise leave the widget hidden indefinitely.
+    private static readonly TimeSpan WatchdogInterval = TimeSpan.FromSeconds(10);
     private const double PositionToleranceDip = 1.0;
+
+    // Explorer re-asserts its own topmost slot as part of taskbar interaction, and can do so a
+    // moment AFTER we re-assert ours - whichever SetWindowPos(HWND_TOPMOST) call lands last wins
+    // the top of the band. Because the taskbar jumping above us doesn't move our window, Windows
+    // sends us no message about it (there is no notification when a sibling jumps above you), so
+    // a single re-assert per event silently loses that ordering race. Re-asserting a few times
+    // across Explorer's settling window covers it without resorting to continuous polling.
+    // Interval is deliberately short: since each check is a conditional no-op when nothing is
+    // covering us (see ReassertTopMost), the only real cost of checking more often is two cheap
+    // reads - and the payoff is directly shorter visible blink, because the widget stays covered
+    // only until the next check notices. 10 ticks keeps ~500ms of coverage for a late settle.
+    private static readonly TimeSpan SettleInterval = TimeSpan.FromMilliseconds(50);
+    private const int SettleTickCount = 10;
+
+    // Nothing user-driven can reorder windows while there has been no input at all, so the
+    // watchdog skips its checks entirely once idle. Much shorter than AutoRefreshOptions' own
+    // 5-minute idle notion, which exists for a different purpose (how often to poll provider
+    // APIs) - here it only needs to be long enough to outlast a pause between clicks.
+    private static readonly TimeSpan IdleThreshold = TimeSpan.FromSeconds(30);
 
     private readonly TaskbarWidgetViewModel _viewModel;
     private readonly TaskbarWidgetSettingsStore _settingsStore;
     private readonly TaskbarWidgetPositioningService _positioningService;
     private readonly MainWindow _mainWindow;
+    private readonly IApplicationController _applicationController;
+    private readonly ISystemIdleTimeProvider _idleTimeProvider;
     private readonly DispatcherTimer _watchdogTimer;
+    private readonly DispatcherTimer _settleTimer;
+    private int _settleTicksRemaining;
+    private bool _wasIdle;
     // Kept alive for the hook's lifetime - SetWinEventHook only stores a native function pointer
     // to the delegate, so letting it be collected would leave the hook calling into freed memory.
     private readonly TaskbarInterop.WinEventDelegate _foregroundChangedHandler;
@@ -29,6 +54,10 @@ public partial class TaskbarWidgetWindow : Window
     private IntPtr _foregroundHook = IntPtr.Zero;
     private IntPtr _locationHook = IntPtr.Zero;
     private IntPtr _cachedTaskbarHandle = IntPtr.Zero;
+    // The tray icon cluster (TrayNotifyWnd) can resize independently of the taskbar's own outer
+    // bounds - e.g. reorganizing which icons are hidden/shown changes its width without Shell_
+    // TrayWnd's rect changing at all, so it needs its own cached handle to watch.
+    private IntPtr _cachedTrayNotifyHandle = IntPtr.Zero;
     private uint _taskbarCreatedMessage;
     private HwndSource? _windowSource;
 
@@ -42,13 +71,17 @@ public partial class TaskbarWidgetWindow : Window
         TaskbarWidgetViewModel viewModel,
         TaskbarWidgetSettingsStore settingsStore,
         TaskbarWidgetPositioningService positioningService,
-        MainWindow mainWindow)
+        MainWindow mainWindow,
+        IApplicationController applicationController,
+        ISystemIdleTimeProvider idleTimeProvider)
     {
         InitializeComponent();
         _viewModel = viewModel;
         _settingsStore = settingsStore;
         _positioningService = positioningService;
         _mainWindow = mainWindow;
+        _applicationController = applicationController;
+        _idleTimeProvider = idleTimeProvider;
         ProvidersItemsControl.ItemsSource = _viewModel.Providers;
 
         var settings = _settingsStore.Load();
@@ -64,6 +97,15 @@ public partial class TaskbarWidgetWindow : Window
         _taskbarLocationChangedHandler = OnTaskbarLocationChanged;
         _watchdogTimer = new DispatcherTimer { Interval = WatchdogInterval };
         _watchdogTimer.Tick += (_, _) => RunWatchdog();
+        _settleTimer = new DispatcherTimer { Interval = SettleInterval };
+        _settleTimer.Tick += (_, _) =>
+        {
+            ReassertTopMost();
+            if (--_settleTicksRemaining <= 0)
+            {
+                _settleTimer.Stop();
+            }
+        };
 
         SourceInitialized += TaskbarWidgetWindow_SourceInitialized;
         SizeChanged += (_, _) => Reposition();
@@ -147,6 +189,7 @@ public partial class TaskbarWidgetWindow : Window
         else
         {
             _watchdogTimer.Stop();
+            _settleTimer.Stop();
             Hide();
         }
     }
@@ -162,7 +205,7 @@ public partial class TaskbarWidgetWindow : Window
         _windowSource = HwndSource.FromHwnd(handle);
         _windowSource?.AddHook(WindowMessageHook);
 
-        _cachedTaskbarHandle = TaskbarInterop.FindTaskbar();
+        RefreshCachedTaskbarHandles();
 
         // EVENT_SYSTEM_FOREGROUND: fires the instant any window anywhere becomes the foreground
         // window - exactly what happens when a taskbar button is clicked. This is what keeps
@@ -199,14 +242,47 @@ public partial class TaskbarWidgetWindow : Window
         uint dwmsEventTime)
     {
         // Kept minimal per the hook contract: just re-claim the topmost slot, no repositioning.
-        Dispatcher.BeginInvoke(() =>
+        Dispatcher.BeginInvoke(BeginTopMostSettle);
+    }
+
+    // Only re-asserts when something is actually covering us. The check matters as much as the
+    // fix: this window is layered (AllowsTransparency), so an unconditional SetWindowPos costs a
+    // repaint that is itself visible as a flicker - and with the settle sequence below firing
+    // several times per event, blind re-asserting turns one brief flicker into several.
+    private void ReassertTopMost()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (!ShowTaskbarWidget || handle == IntPtr.Zero)
         {
-            var handle = new WindowInteropHelper(this).Handle;
-            if (ShowTaskbarWidget && handle != IntPtr.Zero)
-            {
-                TaskbarInterop.ForceTopMost(handle);
-            }
-        });
+            return;
+        }
+
+        if (!TaskbarInterop.GetWindowRect(handle, out var rect))
+        {
+            TaskbarInterop.ForceTopMost(handle);
+            return;
+        }
+
+        var centerX = (rect.Left + rect.Right) / 2;
+        var centerY = (rect.Top + rect.Bottom) / 2;
+        if (TaskbarInterop.IsObscuredAt(handle, centerX, centerY))
+        {
+            TaskbarInterop.ForceTopMost(handle);
+        }
+    }
+
+    // Re-assert now, then again a few times over Explorer's settling window - see SettleInterval.
+    private void BeginTopMostSettle()
+    {
+        if (!ShowTaskbarWidget)
+        {
+            return;
+        }
+
+        ReassertTopMost();
+        _settleTicksRemaining = SettleTickCount;
+        _settleTimer.Stop();
+        _settleTimer.Start();
     }
 
     private void OnTaskbarLocationChanged(
@@ -218,7 +294,11 @@ public partial class TaskbarWidgetWindow : Window
         uint dwEventThread,
         uint dwmsEventTime)
     {
-        if (hwnd != _cachedTaskbarHandle || idObject != TaskbarInterop.ObjIdWindow)
+        // Reorganizing which tray icons are hidden/shown resizes TrayNotifyWnd without Shell_
+        // TrayWnd's own outer bounds changing at all, so both handles need watching - only
+        // Shell_TrayWnd moving/resizing wouldn't catch that case.
+        if (idObject != TaskbarInterop.ObjIdWindow ||
+            (hwnd != _cachedTaskbarHandle && hwnd != _cachedTrayNotifyHandle))
         {
             return;
         }
@@ -228,15 +308,50 @@ public partial class TaskbarWidgetWindow : Window
 
     private IntPtr WindowMessageHook(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        if (message == TaskbarInterop.WmWindowPosChanging)
+        {
+            InterceptWindowPosChanging(lParam);
+            return IntPtr.Zero;
+        }
+
         if (message == TaskbarInterop.WmDisplayChange || (uint)message == _taskbarCreatedMessage)
         {
-            // Explorer restarting or a display change invalidates whichever Shell_TrayWnd handle
-            // was cached for the location-change filter above.
-            _cachedTaskbarHandle = TaskbarInterop.FindTaskbar();
+            // Explorer restarting or a display change invalidates whichever handles were cached
+            // for the location-change filter above.
+            RefreshCachedTaskbarHandles();
             Dispatcher.BeginInvoke(Reposition, DispatcherPriority.Background);
         }
 
         return IntPtr.Zero;
+    }
+
+    // Rewrites a pending z-order change to this window in place, before Windows applies it.
+    // NOTE: this only covers changes to OUR OWN window - it does nothing for the common case of
+    // Explorer raising the taskbar above us, which moves the taskbar rather than us and so sends
+    // no message here at all. That case is handled by BeginTopMostSettle/RunWatchdog instead.
+    private void InterceptWindowPosChanging(IntPtr lParam)
+    {
+        if (!ShowTaskbarWidget)
+        {
+            return;
+        }
+
+        var pos = Marshal.PtrToStructure<TaskbarInterop.WindowPos>(lParam);
+        if (pos.HwndInsertAfter == TaskbarInterop.HwndTopmost &&
+            (pos.Flags & TaskbarInterop.SwpNoZOrder) == 0)
+        {
+            return;
+        }
+
+        pos.HwndInsertAfter = TaskbarInterop.HwndTopmost;
+        pos.Flags &= ~TaskbarInterop.SwpNoZOrder;
+        Marshal.StructureToPtr(pos, lParam, false);
+    }
+
+    private void RefreshCachedTaskbarHandles()
+    {
+        _cachedTaskbarHandle = TaskbarInterop.FindTaskbar();
+        _cachedTrayNotifyHandle = TaskbarInterop.FindTrayNotifyArea(_cachedTaskbarHandle);
     }
 
     private void Reposition()
@@ -246,22 +361,18 @@ public partial class TaskbarWidgetWindow : Window
             return;
         }
 
-        if (_positioningService.TryComputePosition(this, ActualWidth, ActualHeight, out var left, out var top))
+        if (_positioningService.TryComputePosition(this, ActualWidth, out var left, out var top, out var taskbarHeight))
         {
             Left = left;
             Top = top;
+            Height = taskbarHeight;
         }
 
-        var handle = new WindowInteropHelper(this).Handle;
-        if (handle != IntPtr.Zero)
-        {
-            TaskbarInterop.ForceTopMost(handle);
-        }
+        ReassertTopMost();
     }
 
-    // Defensive-only recovery - see WatchdogInterval. Only touches the window (and only via
-    // Reposition, which is the single place that calls SetWindowPos) when something is actually
-    // wrong; otherwise this is just two cheap read-only checks.
+    // Recovery backstop - see WatchdogInterval for why the topmost re-assert here is
+    // unconditional rather than gated on the position/size checks below.
     private void RunWatchdog()
     {
         if (!ShowTaskbarWidget || !IsLoaded)
@@ -269,10 +380,35 @@ public partial class TaskbarWidgetWindow : Window
             return;
         }
 
+        if (_idleTimeProvider.GetIdleTime() >= IdleThreshold)
+        {
+            // No input at all, so nothing user-driven can be reordering windows - see
+            // IdleThreshold. One cheap read and we're done until input resumes.
+            _wasIdle = true;
+            return;
+        }
+
+        if (_wasIdle)
+        {
+            _wasIdle = false;
+            // Returning from idle is exactly when taskbar geometry and z-order are most likely to
+            // have been shuffled while we deliberately weren't looking (lock screen, monitor
+            // sleep/wake, resolution or DPI change on resume), so do the full correction rather
+            // than a single check.
+            RefreshCachedTaskbarHandles();
+            Reposition();
+            BeginTopMostSettle();
+            return;
+        }
+
+        ReassertTopMost();
+
         var currentTaskbarHandle = TaskbarInterop.FindTaskbar();
-        if (currentTaskbarHandle != _cachedTaskbarHandle)
+        var currentTrayNotifyHandle = TaskbarInterop.FindTrayNotifyArea(currentTaskbarHandle);
+        if (currentTaskbarHandle != _cachedTaskbarHandle || currentTrayNotifyHandle != _cachedTrayNotifyHandle)
         {
             _cachedTaskbarHandle = currentTaskbarHandle;
+            _cachedTrayNotifyHandle = currentTrayNotifyHandle;
             Reposition();
             return;
         }
@@ -284,8 +420,10 @@ public partial class TaskbarWidgetWindow : Window
             return;
         }
 
-        if (_positioningService.TryComputePosition(this, ActualWidth, ActualHeight, out var expectedLeft, out var expectedTop) &&
-            (Math.Abs(Left - expectedLeft) > PositionToleranceDip || Math.Abs(Top - expectedTop) > PositionToleranceDip))
+        if (_positioningService.TryComputePosition(this, ActualWidth, out var expectedLeft, out var expectedTop, out var expectedHeight) &&
+            (Math.Abs(Left - expectedLeft) > PositionToleranceDip ||
+             Math.Abs(Top - expectedTop) > PositionToleranceDip ||
+             Math.Abs(Height - expectedHeight) > PositionToleranceDip))
         {
             Reposition();
         }
@@ -294,6 +432,7 @@ public partial class TaskbarWidgetWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _watchdogTimer.Stop();
+        _settleTimer.Stop();
         _windowSource?.RemoveHook(WindowMessageHook);
         _windowSource = null;
 
@@ -311,6 +450,23 @@ public partial class TaskbarWidgetWindow : Window
 
         base.OnClosed(e);
     }
+
+    // The context menu's own popup sits above everything (including the taskbar) while open, so
+    // closing it is a known point where this window can end up a slot lower in the topmost band.
+    // Worth handling explicitly rather than waiting for whatever gets clicked next to fire
+    // EVENT_SYSTEM_FOREGROUND.
+    private void ContextMenu_Closed(object sender, RoutedEventArgs e) => BeginTopMostSettle();
+
+    // Mirrors TrayIconService's menu exactly - same items, same underlying actions.
+    private void OpenMenuItem_Click(object sender, RoutedEventArgs e) => _applicationController.ShowMainWindow();
+
+    private void SettingsMenuItem_Click(object sender, RoutedEventArgs e) => _applicationController.ShowSettings();
+
+    private async void RefreshAllMenuItem_Click(object sender, RoutedEventArgs e) =>
+        await _applicationController.RefreshAllAsync();
+
+    private async void CloseMenuItem_Click(object sender, RoutedEventArgs e) =>
+        await _applicationController.ExitAsync();
 
     private void SaveSettings() => _settingsStore.Save(new TaskbarWidgetSettings
     {
