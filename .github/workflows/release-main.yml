@@ -131,5 +131,6 @@ jobs:
                 --target $env:GITHUB_SHA `
                 --title $title `
                 --notes $notes `
+                --generate-notes `
                 --latest
           }
