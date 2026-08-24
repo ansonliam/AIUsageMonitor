@@ -150,10 +150,15 @@ public partial class App : System.Windows.Application, IApplicationController
         Dispatcher.Invoke(() => MainWindow?.Hide());
     }
 
+    public bool IsMainWindowVisible() => Dispatcher.Invoke(() => MainWindow?.IsVisible == true);
+
     public void SetTaskbarWidgetVisibility(bool isVisible)
     {
         Dispatcher.Invoke(() => _services?.GetRequiredService<TaskbarWidgetWindow>().SetShowTaskbarWidget(isVisible));
     }
+
+    public bool IsTaskbarWidgetVisible() =>
+        Dispatcher.Invoke(() => _services?.GetService<TaskbarWidgetWindow>()?.ShowTaskbarWidget == true);
 
     public void ShowSettings()
     {

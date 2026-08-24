@@ -22,11 +22,14 @@ public sealed class TrayIconService : IDisposable
         }
 
         var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Open Window Widget", null, (_, _) => _applicationController.ShowMainWindow());
-        menu.Items.Add("Hide Window Widget", null, (_, _) => _applicationController.HideMainWindow());
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Open Taskbar Widget", null, (_, _) => _applicationController.SetTaskbarWidgetVisibility(true));
-        menu.Items.Add("Hide Taskbar Widget", null, (_, _) => _applicationController.SetTaskbarWidgetVisibility(false));
+        var windowWidgetMenuItem = new Forms.ToolStripMenuItem();
+        var taskbarWidgetMenuItem = new Forms.ToolStripMenuItem();
+        windowWidgetMenuItem.Click += (_, _) => ToggleWindowWidget();
+        taskbarWidgetMenuItem.Click += (_, _) => ToggleTaskbarWidget();
+        menu.Opening += (_, _) => UpdateWidgetVisibilityMenuItems(windowWidgetMenuItem, taskbarWidgetMenuItem);
+
+        menu.Items.Add(windowWidgetMenuItem);
+        menu.Items.Add(taskbarWidgetMenuItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Settings", null, (_, _) => _applicationController.ShowSettings());
         menu.Items.Add("Refresh All", null, async (_, _) => await _applicationController.RefreshAllAsync());
@@ -42,6 +45,34 @@ public sealed class TrayIconService : IDisposable
             Visible = true
         };
         _notifyIcon.DoubleClick += (_, _) => _applicationController.ShowMainWindow();
+    }
+
+    private void ToggleWindowWidget()
+    {
+        if (_applicationController.IsMainWindowVisible())
+        {
+            _applicationController.HideMainWindow();
+            return;
+        }
+
+        _applicationController.ShowMainWindow();
+    }
+
+    private void ToggleTaskbarWidget()
+    {
+        _applicationController.SetTaskbarWidgetVisibility(!_applicationController.IsTaskbarWidgetVisible());
+    }
+
+    private void UpdateWidgetVisibilityMenuItems(
+        Forms.ToolStripMenuItem windowWidgetMenuItem,
+        Forms.ToolStripMenuItem taskbarWidgetMenuItem)
+    {
+        windowWidgetMenuItem.Text = _applicationController.IsMainWindowVisible()
+            ? "Hide Window Widget"
+            : "Open Window Widget";
+        taskbarWidgetMenuItem.Text = _applicationController.IsTaskbarWidgetVisible()
+            ? "Hide Taskbar Widget"
+            : "Open Taskbar Widget";
     }
 
     public void Dispose()
