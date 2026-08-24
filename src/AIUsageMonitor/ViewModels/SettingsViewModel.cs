@@ -31,6 +31,7 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _isWindowLocked;
     private double _dashboardWidgetHeight = 56;
     private double _metricLabelWidth = 32;
+    private double _progressBarHeight = 6;
     private bool _showDashboardWidget = true;
     private bool _alwaysOnTop = true;
     private bool _showCodex = true;
@@ -68,6 +69,17 @@ public sealed class SettingsViewModel : ObservableObject
     private string _stage3MaxPercent = "85";
     private string _stage4MaxPercent = "95";
     private string _stage5MaxPercent = "100";
+    private double _taskbarFontSize = 12;
+    private string _taskbarGreenColorHex = "#2ECC71";
+    private string _taskbarLimeColorHex = "#9ACD32";
+    private string _taskbarYellowColorHex = "#FFD21E";
+    private string _taskbarOrangeColorHex = "#FF9800";
+    private string _taskbarRedColorHex = "#FF4D4F";
+    private string _taskbarStage1MaxPercent = "40";
+    private string _taskbarStage2MaxPercent = "70";
+    private string _taskbarStage3MaxPercent = "85";
+    private string _taskbarStage4MaxPercent = "95";
+    private string _taskbarStage5MaxPercent = "100";
 
     public SettingsViewModel(
         CodexHookInstaller codexHookInstaller,
@@ -96,6 +108,7 @@ public sealed class SettingsViewModel : ObservableObject
         _isWindowLocked = mainWindow.IsWindowLocked;
         _dashboardWidgetHeight = mainWindow.DashboardWidgetHeight;
         _metricLabelWidth = mainWindow.MetricLabelWidth;
+        _progressBarHeight = mainWindow.ProgressBarHeight;
         _showDashboardWidget = mainWindow.ShowDashboardWidget;
         _alwaysOnTop = mainWindow.AlwaysOnTop;
         _showCodex = mainWindow.ShowCodex;
@@ -107,6 +120,7 @@ public sealed class SettingsViewModel : ObservableObject
         _showClaudeOnTaskbar = taskbarWidgetWindow.ShowClaudeOnTaskbar;
         _showAntigravityOnTaskbar = taskbarWidgetWindow.ShowAntigravityOnTaskbar;
         _showCursorOnTaskbar = taskbarWidgetWindow.ShowCursorOnTaskbar;
+        _taskbarFontSize = taskbarWidgetWindow.TaskbarFontSize;
         _autoRefreshEnabled = mainWindow.AutoRefreshEnabled;
         _developerModeEnabled = developerLoggingService.IsEnabled;
         _codexRefreshIntervalMinutes = mainWindow.CodexRefreshIntervalMinutes;
@@ -148,6 +162,7 @@ public sealed class SettingsViewModel : ObservableObject
         OpenCursorHookFileCommand = new RelayCommand(() =>
             OpenHookFile(_cursorHookInstaller.ConfigurationPath, "Cursor"));
         ApplyUsageColorsCommand = new RelayCommand(ApplyUsageColors);
+        ApplyTaskbarUsageColorsCommand = new RelayCommand(ApplyTaskbarUsageColors);
         OpenIconPreviewCommand = new RelayCommand(_applicationController.ShowIconPreview);
         ResetScheduledIntervalsCommand = new RelayCommand(() =>
         {
@@ -164,9 +179,14 @@ public sealed class SettingsViewModel : ObservableObject
         ResetUsageColorsCommand = new RelayCommand(() =>
         {
             _mainWindow.ResetUsageColorsToDefault();
-            _taskbarWidgetWindow.RefreshUsageColors();
             RefreshWindowState();
             TestResult = "Usage colour stages reset to defaults.";
+        });
+        ResetTaskbarUsageColorsCommand = new RelayCommand(() =>
+        {
+            _taskbarWidgetWindow.ResetUsageColorsToDefault();
+            RefreshWindowState();
+            TestResult = "Taskbar usage colour stages reset to defaults.";
         });
         AddCodexApiEndpointCommand = new RelayCommand(AddCodexApiEndpoint);
         SaveCodexApiEndpointsCommand = new RelayCommand(SaveCodexApiEndpoints);
@@ -219,6 +239,18 @@ public sealed class SettingsViewModel : ObservableObject
             if (SetProperty(ref _metricLabelWidth, normalized))
             {
                 _mainWindow.SetMetricLabelWidth(normalized);
+            }
+        }
+    }
+    public double ProgressBarHeight
+    {
+        get => _progressBarHeight;
+        set
+        {
+            var normalized = Math.Max(1, Math.Round(value));
+            if (SetProperty(ref _progressBarHeight, normalized))
+            {
+                _mainWindow.SetProgressBarHeight(normalized);
             }
         }
     }
@@ -555,6 +587,68 @@ public sealed class SettingsViewModel : ObservableObject
     public string Stage3MaxPercent { get => _stage3MaxPercent; set => SetProperty(ref _stage3MaxPercent, value); }
     public string Stage4MaxPercent { get => _stage4MaxPercent; set => SetProperty(ref _stage4MaxPercent, value); }
     public string Stage5MaxPercent { get => _stage5MaxPercent; set => SetProperty(ref _stage5MaxPercent, value); }
+    public double TaskbarFontSize
+    {
+        get => _taskbarFontSize;
+        set
+        {
+            var normalized = Math.Max(1, Math.Round(value));
+            if (SetProperty(ref _taskbarFontSize, normalized))
+            {
+                _taskbarWidgetWindow.SetTaskbarFontSize(normalized);
+            }
+        }
+    }
+    public string TaskbarGreenColorHex
+    {
+        get => _taskbarGreenColorHex;
+        set => SetProperty(ref _taskbarGreenColorHex, value);
+    }
+    public string TaskbarLimeColorHex
+    {
+        get => _taskbarLimeColorHex;
+        set => SetProperty(ref _taskbarLimeColorHex, value);
+    }
+    public string TaskbarYellowColorHex
+    {
+        get => _taskbarYellowColorHex;
+        set => SetProperty(ref _taskbarYellowColorHex, value);
+    }
+    public string TaskbarOrangeColorHex
+    {
+        get => _taskbarOrangeColorHex;
+        set => SetProperty(ref _taskbarOrangeColorHex, value);
+    }
+    public string TaskbarRedColorHex
+    {
+        get => _taskbarRedColorHex;
+        set => SetProperty(ref _taskbarRedColorHex, value);
+    }
+    public string TaskbarStage1MaxPercent
+    {
+        get => _taskbarStage1MaxPercent;
+        set => SetProperty(ref _taskbarStage1MaxPercent, value);
+    }
+    public string TaskbarStage2MaxPercent
+    {
+        get => _taskbarStage2MaxPercent;
+        set => SetProperty(ref _taskbarStage2MaxPercent, value);
+    }
+    public string TaskbarStage3MaxPercent
+    {
+        get => _taskbarStage3MaxPercent;
+        set => SetProperty(ref _taskbarStage3MaxPercent, value);
+    }
+    public string TaskbarStage4MaxPercent
+    {
+        get => _taskbarStage4MaxPercent;
+        set => SetProperty(ref _taskbarStage4MaxPercent, value);
+    }
+    public string TaskbarStage5MaxPercent
+    {
+        get => _taskbarStage5MaxPercent;
+        set => SetProperty(ref _taskbarStage5MaxPercent, value);
+    }
     public ICommand InstallCodexHookCommand { get; }
     public ICommand UninstallCodexHookCommand { get; }
     public ICommand TestCodexHookCommand { get; }
@@ -572,10 +666,12 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand TestCursorHookCommand { get; }
     public ICommand OpenCursorHookFileCommand { get; }
     public ICommand ApplyUsageColorsCommand { get; }
+    public ICommand ApplyTaskbarUsageColorsCommand { get; }
     public ICommand OpenIconPreviewCommand { get; }
     public ICommand ResetScheduledIntervalsCommand { get; }
     public ICommand ResetThrottleIntervalsCommand { get; }
     public ICommand ResetUsageColorsCommand { get; }
+    public ICommand ResetTaskbarUsageColorsCommand { get; }
     public ICommand AddCodexApiEndpointCommand { get; }
     public ICommand SaveCodexApiEndpointsCommand { get; }
     public ICommand OpenDeveloperLogFolderCommand { get; }
@@ -698,6 +794,7 @@ public sealed class SettingsViewModel : ObservableObject
         SetProperty(ref _isWindowLocked, _mainWindow.IsWindowLocked, nameof(IsWindowLocked));
         SetProperty(ref _dashboardWidgetHeight, _mainWindow.DashboardWidgetHeight, nameof(DashboardWidgetHeight));
         SetProperty(ref _metricLabelWidth, _mainWindow.MetricLabelWidth, nameof(MetricLabelWidth));
+        SetProperty(ref _progressBarHeight, _mainWindow.ProgressBarHeight, nameof(ProgressBarHeight));
         SetProperty(ref _showDashboardWidget, _mainWindow.ShowDashboardWidget, nameof(ShowDashboardWidget));
         SetProperty(ref _alwaysOnTop, _mainWindow.AlwaysOnTop, nameof(AlwaysOnTop));
         SetProperty(ref _showCodex, _mainWindow.ShowCodex, nameof(ShowCodex));
@@ -724,6 +821,7 @@ public sealed class SettingsViewModel : ObservableObject
             ref _showCursorOnTaskbar,
             _taskbarWidgetWindow.ShowCursorOnTaskbar,
             nameof(ShowCursorOnTaskbar));
+        SetProperty(ref _taskbarFontSize, _taskbarWidgetWindow.TaskbarFontSize, nameof(TaskbarFontSize));
         SetProperty(ref _autoRefreshEnabled, _mainWindow.AutoRefreshEnabled, nameof(AutoRefreshEnabled));
         SetProperty(
             ref _codexRefreshIntervalMinutes,
@@ -781,6 +879,43 @@ public sealed class SettingsViewModel : ObservableObject
         SetProperty(ref _stage3MaxPercent, FormatPercent(_mainWindow.Stage3MaxPercent), nameof(Stage3MaxPercent));
         SetProperty(ref _stage4MaxPercent, FormatPercent(_mainWindow.Stage4MaxPercent), nameof(Stage4MaxPercent));
         SetProperty(ref _stage5MaxPercent, FormatPercent(_mainWindow.Stage5MaxPercent), nameof(Stage5MaxPercent));
+        SetProperty(
+            ref _taskbarGreenColorHex,
+            _taskbarWidgetWindow.GreenColorHex,
+            nameof(TaskbarGreenColorHex));
+        SetProperty(
+            ref _taskbarLimeColorHex,
+            _taskbarWidgetWindow.LimeColorHex,
+            nameof(TaskbarLimeColorHex));
+        SetProperty(
+            ref _taskbarYellowColorHex,
+            _taskbarWidgetWindow.YellowColorHex,
+            nameof(TaskbarYellowColorHex));
+        SetProperty(
+            ref _taskbarOrangeColorHex,
+            _taskbarWidgetWindow.OrangeColorHex,
+            nameof(TaskbarOrangeColorHex));
+        SetProperty(ref _taskbarRedColorHex, _taskbarWidgetWindow.RedColorHex, nameof(TaskbarRedColorHex));
+        SetProperty(
+            ref _taskbarStage1MaxPercent,
+            FormatPercent(_taskbarWidgetWindow.Stage1MaxPercent),
+            nameof(TaskbarStage1MaxPercent));
+        SetProperty(
+            ref _taskbarStage2MaxPercent,
+            FormatPercent(_taskbarWidgetWindow.Stage2MaxPercent),
+            nameof(TaskbarStage2MaxPercent));
+        SetProperty(
+            ref _taskbarStage3MaxPercent,
+            FormatPercent(_taskbarWidgetWindow.Stage3MaxPercent),
+            nameof(TaskbarStage3MaxPercent));
+        SetProperty(
+            ref _taskbarStage4MaxPercent,
+            FormatPercent(_taskbarWidgetWindow.Stage4MaxPercent),
+            nameof(TaskbarStage4MaxPercent));
+        SetProperty(
+            ref _taskbarStage5MaxPercent,
+            FormatPercent(_taskbarWidgetWindow.Stage5MaxPercent),
+            nameof(TaskbarStage5MaxPercent));
     }
 
     private void ApplyUsageColors()
@@ -806,13 +941,38 @@ public sealed class SettingsViewModel : ObservableObject
             stage3Maximum,
             stage4Maximum,
             stage5Maximum);
-        if (succeeded)
-        {
-            _taskbarWidgetWindow.RefreshUsageColors();
-        }
 
         TestResult = succeeded
             ? "Usage stages saved."
+            : "Use valid HEX colours and five increasing percentages from 0 to 100.";
+    }
+
+    private void ApplyTaskbarUsageColors()
+    {
+        if (!TryParsePercent(TaskbarStage1MaxPercent, out var stage1Maximum) ||
+            !TryParsePercent(TaskbarStage2MaxPercent, out var stage2Maximum) ||
+            !TryParsePercent(TaskbarStage3MaxPercent, out var stage3Maximum) ||
+            !TryParsePercent(TaskbarStage4MaxPercent, out var stage4Maximum) ||
+            !TryParsePercent(TaskbarStage5MaxPercent, out var stage5Maximum))
+        {
+            TestResult = "Enter five numeric stage percentages.";
+            return;
+        }
+
+        var succeeded = _taskbarWidgetWindow.TrySetUsageColors(
+            TaskbarGreenColorHex,
+            TaskbarLimeColorHex,
+            TaskbarYellowColorHex,
+            TaskbarOrangeColorHex,
+            TaskbarRedColorHex,
+            stage1Maximum,
+            stage2Maximum,
+            stage3Maximum,
+            stage4Maximum,
+            stage5Maximum);
+
+        TestResult = succeeded
+            ? "Taskbar usage stages saved."
             : "Use valid HEX colours and five increasing percentages from 0 to 100.";
     }
 

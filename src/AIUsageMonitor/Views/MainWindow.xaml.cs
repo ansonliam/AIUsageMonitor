@@ -47,6 +47,7 @@ public partial class MainWindow : Window
     // to whole cell deltas.
     private const double DefaultDashboardWidgetHeight = 56;
     private const double DefaultMetricLabelWidth = 32;
+    private const double DefaultProgressBarHeight = 6;
 
     private readonly Dictionary<DashboardCardViewModel, DashboardCard> _dashboardElements = [];
     private HwndSource? _windowSource;
@@ -61,6 +62,7 @@ public partial class MainWindow : Window
     public bool IsDashboardLayoutEnabled { get; private set; }
     public double DashboardWidgetHeight { get; private set; } = DefaultDashboardWidgetHeight;
     public double MetricLabelWidth { get; private set; } = DefaultMetricLabelWidth;
+    public double ProgressBarHeight { get; private set; } = DefaultProgressBarHeight;
     public bool IsHorizontalLayout { get; private set; }
     public bool ShowDashboardWidget { get; private set; } = true;
     public bool AlwaysOnTop { get; private set; } = true;
@@ -218,6 +220,9 @@ public partial class MainWindow : Window
             MetricLabelWidth = double.IsFinite(placement.MetricLabelWidth) && placement.MetricLabelWidth >= 1
                 ? placement.MetricLabelWidth
                 : DefaultMetricLabelWidth;
+            ProgressBarHeight = double.IsFinite(placement.ProgressBarHeight) && placement.ProgressBarHeight >= 1
+                ? placement.ProgressBarHeight
+                : DefaultProgressBarHeight;
             IsHorizontalLayout = placement.IsHorizontalLayout;
             ShowDashboardWidget = placement.ShowDashboardWidget;
             AlwaysOnTop = placement.AlwaysOnTop;
@@ -278,6 +283,7 @@ public partial class MainWindow : Window
         ApplyWidgetPresentation();
         ApplyFontSizePreset();
         ApplyMetricLabelWidth();
+        ApplyProgressBarHeight();
         ApplyProviderLayout();
         ApplyProviderVisibility();
         ApplyDashboardLayoutMode();
@@ -382,6 +388,18 @@ public partial class MainWindow : Window
 
         MetricLabelWidth = Math.Max(1, Math.Round(width));
         ApplyMetricLabelWidth();
+        SavePlacement();
+    }
+
+    public void SetProgressBarHeight(double height)
+    {
+        if (!double.IsFinite(height))
+        {
+            return;
+        }
+
+        ProgressBarHeight = Math.Max(1, Math.Round(height));
+        ApplyProgressBarHeight();
         SavePlacement();
     }
 
@@ -1061,6 +1079,8 @@ public partial class MainWindow : Window
     private void ApplyMetricLabelWidth() =>
         Resources["MetricLabelWidth"] = new GridLength(MetricLabelWidth);
 
+    private void ApplyProgressBarHeight() => Resources["ProgressBarHeight"] = ProgressBarHeight;
+
     private static string NormalizeFontSizePreset(string? preset) => preset switch
     {
         "Compact" or "Small" or "Normal" or "Large" or "Extra Large" => preset,
@@ -1330,6 +1350,7 @@ public partial class MainWindow : Window
                 Height = ActualHeight,
                 DashboardWidgetHeight = DashboardWidgetHeight,
                 MetricLabelWidth = MetricLabelWidth,
+                ProgressBarHeight = ProgressBarHeight,
                 IsLocked = IsWindowLocked,
                 IsDashboardLayoutEnabled = IsDashboardLayoutEnabled,
                 IsHorizontalLayout = IsHorizontalLayout,
@@ -1405,6 +1426,7 @@ public partial class MainWindow : Window
         public double Height { get; init; } = 230;
         public double DashboardWidgetHeight { get; init; } = DefaultDashboardWidgetHeight;
         public double MetricLabelWidth { get; init; } = DefaultMetricLabelWidth;
+        public double ProgressBarHeight { get; init; } = DefaultProgressBarHeight;
         public bool IsLocked { get; init; }
         public bool IsDashboardLayoutEnabled { get; init; }
         public bool IsHorizontalLayout { get; init; }

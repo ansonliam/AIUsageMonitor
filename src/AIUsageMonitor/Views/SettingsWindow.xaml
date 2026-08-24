@@ -233,7 +233,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" FontSize="16" FontWeight="SemiBold" Text="Window" />
+        <TextBlock Grid.Row="0" FontSize="16" FontWeight="SemiBold" Text="Window Widget" />
         <Border Grid.Row="1"
                 Margin="0,8,0,10"
                 Padding="10"
@@ -308,6 +308,18 @@
                 <TextBlock Margin="0,3,0,0"
                            Foreground="#FF65717D"
                            Text="Controls the left usage label column (for example, 5H) while keeping Reset text aligned." />
+                <StackPanel Margin="0,8,0,0" Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Progress bar height:" />
+                    <TextBox Width="64"
+                             Margin="8,0,4,0"
+                             Padding="7,3"
+                             HorizontalContentAlignment="Right"
+                             Background="#FFFFFFFF"
+                             BorderBrush="#FFBFC7D1"
+                             Foreground="#FF20252B"
+                             Text="{Binding ProgressBarHeight, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock VerticalAlignment="Center" Text="px (minimum 1)" />
+                </StackPanel>
                 <WrapPanel Margin="0,12,0,0" Orientation="Horizontal">
                     <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text size" />
@@ -338,6 +350,57 @@
                                   SelectedItem="{Binding WidgetAppearance, Mode=TwoWay}" />
                     </StackPanel>
                 </WrapPanel>
+                <StackPanel Margin="0,14,0,4" Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Usage colour stages" />
+                    <Button Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            Command="{Binding ResetUsageColorsCommand}"
+                            Content="Reset to default"
+                            Style="{StaticResource LinkButtonStyle}" />
+                </StackPanel>
+                <UniformGrid Columns="2">
+                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 1" />
+                        <TextBox Width="90" Text="{Binding GreenColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding Stage1MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 2" />
+                        <TextBox Width="90" Text="{Binding LimeColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding Stage2MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 3" />
+                        <TextBox Width="90" Text="{Binding YellowColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding Stage3MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 4" />
+                        <TextBox Width="90" Text="{Binding OrangeColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding Stage4MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 5" />
+                        <TextBox Width="90" Text="{Binding RedColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding Stage5MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <Button Width="112"
+                            Margin="0,3,0,3"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Command="{Binding ApplyUsageColorsCommand}"
+                            Content="Apply Stages" />
+                </UniformGrid>
             </StackPanel>
         </Border>
 
@@ -372,10 +435,77 @@
                               IsChecked="{Binding ShowCursorOnTaskbar, Mode=TwoWay}"
                               Content="Cursor" />
                 </StackPanel>
+                <StackPanel Margin="0,10,0,0"
+                            IsEnabled="{Binding ShowTaskbarWidget}"
+                            Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text size" />
+                    <TextBox Width="64"
+                             Margin="16,0,4,0"
+                             Padding="7,3"
+                             HorizontalContentAlignment="Right"
+                             Background="#FFFFFFFF"
+                             BorderBrush="#FFBFC7D1"
+                             Foreground="#FF20252B"
+                             Text="{Binding TaskbarFontSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock VerticalAlignment="Center" Text="px" />
+                </StackPanel>
+                <StackPanel Margin="0,14,0,4"
+                            IsEnabled="{Binding ShowTaskbarWidget}"
+                            Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Usage colour stages" />
+                    <Button Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            Command="{Binding ResetTaskbarUsageColorsCommand}"
+                            Content="Reset to default"
+                            Style="{StaticResource LinkButtonStyle}" />
+                </StackPanel>
+                <UniformGrid Columns="2" IsEnabled="{Binding ShowTaskbarWidget}">
+                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 1" />
+                        <TextBox Width="90" Text="{Binding TaskbarGreenColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding TaskbarStage1MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 2" />
+                        <TextBox Width="90" Text="{Binding TaskbarLimeColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding TaskbarStage2MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 3" />
+                        <TextBox Width="90" Text="{Binding TaskbarYellowColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding TaskbarStage3MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 4" />
+                        <TextBox Width="90" Text="{Binding TaskbarOrangeColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding TaskbarStage4MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 5" />
+                        <TextBox Width="90" Text="{Binding TaskbarRedColorHex}" />
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
+                        <TextBox Width="40" Text="{Binding TaskbarStage5MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <Button Width="112"
+                            Margin="0,3,0,3"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Command="{Binding ApplyTaskbarUsageColorsCommand}"
+                            Content="Apply Stages" />
+                </UniformGrid>
             </StackPanel>
         </Border>
 
-        <TextBlock Grid.Row="4" FontSize="16" FontWeight="SemiBold" Text="Refresh &amp; Colour Stages" />
+        <TextBlock Grid.Row="4" FontSize="16" FontWeight="SemiBold" Text="Refresh" />
         <Border Grid.Row="5"
                 Margin="0,8,0,10"
                 Padding="10"
@@ -386,7 +516,7 @@
             <StackPanel>
                 <TextBlock Margin="0,0,0,8"
                            Foreground="#FF65717D"
-                           Text="Shared by the Window and Taskbar Widget above."
+                           Text="Shared by the Window Widget and Taskbar Widget above - both read from the same underlying refresh."
                            TextWrapping="Wrap" />
                 <StackPanel Orientation="Horizontal">
                     <CheckBox IsChecked="{Binding AutoRefreshEnabled, Mode=TwoWay}"
@@ -535,56 +665,6 @@
                         <TextBlock VerticalAlignment="Center" Text="min" />
                     </StackPanel>
                 </WrapPanel>
-                <StackPanel Margin="0,14,0,4" Orientation="Horizontal">
-                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Usage colour stages" />
-                    <Button Margin="12,0,0,0"
-                            VerticalAlignment="Center"
-                            Command="{Binding ResetUsageColorsCommand}"
-                            Content="Reset to default"
-                            Style="{StaticResource LinkButtonStyle}" />
-                </StackPanel>
-                <UniformGrid Columns="2">
-                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
-                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 1" />
-                        <TextBox Width="90" Text="{Binding GreenColorHex}" />
-                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
-                        <TextBox Width="40" Text="{Binding Stage1MaxPercent}" />
-                        <TextBlock VerticalAlignment="Center" Text="%" />
-                    </StackPanel>
-                    <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
-                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 2" />
-                        <TextBox Width="90" Text="{Binding LimeColorHex}" />
-                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
-                        <TextBox Width="40" Text="{Binding Stage2MaxPercent}" />
-                        <TextBlock VerticalAlignment="Center" Text="%" />
-                    </StackPanel>
-                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
-                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 3" />
-                        <TextBox Width="90" Text="{Binding YellowColorHex}" />
-                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
-                        <TextBox Width="40" Text="{Binding Stage3MaxPercent}" />
-                        <TextBlock VerticalAlignment="Center" Text="%" />
-                    </StackPanel>
-                    <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
-                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 4" />
-                        <TextBox Width="90" Text="{Binding OrangeColorHex}" />
-                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
-                        <TextBox Width="40" Text="{Binding Stage4MaxPercent}" />
-                        <TextBlock VerticalAlignment="Center" Text="%" />
-                    </StackPanel>
-                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
-                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 5" />
-                        <TextBox Width="90" Text="{Binding RedColorHex}" />
-                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
-                        <TextBox Width="40" Text="{Binding Stage5MaxPercent}" />
-                        <TextBlock VerticalAlignment="Center" Text="%" />
-                    </StackPanel>
-                </UniformGrid>
-                <Button Width="112"
-                        Margin="0,8,0,0"
-                        HorizontalAlignment="Left"
-                        Command="{Binding ApplyUsageColorsCommand}"
-                        Content="Apply Stages" />
             </StackPanel>
         </Border>
 

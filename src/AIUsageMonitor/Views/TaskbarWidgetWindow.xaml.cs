@@ -40,7 +40,9 @@ public partial class TaskbarWidgetWindow : Window
     private readonly TaskbarWidgetViewModel _viewModel;
     private readonly TaskbarWidgetSettingsStore _settingsStore;
     private readonly TaskbarWidgetPositioningService _positioningService;
-    private readonly MainWindow _mainWindow;
+    // Only needed to force a redraw of every UsageMetricViewModel's colour after this widget's own
+    // (independent) usage-colour-stage settings change - see TrySetUsageColors.
+    private readonly MainViewModel _mainViewModel;
     private readonly IApplicationController _applicationController;
     private readonly ISystemIdleTimeProvider _idleTimeProvider;
     private readonly DispatcherTimer _watchdogTimer;
@@ -70,12 +72,23 @@ public partial class TaskbarWidgetWindow : Window
     public bool ShowClaudeOnTaskbar { get; private set; } = true;
     public bool ShowAntigravityOnTaskbar { get; private set; } = true;
     public bool ShowCursorOnTaskbar { get; private set; } = true;
+    public double TaskbarFontSize { get; private set; } = 12;
+    public string GreenColorHex { get; private set; } = "#2ECC71";
+    public string LimeColorHex { get; private set; } = "#9ACD32";
+    public string YellowColorHex { get; private set; } = "#FFD21E";
+    public string OrangeColorHex { get; private set; } = "#FF9800";
+    public string RedColorHex { get; private set; } = "#FF4D4F";
+    public double Stage1MaxPercent { get; private set; } = 40;
+    public double Stage2MaxPercent { get; private set; } = 70;
+    public double Stage3MaxPercent { get; private set; } = 85;
+    public double Stage4MaxPercent { get; private set; } = 95;
+    public double Stage5MaxPercent { get; private set; } = 100;
 
     public TaskbarWidgetWindow(
         TaskbarWidgetViewModel viewModel,
         TaskbarWidgetSettingsStore settingsStore,
         TaskbarWidgetPositioningService positioningService,
-        MainWindow mainWindow,
+        MainViewModel mainViewModel,
         IApplicationController applicationController,
         ISystemIdleTimeProvider idleTimeProvider)
     {
@@ -83,7 +96,7 @@ public partial class TaskbarWidgetWindow : Window
         _viewModel = viewModel;
         _settingsStore = settingsStore;
         _positioningService = positioningService;
-        _mainWindow = mainWindow;
+        _mainViewModel = mainViewModel;
         _applicationController = applicationController;
         _idleTimeProvider = idleTimeProvider;
         ProvidersItemsControl.ItemsSource = _viewModel.Providers;
@@ -94,8 +107,20 @@ public partial class TaskbarWidgetWindow : Window
         ShowClaudeOnTaskbar = settings.ShowClaudeOnTaskbar;
         ShowAntigravityOnTaskbar = settings.ShowAntigravityOnTaskbar;
         ShowCursorOnTaskbar = settings.ShowCursorOnTaskbar;
+        TaskbarFontSize = settings.TaskbarFontSize;
+        GreenColorHex = settings.GreenColorHex;
+        LimeColorHex = settings.LimeColorHex;
+        YellowColorHex = settings.YellowColorHex;
+        OrangeColorHex = settings.OrangeColorHex;
+        RedColorHex = settings.RedColorHex;
+        Stage1MaxPercent = settings.Stage1MaxPercent;
+        Stage2MaxPercent = settings.Stage2MaxPercent;
+        Stage3MaxPercent = settings.Stage3MaxPercent;
+        Stage4MaxPercent = settings.Stage4MaxPercent;
+        Stage5MaxPercent = settings.Stage5MaxPercent;
         ApplyProviderVisibility();
-        RefreshUsageColors();
+        ApplySavedUsageColors();
+        ApplyFontSize();
 
         _foregroundChangedHandler = OnForegroundWindowChanged;
         _taskbarLocationChangedHandler = OnTaskbarLocationChanged;
@@ -149,28 +174,146 @@ public partial class TaskbarWidgetWindow : Window
         SaveSettings();
     }
 
-    // Re-reads the dashboard's current usage-colour-stage settings (MainWindow already exposes
-    // them as public properties) so the taskbar strip matches whatever the user configured in
-    // Settings, without needing its own separate colour settings UI.
-    public void RefreshUsageColors()
+    public void SetTaskbarFontSize(double fontSize)
     {
-        if (Resources["UsageColorConverter"] is not UsageColorConverter converter)
+        if (!double.IsFinite(fontSize))
         {
             return;
         }
 
-        converter.TryConfigure(
-            _mainWindow.GreenColorHex,
-            _mainWindow.LimeColorHex,
-            _mainWindow.YellowColorHex,
-            _mainWindow.OrangeColorHex,
-            _mainWindow.RedColorHex,
-            _mainWindow.Stage1MaxPercent,
-            _mainWindow.Stage2MaxPercent,
-            _mainWindow.Stage3MaxPercent,
-            _mainWindow.Stage4MaxPercent,
-            _mainWindow.Stage5MaxPercent);
+        // Floor only, no ceiling - matches every other live-bound numeric field in Settings
+        // (MetricLabelWidth, ProgressBarHeight, DashboardWidgetHeight). A ceiling near typical
+        // values (e.g. 36) would clamp mid-typing keystrokes back to itself and make it
+        // impossible to type past it, and a floor above single digits (e.g. 6) does the same
+        // thing typing "1" of "14" - snaps to 6 before the second digit is entered.
+        var normalized = Math.Max(1, fontSize);
+        if (Math.Abs(TaskbarFontSize - normalized) < 0.01)
+        {
+            return;
+        }
+
+        TaskbarFontSize = normalized;
+        ApplyFontSize();
+        SaveSettings();
     }
+
+    private void ApplyFontSize() => Resources["TaskbarMetricFontSize"] = TaskbarFontSize;
+
+    // Independent from the dashboard widget's own usage-colour-stage settings - each widget has
+    // its own converter instance (see TaskbarWidgetWindow.xaml's Resources), so configuring this
+    // one has no effect on the dashboard's and vice versa.
+    public bool TrySetUsageColors(
+        string green,
+        string lime,
+        string yellow,
+        string orange,
+        string red,
+        double stage1Maximum,
+        double stage2Maximum,
+        double stage3Maximum,
+        double stage4Maximum,
+        double stage5Maximum)
+    {
+        if (!TryConfigureUsageColors(
+                green,
+                lime,
+                yellow,
+                orange,
+                red,
+                stage1Maximum,
+                stage2Maximum,
+                stage3Maximum,
+                stage4Maximum,
+                stage5Maximum))
+        {
+            return false;
+        }
+
+        GreenColorHex = green;
+        LimeColorHex = lime;
+        YellowColorHex = yellow;
+        OrangeColorHex = orange;
+        RedColorHex = red;
+        Stage1MaxPercent = stage1Maximum;
+        Stage2MaxPercent = stage2Maximum;
+        Stage3MaxPercent = stage3Maximum;
+        Stage4MaxPercent = stage4Maximum;
+        Stage5MaxPercent = stage5Maximum;
+        // Both widgets bind to the same shared UsageMetricViewModel instances (see
+        // TaskbarWidgetViewModel), each through its own converter - forcing a PropertyChanged
+        // here is what makes the already-visible values re-run through this widget's converter
+        // with its newly configured colours, without waiting for the next real usage update.
+        _mainViewModel.RefreshUsageColors();
+        SaveSettings();
+        return true;
+    }
+
+    public void ResetUsageColorsToDefault() =>
+        TrySetUsageColors("#2ECC71", "#9ACD32", "#FFD21E", "#FF9800", "#FF4D4F", 40, 70, 85, 95, 100);
+
+    private void ApplySavedUsageColors()
+    {
+        if (TryConfigureUsageColors(
+                GreenColorHex,
+                LimeColorHex,
+                YellowColorHex,
+                OrangeColorHex,
+                RedColorHex,
+                Stage1MaxPercent,
+                Stage2MaxPercent,
+                Stage3MaxPercent,
+                Stage4MaxPercent,
+                Stage5MaxPercent))
+        {
+            return;
+        }
+
+        GreenColorHex = "#2ECC71";
+        LimeColorHex = "#9ACD32";
+        YellowColorHex = "#FFD21E";
+        OrangeColorHex = "#FF9800";
+        RedColorHex = "#FF4D4F";
+        Stage1MaxPercent = 40;
+        Stage2MaxPercent = 70;
+        Stage3MaxPercent = 85;
+        Stage4MaxPercent = 95;
+        Stage5MaxPercent = 100;
+        TryConfigureUsageColors(
+            GreenColorHex,
+            LimeColorHex,
+            YellowColorHex,
+            OrangeColorHex,
+            RedColorHex,
+            Stage1MaxPercent,
+            Stage2MaxPercent,
+            Stage3MaxPercent,
+            Stage4MaxPercent,
+            Stage5MaxPercent);
+    }
+
+    private bool TryConfigureUsageColors(
+        string green,
+        string lime,
+        string yellow,
+        string orange,
+        string red,
+        double stage1Maximum,
+        double stage2Maximum,
+        double stage3Maximum,
+        double stage4Maximum,
+        double stage5Maximum) =>
+        Resources["UsageColorConverter"] is UsageColorConverter converter &&
+        converter.TryConfigure(
+            green,
+            lime,
+            yellow,
+            orange,
+            red,
+            stage1Maximum,
+            stage2Maximum,
+            stage3Maximum,
+            stage4Maximum,
+            stage5Maximum);
 
     private void ApplyProviderVisibility()
     {
@@ -479,7 +622,18 @@ public partial class TaskbarWidgetWindow : Window
             ShowCodexOnTaskbar = ShowCodexOnTaskbar,
             ShowClaudeOnTaskbar = ShowClaudeOnTaskbar,
             ShowAntigravityOnTaskbar = ShowAntigravityOnTaskbar,
-            ShowCursorOnTaskbar = ShowCursorOnTaskbar
+            ShowCursorOnTaskbar = ShowCursorOnTaskbar,
+            TaskbarFontSize = TaskbarFontSize,
+            GreenColorHex = GreenColorHex,
+            LimeColorHex = LimeColorHex,
+            YellowColorHex = YellowColorHex,
+            OrangeColorHex = OrangeColorHex,
+            RedColorHex = RedColorHex,
+            Stage1MaxPercent = Stage1MaxPercent,
+            Stage2MaxPercent = Stage2MaxPercent,
+            Stage3MaxPercent = Stage3MaxPercent,
+            Stage4MaxPercent = Stage4MaxPercent,
+            Stage5MaxPercent = Stage5MaxPercent
         });
 
         // Every state setter routes through here - see StateChanged.

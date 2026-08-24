@@ -49,8 +49,9 @@
             <UniformGrid Rows="1" />
         </ItemsPanelTemplate>
 
+        <system:Double x:Key="ProgressBarHeight">6</system:Double>
         <Style x:Key="CompactProgressBarStyle" TargetType="ProgressBar">
-            <Setter Property="Height" Value="6" />
+            <Setter Property="Height" Value="{DynamicResource ProgressBarHeight}" />
             <Setter Property="Background" Value="#3D4249" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Maximum" Value="100" />
