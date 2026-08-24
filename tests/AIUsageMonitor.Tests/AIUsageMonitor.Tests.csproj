@@ -5,6 +5,9 @@
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Keeps test builds out of src/AIUsageMonitor/bin so `dotnet test` still works while a
+         locally running AIUsageMonitor.exe holds that folder's DLL/exe locked. -->
+    <BaseOutputPath>bin_test\</BaseOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,7 +15,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\AIUsageMonitor\AIUsageMonitor.csproj" />
+    <ProjectReference Include="..\..\src\AIUsageMonitor\AIUsageMonitor.csproj">
+      <AdditionalProperties>BaseOutputPath=bin_test\</AdditionalProperties>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>
