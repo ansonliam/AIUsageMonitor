@@ -360,21 +360,17 @@ public sealed class CodexApiCostService
             }
         }
 
-        // A manual reconciliation adjustment keeps all displayed periods aligned with the user's
-        // latest provider total while subsequent local usage continues to accumulate.
-        todayCost += endpoint.ManualCostAdjustment;
-        sevenDayCost += endpoint.ManualCostAdjustment;
+        // A manual reconciliation adjustment aligns the month-to-date total with the user's latest
+        // provider invoice while subsequent local usage continues to accumulate on top of it.
+        // Month-to-date only, deliberately: the gap it corrects accrued over the whole billing
+        // period, not in the last 24 hours or 7 days. Adding it to Today would make Today report
+        // spend that did not happen today, and would break the Today <= 7D <= Month ordering the
+        // widget relies on.
         monthCost += endpoint.ManualCostAdjustment;
-        todayCostHigh += endpoint.ManualCostAdjustment;
-        sevenDayCostHigh += endpoint.ManualCostAdjustment;
         monthCostHigh += endpoint.ManualCostAdjustment;
 
         // Uses the worst-case (no-cache-credit) figure for budget alerting - safer to warn early
         // than to under-warn because Codex's self-reported cache rate turned out optimistic.
-        todayCost += endpoint.ManualCostAdjustment;
-        sevenDayCost += endpoint.ManualCostAdjustment;
-        monthCost += endpoint.ManualCostAdjustment;
-
         double? budgetPercent = endpoint.MonthlyBudget is > 0
             ? (double)(monthCostHigh / endpoint.MonthlyBudget.Value * 100)
             : null;

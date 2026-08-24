@@ -471,7 +471,6 @@ public sealed class CodexApiCostTests
         Name = name,
         Endpoint = endpoint,
         TrackFrom = trackFrom,
-        Currency = "AUD",
         MonthlyBudget = budget,
         PricingOverrides = new Dictionary<string, ModelPricingOverride>
         {
@@ -567,6 +566,59 @@ public sealed class CodexApiCostTests
         Assert.AreEqual(1, summary.TurnCount);
         // 1,000,000 input * $1/M + 100,000 output * $4/M = 1.00 + 0.40 = 1.40
         Assert.AreEqual(1.40m, summary.MonthCost);
+    }
+
+    [TestMethod]
+    public async Task Service_AppliesManualCostAdjustmentToMonthOnly_ExactlyOnce()
+    {
+        var root = CreateTempDirectory();
+        var runtimeRoot = Path.Combine(root, "codex");
+        var sessionsRoot = Path.Combine(root, "codex", "sessions");
+        Directory.CreateDirectory(sessionsRoot);
+        Directory.CreateDirectory(runtimeRoot);
+
+        var trackFrom = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var now = DateTimeOffset.UtcNow;
+
+        SeedRuntimeLog(Path.Combine(runtimeRoot, "logs_2.sqlite"),
+        [
+            (1, now.ToUnixTimeSeconds(), "codex_http_client::client", RunTurn("turn-adjusted", "gpt-5.6-terra", "b2c-codex.openai.azure.com", 1, now.ToUnixTimeSeconds()))
+        ]);
+
+        WriteSessionFile(sessionsRoot, "session.jsonl", string.Join('\n',
+        [
+            TurnContextLine(now, "turn-adjusted", "gpt-5.6-terra"),
+            TokenCountLine(now, 1000000, 0, 0, 100000, 0),
+            ""
+        ]));
+
+        var endpoint = MakeEndpoint("B2C Azure Codex", "b2c-codex.openai.azure.com", trackFrom);
+        endpoint.ManualCostAdjustment = 2.50m;
+        var settingsStore = new CodexApiCostSettingsStore(Path.Combine(root, "settings.json"));
+        settingsStore.Save(new CodexApiCostSettings { Endpoints = [endpoint] });
+
+        var service = new CodexApiCostService(
+            new CodexRuntimeLogScanner(runtimeRoot),
+            new CodexSessionLogScanner(sessionsRoot),
+            new CodexApiCostCache(Path.Combine(root, "cache")),
+            settingsStore,
+            new CodexPricingRegistry(),
+            MakeRefreshService(),
+            NullLogger<CodexApiCostService>.Instance);
+
+        await service.RefreshAsync();
+        var summary = service.GetCurrentSummaries()[0];
+
+        // Metered cost is 1.40 (see Service_AttributesUsageOnlyToMatchingEndpoint) and the turn is
+        // timestamped now, so it falls inside all three periods. The 2.50 adjustment reconciles the
+        // month-to-date invoice, so it must land on Month only - and exactly once, not once per
+        // assignment block. Today and 7D stay at the metered figure.
+        Assert.AreEqual(3.90m, summary.MonthCost);
+        Assert.AreEqual(3.90m, summary.MonthCostHigh);
+        Assert.AreEqual(1.40m, summary.SevenDayCost);
+        Assert.AreEqual(1.40m, summary.SevenDayCostHigh);
+        Assert.AreEqual(1.40m, summary.TodayCost);
+        Assert.AreEqual(1.40m, summary.TodayCostHigh);
     }
 
     [TestMethod]
@@ -790,7 +842,6 @@ public sealed class CodexApiCostTests
               "Endpoint": "b2c-codex.openai.azure.com",
               "NormalizedHost": "b2c-codex.openai.azure.com",
               "TrackFrom": "2026-01-01T00:00:00+00:00",
-              "Currency": "USD",
               "PricingOverrides": {},
               "ShowInWidget": true
             }
@@ -1172,7 +1223,6 @@ public sealed class CodexApiCostTests
             Type = ApiEndpointType.ClaudeAwsBedrock,
             Name = "B2C Claude Bedrock",
             TrackFrom = trackFrom,
-            Currency = "AUD",
             AwsRegion = "ap-southeast-2"
         };
         var settingsStore = new CodexApiCostSettingsStore(Path.Combine(root, "settings.json"));

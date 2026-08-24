@@ -555,8 +555,7 @@ public sealed class SettingsViewModel : ObservableObject
         var endpoint = new CodexApiEndpointSettings
         {
             Id = Guid.NewGuid(),
-            TrackFrom = DateTimeOffset.Now,
-            Currency = "AUD"
+            TrackFrom = DateTimeOffset.Now
         };
         CodexApiEndpoints.Add(new CodexApiEndpointSettingsViewModel(endpoint, RemoveCodexApiEndpoint));
         CodexApiCostStatus = "";

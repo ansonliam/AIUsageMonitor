@@ -26,7 +26,6 @@ public sealed class CodexApiEndpointSettings
     public string Endpoint { get; set; } = "";
     public string NormalizedHost { get; set; } = "";
     public DateTimeOffset TrackFrom { get; set; }
-    public string Currency { get; set; } = "AUD";
     public decimal? MonthlyBudget { get; set; }
     // A user-entered AUD reconciliation amount. It is added to every displayed period total for
     // this endpoint, allowing a conservative local estimate to be aligned with an actual bill.

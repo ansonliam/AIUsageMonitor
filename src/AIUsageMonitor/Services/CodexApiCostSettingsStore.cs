@@ -50,13 +50,6 @@ public sealed class CodexApiCostSettingsStore
         {
             try
             {
-                // Multi-currency conversion is intentionally not implemented. All newly saved
-                // endpoint rates are explicitly AUD; values themselves are never converted.
-                foreach (var endpoint in settings.Endpoints)
-                {
-                    endpoint.Currency = "AUD";
-                }
-
                 Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
                 var temporaryPath = _settingsPath + ".tmp";
                 File.WriteAllText(temporaryPath, JsonSerializer.Serialize(settings, SerializerOptions));

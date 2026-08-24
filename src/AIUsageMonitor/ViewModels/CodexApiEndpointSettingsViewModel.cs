@@ -86,7 +86,6 @@ public sealed class CodexApiEndpointSettingsViewModel : ObservableObject
     private string _name;
     private string _endpoint;
     private string _trackFromText;
-    private string _currency;
     private string _monthlyBudgetText;
     private string _manualCostAdjustmentText;
     private bool _showInWidget;
@@ -110,7 +109,6 @@ public sealed class CodexApiEndpointSettingsViewModel : ObservableObject
         _trackFromText = settings.TrackFrom == default
             ? DateTimeOffset.Now.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture)
             : settings.TrackFrom.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
-        _currency = "AUD";
         _monthlyBudgetText = settings.MonthlyBudget?.ToString(CultureInfo.InvariantCulture) ?? "";
         _manualCostAdjustmentText = settings.ManualCostAdjustment == 0
             ? ""
@@ -165,7 +163,6 @@ public sealed class CodexApiEndpointSettingsViewModel : ObservableObject
     public string Name { get => _name; set => SetProperty(ref _name, value); }
     public string Endpoint { get => _endpoint; set => SetProperty(ref _endpoint, value); }
     public string TrackFromText { get => _trackFromText; set => SetProperty(ref _trackFromText, value); }
-    public string Currency { get => _currency; set => SetProperty(ref _currency, value); }
     public string MonthlyBudgetText { get => _monthlyBudgetText; set => SetProperty(ref _monthlyBudgetText, value); }
     public string ManualCostAdjustmentText { get => _manualCostAdjustmentText; set => SetProperty(ref _manualCostAdjustmentText, value); }
     public bool ShowInWidget { get => _showInWidget; set => SetProperty(ref _showInWidget, value); }
@@ -280,7 +277,6 @@ public sealed class CodexApiEndpointSettingsViewModel : ObservableObject
             Endpoint = Type == ApiEndpointType.CodexAzureOpenAI ? Endpoint.Trim() : "",
             NormalizedHost = normalizedHost,
             TrackFrom = trackFrom,
-            Currency = "AUD",
             MonthlyBudget = monthlyBudget,
             ManualCostAdjustment = manualCostAdjustment,
             PricingOverrides = new Dictionary<string, ModelPricingOverride>(_pricingOverridesByModel),
