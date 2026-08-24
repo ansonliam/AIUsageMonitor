@@ -5,7 +5,7 @@
         xmlns:vm="clr-namespace:AIUsageMonitor.ViewModels"
         Title="AI Usage Monitor - Taskbar"
         AllowsTransparency="True"
-        Background="Transparent"
+        Background="#01000000"
         Focusable="False"
         ResizeMode="NoResize"
         ShowActivated="False"
@@ -27,6 +27,13 @@
             <MenuItem Header="Hide" Click="HideMenuItem_Click" />
         </ContextMenu>
     </Window.ContextMenu>
+    <!-- Background is #01000000 (alpha 1/255) rather than Transparent because this is a layered
+         window, and Windows routes mouse input *through* pixels whose alpha is zero. Fully
+         transparent, the gaps between provider groups handed right-clicks to the taskbar
+         underneath - its menu opened instead of this one - and made the WindowFromPoint check in
+         ReassertTopMost report "covered" whenever it sampled a gap, so it re-asserted z-order
+         needlessly and each re-assert repainted and flickered. Alpha 1 is visually
+         indistinguishable from fully transparent but is hit-testable. -->
     <Window.Resources>
         <converters:UsageColorConverter x:Key="UsageColorConverter" />
 
