@@ -24,6 +24,7 @@
         PreviewMouseLeftButtonDown="Window_PreviewMouseLeftButtonDown"
         PreviewMouseMove="Window_PreviewMouseMove"
         PreviewMouseLeftButtonUp="Window_PreviewMouseLeftButtonUp"
+        LostMouseCapture="Window_LostMouseCapture"
         TextOptions.TextFormattingMode="Display">
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />

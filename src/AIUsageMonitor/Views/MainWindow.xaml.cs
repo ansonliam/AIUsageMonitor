@@ -151,16 +151,20 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void Window_PreviewMouseMove(object sender, MouseEventArgs e)
+    private void Window_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
         if (!_isDraggingWindow)
         {
             return;
         }
 
-        var currentPosition = e.GetPosition(null);
-        Left += currentPosition.X - (_dragStartPosition.X + Left);
-        Top += currentPosition.Y - (_dragStartPosition.Y + Top);
+        // Position is relative to the window itself, so it stays a fixed reference point
+        // (_dragStartPosition) throughout the drag - only the delta since the last move needs to
+        // be applied to Left/Top. Mixing this with screen-space coordinates causes runaway
+        // feedback since Left/Top would be included on both sides of the update.
+        var currentPosition = e.GetPosition(this);
+        Left += currentPosition.X - _dragStartPosition.X;
+        Top += currentPosition.Y - _dragStartPosition.Y;
     }
 
     private void Window_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -170,10 +174,22 @@ public partial class MainWindow : Window
             return;
         }
 
+        EndWindowDrag();
+        e.Handled = true;
+    }
+
+    private void Window_LostMouseCapture(object sender, System.Windows.Input.MouseEventArgs e) => EndWindowDrag();
+
+    private void EndWindowDrag()
+    {
+        if (!_isDraggingWindow)
+        {
+            return;
+        }
+
         _isDraggingWindow = false;
         Mouse.Capture(null);
         SavePlacement();
-        e.Handled = true;
     }
 
     private static bool IsInsideButton(DependencyObject? source)
