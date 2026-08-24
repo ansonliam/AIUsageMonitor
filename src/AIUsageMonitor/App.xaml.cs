@@ -145,6 +145,16 @@ public partial class App : System.Windows.Application, IApplicationController
         });
     }
 
+    public void HideMainWindow()
+    {
+        Dispatcher.Invoke(() => MainWindow?.Hide());
+    }
+
+    public void SetTaskbarWidgetVisibility(bool isVisible)
+    {
+        Dispatcher.Invoke(() => _services?.GetRequiredService<TaskbarWidgetWindow>().SetShowTaskbarWidget(isVisible));
+    }
+
     public void ShowSettings()
     {
         Dispatcher.Invoke(() =>
