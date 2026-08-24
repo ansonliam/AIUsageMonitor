@@ -67,24 +67,24 @@ public partial class TaskbarWidgetWindow : Window
     // context menu can change state (Hide) while it is open.
     public event Action? WidgetStateChanged;
 
-    public bool ShowTaskbarWidget { get; private set; }
+    public bool ShowTaskbarWidget { get; private set; } = true;
     public bool ShowCodexOnTaskbar { get; private set; } = true;
     public bool ShowClaudeOnTaskbar { get; private set; } = true;
     public bool ShowAntigravityOnTaskbar { get; private set; } = true;
     public bool ShowCursorOnTaskbar { get; private set; } = true;
-    public double TaskbarFontSize { get; private set; } = 12;
-    public string TaskbarFont { get; private set; } = "Segoe UI Variable Text";
-    public string TaskbarTextWeight { get; private set; } = "SemiBold";
+    public double TaskbarFontSize { get; private set; } = 13;
+    public string TaskbarFont { get; private set; } = "Chakra Petch";
+    public string TaskbarTextWeight { get; private set; } = "Regular";
     public string GreenColorHex { get; private set; } = "#2ECC71";
     public string LimeColorHex { get; private set; } = "#9ACD32";
     public string YellowColorHex { get; private set; } = "#FFD21E";
     public string OrangeColorHex { get; private set; } = "#FF9800";
     public string RedColorHex { get; private set; } = "#FF4D4F";
-    public double Stage1MaxPercent { get; private set; } = 40;
-    public double Stage2MaxPercent { get; private set; } = 70;
-    public double Stage3MaxPercent { get; private set; } = 85;
-    public double Stage4MaxPercent { get; private set; } = 95;
-    public double Stage5MaxPercent { get; private set; } = 100;
+    public double Stage1MaxPercent { get; private set; } = 29;
+    public double Stage2MaxPercent { get; private set; } = 49;
+    public double Stage3MaxPercent { get; private set; } = 69;
+    public double Stage4MaxPercent { get; private set; } = 79;
+    public double Stage5MaxPercent { get; private set; } = 84;
 
     public TaskbarWidgetWindow(
         TaskbarWidgetViewModel viewModel,
@@ -314,7 +314,7 @@ public partial class TaskbarWidgetWindow : Window
     }
 
     public void ResetUsageColorsToDefault() =>
-        TrySetUsageColors("#2ECC71", "#9ACD32", "#FFD21E", "#FF9800", "#FF4D4F", 40, 70, 85, 95, 100);
+        TrySetUsageColors("#2ECC71", "#9ACD32", "#FFD21E", "#FF9800", "#FF4D4F", 29, 49, 69, 79, 84);
 
     private void ApplySavedUsageColors()
     {
@@ -338,11 +338,11 @@ public partial class TaskbarWidgetWindow : Window
         YellowColorHex = "#FFD21E";
         OrangeColorHex = "#FF9800";
         RedColorHex = "#FF4D4F";
-        Stage1MaxPercent = 40;
-        Stage2MaxPercent = 70;
-        Stage3MaxPercent = 85;
-        Stage4MaxPercent = 95;
-        Stage5MaxPercent = 100;
+        Stage1MaxPercent = 29;
+        Stage2MaxPercent = 49;
+        Stage3MaxPercent = 69;
+        Stage4MaxPercent = 79;
+        Stage5MaxPercent = 84;
         TryConfigureUsageColors(
             GreenColorHex,
             LimeColorHex,

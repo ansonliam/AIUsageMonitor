@@ -12,35 +12,24 @@ public sealed class AutoRefreshOptions
     public const double DefaultIdleAfterMinutes = 5;
     public const double DefaultIdleRefreshIntervalMinutes = 60;
 
-    // Codex: local IPC to a reused app-server process, no documented remote rate limit.
-    public const double CodexDefaultIntervalMinutes = 15;
-
-    // Claude: the undocumented /api/oauth/usage endpoint has a documented history (anthropics/claude-code#31637)
-    // of persistent 429s even at 5-minute polling, with 30+ minute lockouts once triggered - stay conservative.
-    public const double ClaudeDefaultIntervalMinutes = 20;
-
-    // Antigravity: proxied through a local language server with forceRefresh=true (a live upstream call each
-    // time) with no published polling-tolerance data, so treated with the same caution as Claude.
-    public const double AntigravityDefaultIntervalMinutes = 20;
-
-    // Cursor: multiple actively-maintained community usage extensions (Tendo33/cursor-usage-tracker,
-    // YossiSaadi/cursor-usage-vscode-extension) default to a 5-minute auto-refresh against this same
-    // undocumented endpoint without reported issues.
-    public const double CursorDefaultIntervalMinutes = 5;
+    // Packaged defaults mirror the preferred dashboard profile: primary providers refresh more
+    // often, while secondary providers refresh only occasionally until the user configures them.
+    public const double CodexDefaultIntervalMinutes = 5;
+    public const double ClaudeDefaultIntervalMinutes = 15;
+    public const double AntigravityDefaultIntervalMinutes = 15;
+    public const double CursorDefaultIntervalMinutes = 15;
 
     // Zero disables the minimum interval so every hook notification can refresh immediately.
     public const double MinimumThrottleMinutes = 0;
     public const double MaximumThrottleMinutes = 1440;
 
-    // Hook/scheduled-refresh floor per provider - same research as the scheduled defaults above, just
-    // tuned as the minimum gap between any two non-manual refreshes rather than the polling cadence.
-    public const double CodexDefaultThrottleMinutes = 3;
-    public const double ClaudeDefaultThrottleMinutes = 15;
-    public const double AntigravityDefaultThrottleMinutes = 10;
-    public const double CursorDefaultThrottleMinutes = 5;
+    public const double CodexDefaultThrottleMinutes = 1;
+    public const double ClaudeDefaultThrottleMinutes = 1;
+    public const double AntigravityDefaultThrottleMinutes = 1;
+    public const double CursorDefaultThrottleMinutes = 1;
 
     private readonly object _syncRoot = new();
-    private bool _enabled;
+    private bool _enabled = true;
     private double _codexIntervalMinutes = CodexDefaultIntervalMinutes;
     private double _claudeIntervalMinutes = ClaudeDefaultIntervalMinutes;
     private double _antigravityIntervalMinutes = AntigravityDefaultIntervalMinutes;

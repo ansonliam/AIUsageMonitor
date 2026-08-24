@@ -45,9 +45,9 @@ public partial class MainWindow : Window
     // constant times the row count) instead makes every row exactly this many pixels tall,
     // always - which DashboardCard's drag/resize snapping math depends on to convert pixels back
     // to whole cell deltas.
-    private const double DefaultDashboardWidgetHeight = 56;
-    private const double DefaultMetricLabelWidth = 32;
-    private const double DefaultProgressBarHeight = 6;
+    private const double DefaultDashboardWidgetHeight = 50;
+    private const double DefaultMetricLabelWidth = 27;
+    private const double DefaultProgressBarHeight = 2;
 
     private readonly Dictionary<DashboardCardViewModel, DashboardCard> _dashboardElements = [];
     private HwndSource? _windowSource;
@@ -59,7 +59,7 @@ public partial class MainWindow : Window
     public event Action? WidgetStateChanged;
 
     public bool IsWindowLocked { get; private set; }
-    public bool IsDashboardLayoutEnabled { get; private set; }
+    public bool IsDashboardLayoutEnabled { get; private set; } = true;
     public double DashboardWidgetHeight { get; private set; } = DefaultDashboardWidgetHeight;
     public double MetricLabelWidth { get; private set; } = DefaultMetricLabelWidth;
     public double ProgressBarHeight { get; private set; } = DefaultProgressBarHeight;
@@ -70,21 +70,21 @@ public partial class MainWindow : Window
     public bool ShowClaude { get; private set; } = true;
     public bool ShowAntigravity { get; private set; } = true;
     public bool ShowCursor { get; private set; } = true;
-    public string FontSizePreset { get; private set; } = "Normal";
-    public string WidgetFont { get; private set; } = "Segoe UI Variable Text";
-    public string WidgetAppearance { get; private set; } = "Default";
+    public string FontSizePreset { get; private set; } = "Large";
+    public string WidgetFont { get; private set; } = "Oxanium";
+    public string WidgetAppearance { get; private set; } = "Retro";
     public string WidgetTextWeight { get; private set; } = "Regular";
     public string GreenColorHex { get; private set; } = "#2ECC71";
     public string LimeColorHex { get; private set; } = "#9ACD32";
     public string YellowColorHex { get; private set; } = "#FFD21E";
     public string OrangeColorHex { get; private set; } = "#FF9800";
     public string RedColorHex { get; private set; } = "#FF4D4F";
-    public double Stage1MaxPercent { get; private set; } = 40;
-    public double Stage2MaxPercent { get; private set; } = 70;
-    public double Stage3MaxPercent { get; private set; } = 85;
-    public double Stage4MaxPercent { get; private set; } = 95;
-    public double Stage5MaxPercent { get; private set; } = 100;
-    public bool AutoRefreshEnabled { get; private set; }
+    public double Stage1MaxPercent { get; private set; } = 29;
+    public double Stage2MaxPercent { get; private set; } = 49;
+    public double Stage3MaxPercent { get; private set; } = 69;
+    public double Stage4MaxPercent { get; private set; } = 79;
+    public double Stage5MaxPercent { get; private set; } = 84;
+    public bool AutoRefreshEnabled { get; private set; } = true;
     public double CodexRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.CodexDefaultIntervalMinutes;
     public double ClaudeRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
     public double AntigravityRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
@@ -929,7 +929,7 @@ public partial class MainWindow : Window
 
     public void ResetUsageColorsToDefault()
     {
-        TrySetUsageColors("#2ECC71", "#9ACD32", "#FFD21E", "#FF9800", "#FF4D4F", 40, 70, 85, 95, 100);
+        TrySetUsageColors("#2ECC71", "#9ACD32", "#FFD21E", "#FF9800", "#FF4D4F", 29, 49, 69, 79, 84);
     }
 
     private void ApplyAutoRefreshOptions() =>
@@ -1013,11 +1013,11 @@ public partial class MainWindow : Window
         YellowColorHex = "#FFD21E";
         OrangeColorHex = "#FF9800";
         RedColorHex = "#FF4D4F";
-        Stage1MaxPercent = 40;
-        Stage2MaxPercent = 70;
-        Stage3MaxPercent = 85;
-        Stage4MaxPercent = 95;
-        Stage5MaxPercent = 100;
+        Stage1MaxPercent = 29;
+        Stage2MaxPercent = 49;
+        Stage3MaxPercent = 69;
+        Stage4MaxPercent = 79;
+        Stage5MaxPercent = 84;
         TryConfigureUsageColors(
             GreenColorHex,
             LimeColorHex,
@@ -1422,13 +1422,13 @@ public partial class MainWindow : Window
     {
         public double Left { get; init; }
         public double Top { get; init; }
-        public double Width { get; init; } = 302;
-        public double Height { get; init; } = 230;
+        public double Width { get; init; } = 430;
+        public double Height { get; init; } = 320;
         public double DashboardWidgetHeight { get; init; } = DefaultDashboardWidgetHeight;
         public double MetricLabelWidth { get; init; } = DefaultMetricLabelWidth;
         public double ProgressBarHeight { get; init; } = DefaultProgressBarHeight;
         public bool IsLocked { get; init; }
-        public bool IsDashboardLayoutEnabled { get; init; }
+        public bool IsDashboardLayoutEnabled { get; init; } = true;
         public bool IsHorizontalLayout { get; init; }
         public bool ShowDashboardWidget { get; init; } = true;
         public bool AlwaysOnTop { get; init; } = true;
@@ -1436,22 +1436,22 @@ public partial class MainWindow : Window
         public bool ShowClaude { get; init; } = true;
         public bool ShowAntigravity { get; init; } = true;
         public bool ShowCursor { get; init; } = true;
-        public string FontSizePreset { get; init; } = "Normal";
-        public string? WidgetFont { get; init; }
-        public string? WidgetAppearance { get; init; }
-        public string? WidgetTextWeight { get; init; }
-        public string? WidgetStyle { get; init; }
+        public string FontSizePreset { get; init; } = "Large";
+        public string? WidgetFont { get; init; } = "Oxanium";
+        public string? WidgetAppearance { get; init; } = "Retro";
+        public string? WidgetTextWeight { get; init; } = "Regular";
+        public string? WidgetStyle { get; init; } = "Oxanium - Retro";
         public string GreenColorHex { get; init; } = "#2ECC71";
         public string LimeColorHex { get; init; } = "#9ACD32";
         public string YellowColorHex { get; init; } = "#FFD21E";
         public string OrangeColorHex { get; init; } = "#FF9800";
         public string RedColorHex { get; init; } = "#FF4D4F";
-        public double Stage1MaxPercent { get; init; } = 40;
-        public double Stage2MaxPercent { get; init; } = 70;
-        public double Stage3MaxPercent { get; init; } = 85;
-        public double Stage4MaxPercent { get; init; } = 95;
-        public double Stage5MaxPercent { get; init; } = 100;
-        public bool AutoRefreshEnabled { get; init; }
+        public double Stage1MaxPercent { get; init; } = 29;
+        public double Stage2MaxPercent { get; init; } = 49;
+        public double Stage3MaxPercent { get; init; } = 69;
+        public double Stage4MaxPercent { get; init; } = 79;
+        public double Stage5MaxPercent { get; init; } = 84;
+        public bool AutoRefreshEnabled { get; init; } = true;
         public double CodexRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.CodexDefaultIntervalMinutes;
         public double ClaudeRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
         public double AntigravityRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
