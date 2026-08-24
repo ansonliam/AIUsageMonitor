@@ -213,6 +213,75 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style TargetType="TabItem">
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="Foreground" Value="#FF65717D" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="TabBorder"
+                                Padding="{TemplateBinding Padding}"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="0,0,0,2"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter x:Name="ContentSite"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextElement.FontWeight="SemiBold"
+                                              ContentSource="Header"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="#FFEAF4FF" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="#FFFFFFFF" />
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="#FF3B6FB0" />
+                                <Setter Property="Foreground" Value="#FF20252B" />
+                                <Setter Property="Panel.ZIndex" Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="TabControl">
+            <Setter Property="Background" Value="#FFF7F8FA" />
+            <Setter Property="BorderBrush" Value="#FFD6DBE1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid KeyboardNavigation.TabNavigation="Local">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Border Grid.Row="0"
+                                    Background="#FFF7F8FA"
+                                    BorderBrush="#FFD6DBE1"
+                                    BorderThickness="0,0,0,1">
+                                <TabPanel x:Name="HeaderPanel"
+                                          Margin="8,0,0,0"
+                                          IsItemsHost="True"
+                                          KeyboardNavigation.TabIndex="1" />
+                            </Border>
+                            <Border Grid.Row="1"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="0"
+                                    KeyboardNavigation.DirectionalNavigation="Contained"
+                                    KeyboardNavigation.TabIndex="2"
+                                    KeyboardNavigation.TabNavigation="Local">
+                                <ContentPresenter x:Name="PART_SelectedContentHost"
+                                                  ContentSource="SelectedContent" />
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <TabControl Margin="10,10,10,8">
@@ -471,9 +540,11 @@
                         <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=RedColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
                             <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=RedColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
                         </Button>
-                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="{Binding StageBoundaryLabel}" />
-                        <TextBox Width="40" Text="{Binding Stage5MaxPercent}" />
-                        <TextBlock VerticalAlignment="Center" Text="%" />
+                        <TextBlock Margin="8,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="#FF5A6472"
+                                   Text="{Binding Stage5RangeText}"
+                                   ToolTip="Stage 5 covers everything past stage 4, so it has no boundary of its own." />
                     </StackPanel>
                     <Button Width="112"
                             Margin="0,3,0,3"
