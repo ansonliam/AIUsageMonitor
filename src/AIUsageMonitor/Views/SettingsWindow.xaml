@@ -952,6 +952,11 @@
         </StackPanel>
 
         <StackPanel Margin="0,8,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
             <StackPanel Orientation="Horizontal">
                 <TextBlock Foreground="#FF4E5964" Text="Version " />
                 <TextBlock FontWeight="SemiBold" Foreground="#FF4E5964" Text="{Binding InstalledVersion}" />
@@ -966,12 +971,15 @@
                         Style="{StaticResource LinkButtonStyle}"
                         Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BooleanToVisibilityConverter}}" />
             </StackPanel>
-            <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right">
                 <TextBlock Foreground="#FF4E5964" Text="Open source on " />
                 <Button Command="{Binding OpenGitHubRepositoryCommand}"
                         Content="GitHub"
                         Style="{StaticResource LinkButtonStyle}" />
             </StackPanel>
+            </Grid>
             <TextBlock Margin="0,4,0,0"
                        Foreground="#FF4E5964"
                        Text="{Binding TestResult}"
