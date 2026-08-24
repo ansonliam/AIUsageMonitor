@@ -309,21 +309,21 @@
                            Foreground="#FF65717D"
                            Text="Controls the left usage label column (for example, 5H) while keeping Reset text aligned." />
                 <WrapPanel Margin="0,12,0,0" Orientation="Horizontal">
-                    <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+                    <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text size" />
                         <ComboBox Width="110"
                                   Margin="16,0,0,0"
                                   ItemsSource="{Binding FontSizePresets}"
                                   SelectedItem="{Binding FontSizePreset, Mode=TwoWay}" />
                     </StackPanel>
-                    <StackPanel Margin="20,4,0,0" Orientation="Horizontal">
+                    <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Font" />
                         <ComboBox Width="160"
                                   Margin="16,0,0,0"
                                   ItemsSource="{Binding WidgetFonts}"
                                   SelectedItem="{Binding WidgetFont, Mode=TwoWay}" />
                     </StackPanel>
-                    <StackPanel Margin="20,4,0,0" Orientation="Horizontal">
+                    <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Text weight" />
                         <ComboBox Width="110"
                                   Margin="16,0,0,0"
