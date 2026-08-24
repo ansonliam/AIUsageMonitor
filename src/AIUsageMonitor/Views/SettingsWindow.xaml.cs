@@ -1,6 +1,5 @@
 using System.Drawing;
 using System.Windows;
-using System.Windows.Input;
 using Forms = System.Windows.Forms;
 using WpfButton = System.Windows.Controls.Button;
 using WpfTextBox = System.Windows.Controls.TextBox;
@@ -16,22 +15,6 @@ public partial class SettingsWindow : Window
         viewModel.RefreshStatus();
         viewModel.RefreshWindowState();
         DataContext = viewModel;
-    }
-
-    private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
-    {
-        var pressedKey = e.Key == Key.System ? e.SystemKey : e.Key;
-        if (pressedKey != Key.D || Keyboard.Modifiers != (ModifierKeys.Control | ModifierKeys.Alt))
-        {
-            return;
-        }
-
-        if (DataContext is SettingsViewModel viewModel)
-        {
-            viewModel.DeveloperModeEnabled = !viewModel.DeveloperModeEnabled;
-        }
-
-        e.Handled = true;
     }
 
     private void ColorPickerButton_Click(object sender, RoutedEventArgs e)
