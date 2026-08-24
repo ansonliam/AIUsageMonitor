@@ -393,14 +393,40 @@ public sealed class ClaudeAuthentication : IProviderAuthentication, IDisposable
 
         using (process)
         {
-            await process.StandardInput.WriteAsync(json.AsMemory(), cancellationToken);
-            process.StandardInput.Close();
-            await process.WaitForExitAsync(cancellationToken);
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(5));
+
+            try
+            {
+                await process.StandardInput.WriteAsync(json.AsMemory(), timeoutCts.Token);
+                process.StandardInput.Close();
+                await process.WaitForExitAsync(timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                TryKillProcess(process);
+                throw new ClaudeAuthenticationException($"Timed out updating Claude credentials inside WSL distro '{distro}'.");
+            }
 
             if (process.ExitCode != 0)
             {
                 throw new ClaudeAuthenticationException($"Unable to update Claude credentials inside WSL distro '{distro}'.");
             }
+        }
+    }
+
+    private static void TryKillProcess(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Process already exited between the check and the kill attempt.
         }
     }
 
