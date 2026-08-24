@@ -295,50 +295,72 @@
                 BorderBrush="#FFD6DBE1"
                 BorderThickness="1"
                 CornerRadius="6">
-            <StackPanel>
-                <TextBlock Margin="0,0,0,6" FontSize="11" Foreground="#FF65717D" Text="WINDOW WIDGET" />
-                <CheckBox IsChecked="{Binding ShowDashboardWidget, Mode=TwoWay}"
+            <StackPanel Grid.IsSharedSizeScope="True">
+                <CheckBox Margin="0,0,0,12"
+                          IsChecked="{Binding ShowAtWindowsStartup, Mode=TwoWay}"
                           FontWeight="SemiBold"
-                          Content="Show main window" />
-                <StackPanel Margin="0,10,0,0" Orientation="Horizontal">
-                    <TextBlock Width="55"
-                               VerticalAlignment="Center"
-                               FontWeight="SemiBold"
-                               Text="Visible:" />
-                    <CheckBox IsChecked="{Binding ShowCodex, Mode=TwoWay}" Content="Codex" />
-                    <CheckBox Margin="18,0,0,0"
-                              IsChecked="{Binding ShowClaude, Mode=TwoWay}"
-                              Content="Claude" />
-                    <CheckBox Margin="18,0,0,0"
-                              IsChecked="{Binding ShowAntigravity, Mode=TwoWay}"
-                              Content="Antigravity" />
-                    <CheckBox Margin="18,0,0,0"
-                              IsChecked="{Binding ShowCursor, Mode=TwoWay}"
-                              Content="Cursor" />
-                </StackPanel>
+                          Content="Show app at Windows startup" />
+                <TextBlock Margin="0,0,0,6" FontSize="11" Foreground="#FF65717D" Text="WINDOW WIDGET" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="WidgetVisibilityToggle" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <CheckBox Grid.Column="0"
+                              Margin="0,0,24,0"
+                              IsChecked="{Binding ShowDashboardWidget, Mode=TwoWay}"
+                              VerticalAlignment="Center"
+                              FontWeight="SemiBold"
+                              Content="Show main window" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <TextBlock Width="55"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Text="Visible:" />
+                        <CheckBox IsChecked="{Binding ShowCodex, Mode=TwoWay}" Content="Codex" />
+                        <CheckBox Margin="18,0,0,0"
+                                  IsChecked="{Binding ShowClaude, Mode=TwoWay}"
+                                  Content="Claude" />
+                        <CheckBox Margin="18,0,0,0"
+                                  IsChecked="{Binding ShowAntigravity, Mode=TwoWay}"
+                                  Content="Antigravity" />
+                        <CheckBox Margin="18,0,0,0"
+                                  IsChecked="{Binding ShowCursor, Mode=TwoWay}"
+                                  Content="Cursor" />
+                    </StackPanel>
+                </Grid>
 
                 <TextBlock Margin="0,16,0,6" FontSize="11" Foreground="#FF65717D" Text="TASKBAR WIDGET" />
-                <CheckBox IsChecked="{Binding ShowTaskbarWidget, Mode=TwoWay}"
-                          FontWeight="SemiBold"
-                          Content="Show usage in Windows taskbar" />
-                <StackPanel Margin="0,10,0,0"
-                            IsEnabled="{Binding ShowTaskbarWidget}"
-                            Orientation="Horizontal">
-                    <TextBlock Width="55"
-                               VerticalAlignment="Center"
-                               FontWeight="SemiBold"
-                               Text="Visible:" />
-                    <CheckBox IsChecked="{Binding ShowCodexOnTaskbar, Mode=TwoWay}" Content="Codex" />
-                    <CheckBox Margin="18,0,0,0"
-                              IsChecked="{Binding ShowClaudeOnTaskbar, Mode=TwoWay}"
-                              Content="Claude" />
-                    <CheckBox Margin="18,0,0,0"
-                              IsChecked="{Binding ShowAntigravityOnTaskbar, Mode=TwoWay}"
-                              Content="Antigravity" />
-                    <CheckBox Margin="18,0,0,0"
-                              IsChecked="{Binding ShowCursorOnTaskbar, Mode=TwoWay}"
-                              Content="Cursor" />
-                </StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" SharedSizeGroup="WidgetVisibilityToggle" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <CheckBox Grid.Column="0"
+                              Margin="0,0,24,0"
+                              IsChecked="{Binding ShowTaskbarWidget, Mode=TwoWay}"
+                              VerticalAlignment="Center"
+                              FontWeight="SemiBold"
+                              Content="Show usage in Windows taskbar" />
+                    <StackPanel Grid.Column="1"
+                                IsEnabled="{Binding ShowTaskbarWidget}"
+                                Orientation="Horizontal">
+                        <TextBlock Width="55"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Text="Visible:" />
+                        <CheckBox IsChecked="{Binding ShowCodexOnTaskbar, Mode=TwoWay}" Content="Codex" />
+                        <CheckBox Margin="18,0,0,0"
+                                  IsChecked="{Binding ShowClaudeOnTaskbar, Mode=TwoWay}"
+                                  Content="Claude" />
+                        <CheckBox Margin="18,0,0,0"
+                                  IsChecked="{Binding ShowAntigravityOnTaskbar, Mode=TwoWay}"
+                                  Content="Antigravity" />
+                        <CheckBox Margin="18,0,0,0"
+                                  IsChecked="{Binding ShowCursorOnTaskbar, Mode=TwoWay}"
+                                  Content="Cursor" />
+                    </StackPanel>
+                </Grid>
             </StackPanel>
         </Border>
 
@@ -467,18 +489,6 @@
                         <TextBlock VerticalAlignment="Center" Text="px" />
                     </StackPanel>
                     <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
-                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Icon size" />
-                        <TextBox Width="64"
-                                 Margin="16,0,4,0"
-                                 Padding="7,3"
-                                 HorizontalContentAlignment="Right"
-                                 Background="#FFFFFFFF"
-                                 BorderBrush="#FFBFC7D1"
-                                 Foreground="#FF20252B"
-                                 Text="{Binding TaskbarIconSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                        <TextBlock VerticalAlignment="Center" Text="px" />
-                    </StackPanel>
-                    <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Font" />
                         <ComboBox Width="160"
                                   Margin="16,0,0,0"
@@ -491,6 +501,18 @@
                                   Margin="16,0,0,0"
                                   ItemsSource="{Binding TaskbarTextWeights}"
                                   SelectedItem="{Binding TaskbarTextWeight, Mode=TwoWay}" />
+                    </StackPanel>
+                    <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Icon size" />
+                        <TextBox Width="64"
+                                 Margin="16,0,4,0"
+                                 Padding="7,3"
+                                 HorizontalContentAlignment="Right"
+                                 Background="#FFFFFFFF"
+                                 BorderBrush="#FFBFC7D1"
+                                 Foreground="#FF20252B"
+                                 Text="{Binding TaskbarIconSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock VerticalAlignment="Center" Text="px" />
                     </StackPanel>
                     <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Vertical text adjustment" />
@@ -934,11 +956,21 @@
                 <TextBlock Foreground="#FF4E5964" Text="Version " />
                 <TextBlock FontWeight="SemiBold" Foreground="#FF4E5964" Text="{Binding InstalledVersion}" />
                 <TextBlock Margin="14,0,0,0" Foreground="#FF4E5964" Text="{Binding UpdateStatus}" />
+                <Button Command="{Binding OpenUpdateCommand}"
+                        Content="release."
+                        Style="{StaticResource LinkButtonStyle}"
+                        Visibility="{Binding IsLatestGitHubRelease, Converter={StaticResource BooleanToVisibilityConverter}}" />
                 <Button Margin="10,0,0,0"
                         Command="{Binding OpenUpdateCommand}"
                         Content="Open GitHub update"
                         Style="{StaticResource LinkButtonStyle}"
                         Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            </StackPanel>
+            <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
+                <TextBlock Foreground="#FF4E5964" Text="Open source on " />
+                <Button Command="{Binding OpenGitHubRepositoryCommand}"
+                        Content="GitHub"
+                        Style="{StaticResource LinkButtonStyle}" />
             </StackPanel>
             <TextBlock Margin="0,4,0,0"
                        Foreground="#FF4E5964"

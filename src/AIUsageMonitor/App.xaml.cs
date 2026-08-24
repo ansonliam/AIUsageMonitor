@@ -99,6 +99,7 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<GitHubReleaseService>();
         services.AddSingleton<DashboardLayoutStore>();
         services.AddSingleton<TaskbarWidgetSettingsStore>();
+        services.AddSingleton<WindowsStartupService>();
         services.AddSingleton<TaskbarWidgetPositioningService>();
         services.AddSingleton<TaskbarWidgetViewModel>();
         services.AddSingleton<TaskbarWidgetWindow>();

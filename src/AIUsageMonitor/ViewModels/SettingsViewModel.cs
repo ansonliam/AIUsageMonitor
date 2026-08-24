@@ -14,6 +14,7 @@ public sealed class SettingsViewModel : ObservableObject
 {
     // Stage 5 always runs to the top of the used% scale - see UsageStagePercent.OpenEndedStageText.
     private const double OpenEndedStageMaximum = 100;
+    private static readonly Uri GitHubRepositoryUri = new("https://github.com/ansonliam/AIUsageMonitor");
 
     private readonly CodexHookInstaller _codexHookInstaller;
     private readonly ClaudeHookInstaller _claudeHookInstaller;
@@ -23,6 +24,7 @@ public sealed class SettingsViewModel : ObservableObject
     private readonly IApplicationController _applicationController;
     private readonly MainWindow _mainWindow;
     private readonly TaskbarWidgetWindow _taskbarWidgetWindow;
+    private readonly WindowsStartupService _windowsStartupService;
     private readonly CodexApiCostSettingsStore _codexApiCostSettingsStore;
     private readonly CodexApiCostService _codexApiCostService;
     private readonly DeveloperLoggingService _developerLoggingService;
@@ -37,6 +39,7 @@ public sealed class SettingsViewModel : ObservableObject
     private string _updateStatus = "Checking GitHub for updates…";
     private Uri? _updateReleaseUrl;
     private bool _isUpdateAvailable;
+    private bool _isLatestGitHubRelease;
     private bool _isWindowLocked;
     private double _dashboardWidgetHeight = 56;
     private double _metricLabelWidth = 32;
@@ -52,6 +55,7 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _showClaudeOnTaskbar = true;
     private bool _showAntigravityOnTaskbar = true;
     private bool _showCursorOnTaskbar = true;
+    private bool _showAtWindowsStartup;
     private bool _autoRefreshEnabled;
     private bool _developerModeEnabled;
     private double _codexRefreshIntervalMinutes = AutoRefreshOptions.CodexDefaultIntervalMinutes;
@@ -93,6 +97,7 @@ public sealed class SettingsViewModel : ObservableObject
         CursorHookInstaller cursorHookInstaller,
         MainWindow mainWindow,
         TaskbarWidgetWindow taskbarWidgetWindow,
+        WindowsStartupService windowsStartupService,
         IApplicationController applicationController,
         CodexApiCostSettingsStore codexApiCostSettingsStore,
         CodexApiCostService codexApiCostService,
@@ -106,6 +111,7 @@ public sealed class SettingsViewModel : ObservableObject
         _cursorHookInstaller = cursorHookInstaller;
         _mainWindow = mainWindow;
         _taskbarWidgetWindow = taskbarWidgetWindow;
+        _windowsStartupService = windowsStartupService;
         _applicationController = applicationController;
         _codexApiCostSettingsStore = codexApiCostSettingsStore;
         _codexApiCostService = codexApiCostService;
@@ -128,6 +134,7 @@ public sealed class SettingsViewModel : ObservableObject
         _showClaudeOnTaskbar = taskbarWidgetWindow.ShowClaudeOnTaskbar;
         _showAntigravityOnTaskbar = taskbarWidgetWindow.ShowAntigravityOnTaskbar;
         _showCursorOnTaskbar = taskbarWidgetWindow.ShowCursorOnTaskbar;
+        _showAtWindowsStartup = windowsStartupService.IsEnabled();
         _taskbarFontSize = taskbarWidgetWindow.TaskbarFontSize;
         _taskbarIconSize = taskbarWidgetWindow.TaskbarIconSize;
         _taskbarFont = taskbarWidgetWindow.TaskbarFont;
@@ -198,6 +205,7 @@ public sealed class SettingsViewModel : ObservableObject
         AddCodexApiEndpointCommand = new RelayCommand(AddCodexApiEndpoint);
         SaveCodexApiEndpointsCommand = new RelayCommand(SaveCodexApiEndpoints);
         OpenDeveloperLogFolderCommand = new RelayCommand(OpenDeveloperLogFolder);
+        OpenGitHubRepositoryCommand = new RelayCommand(OpenGitHubRepository);
         OpenUpdateCommand = new RelayCommand(OpenUpdate);
         RefreshStatus();
         _ = RefreshUpdateStatusAsync();
@@ -208,6 +216,7 @@ public sealed class SettingsViewModel : ObservableObject
     public string InstalledVersion => _gitHubReleaseService.InstalledVersion;
     public string UpdateStatus { get => _updateStatus; private set => SetProperty(ref _updateStatus, value); }
     public bool IsUpdateAvailable { get => _isUpdateAvailable; private set => SetProperty(ref _isUpdateAvailable, value); }
+    public bool IsLatestGitHubRelease { get => _isLatestGitHubRelease; private set => SetProperty(ref _isLatestGitHubRelease, value); }
     public string ClaudeHookStatus { get => _claudeHookStatus; private set => SetProperty(ref _claudeHookStatus, value); }
     public string ClaudeCredentialSource { get => _claudeCredentialSource; private set => SetProperty(ref _claudeCredentialSource, value); }
     public string AntigravityHookStatus
@@ -646,6 +655,20 @@ public sealed class SettingsViewModel : ObservableObject
             }
         }
     }
+
+    public bool ShowAtWindowsStartup
+    {
+        get => _showAtWindowsStartup;
+        set
+        {
+            if (value == _showAtWindowsStartup || !_windowsStartupService.TrySetEnabled(value))
+            {
+                return;
+            }
+
+            SetProperty(ref _showAtWindowsStartup, value);
+        }
+    }
     public string TaskbarFont
     {
         get => _taskbarFont;
@@ -704,6 +727,7 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand AddCodexApiEndpointCommand { get; }
     public ICommand SaveCodexApiEndpointsCommand { get; }
     public ICommand OpenDeveloperLogFolderCommand { get; }
+    public ICommand OpenGitHubRepositoryCommand { get; }
     public ICommand OpenUpdateCommand { get; }
     public ObservableCollection<CodexApiEndpointSettingsViewModel> CodexApiEndpoints { get; }
     public string CodexApiCostStatus
@@ -768,11 +792,12 @@ public sealed class SettingsViewModel : ObservableObject
         var result = await _gitHubReleaseService.CheckAsync();
         _updateReleaseUrl = result.ReleaseUrl;
         IsUpdateAvailable = result.IsUpdateAvailable;
+        IsLatestGitHubRelease = result.IsAvailable && !result.IsUpdateAvailable;
         UpdateStatus = !result.IsAvailable
             ? "Could not check GitHub for updates."
             : result.IsUpdateAvailable
                 ? $"Update available: {result.LatestReleaseTag}."
-                : "You have the latest GitHub release.";
+                : "You have the latest GitHub ";
     }
 
     private void OpenUpdate()
@@ -789,6 +814,18 @@ public sealed class SettingsViewModel : ObservableObject
         catch (System.ComponentModel.Win32Exception)
         {
             UpdateStatus = "The GitHub release page could not be opened.";
+        }
+    }
+
+    private void OpenGitHubRepository()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(GitHubRepositoryUri.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            TestResult = "The GitHub repository could not be opened.";
         }
     }
 
