@@ -19,9 +19,18 @@ public partial class App : System.Windows.Application, IApplicationController
     private ServiceProvider? _services;
     private SingleInstanceService? _singleInstance;
     private DeveloperLoggingService? _developerLogging;
+    private UnhandledExceptionLog? _unhandledExceptionLog;
     private bool _exitStarted;
 
     public bool IsExiting { get; private set; }
+
+    public App()
+    {
+        _unhandledExceptionLog = new UnhandledExceptionLog();
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+    }
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -249,6 +258,9 @@ public partial class App : System.Windows.Application, IApplicationController
         _developerLogging?.Dispose();
         _developerLogging = null;
 
+        _unhandledExceptionLog?.Dispose();
+        _unhandledExceptionLog = null;
+
         _singleInstance?.Dispose();
         _singleInstance = null;
         Shutdown();
@@ -342,6 +354,33 @@ public partial class App : System.Windows.Application, IApplicationController
 
     private static bool NeedsInstall(HookInstallationStatus status) =>
         status == HookInstallationStatus.NotInstalled;
+
+    private void OnDispatcherUnhandledException(
+        object sender,
+        System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+    {
+        _unhandledExceptionLog?.Write("WPF DispatcherUnhandledException", e.Exception);
+    }
+
+    private void OnUnhandledException(object? sender, UnhandledExceptionEventArgs e)
+    {
+        if (e.ExceptionObject is Exception exception)
+        {
+            _unhandledExceptionLog?.Write("AppDomain.UnhandledException", exception);
+        }
+        else
+        {
+            _unhandledExceptionLog?.Write(
+                "AppDomain.UnhandledException",
+                new Exception($"Non-Exception object: {e.ExceptionObject}"));
+        }
+    }
+
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        _unhandledExceptionLog?.Write("TaskScheduler.UnobservedTaskException", e.Exception);
+        e.SetObserved();
+    }
 
     private static void WriteHookResponse(string provider)
     {

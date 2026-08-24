@@ -9,6 +9,36 @@ namespace AIUsageMonitor.Tests;
 public sealed class DeveloperLoggingTests
 {
     [TestMethod]
+    public void UnhandledExceptionLog_WritesExceptionDetailsToDedicatedFile()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "AIUsageMonitor.Tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var logging = new UnhandledExceptionLog(root);
+            logging.Write("Test", new InvalidOperationException("test failure"));
+            logging.Dispose();
+
+            Assert.IsTrue(File.Exists(logging.LogPath));
+            var contents = File.ReadAllText(logging.LogPath);
+            StringAssert.Contains(contents, "Source=Test");
+            StringAssert.Contains(contents, "InvalidOperationException: test failure");
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+    }
+
+    [TestMethod]
     public void DeveloperMode_PersistsAndRoutesRefreshActivityToNamedFiles()
     {
         var root = Path.Combine(Path.GetTempPath(), "AIUsageMonitor.Tests", Guid.NewGuid().ToString("N"));
