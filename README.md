@@ -83,6 +83,8 @@ dotnet publish .\src\AIUsageMonitor\AIUsageMonitor.csproj `
 
 If the portable executable is moved, repair the optional hooks from Settings.
 
+Claude may return a “too many requests” response if refreshed too frequently. A one-minute refresh interval is a good starting point.
+
 ## Privacy
 
 AI Usage Monitor uses the credentials already stored by each provider. It does not request separate API keys or include provider credentials in its own settings or cache.
