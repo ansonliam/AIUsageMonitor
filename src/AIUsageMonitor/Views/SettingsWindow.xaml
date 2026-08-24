@@ -1,6 +1,7 @@
 <Window x:Class="AIUsageMonitor.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:AIUsageMonitor.Converters"
         xmlns:vm="clr-namespace:AIUsageMonitor.ViewModels"
         Title="{Binding SettingsWindowTitle}"
         Width="780"
@@ -14,6 +15,7 @@
         ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen">
     <Window.Resources>
+        <converters:HookStatusColorConverter x:Key="HookStatusColorConverter" />
         <Style TargetType="Button">
             <Setter Property="MinHeight" Value="28" />
             <Setter Property="Padding" Value="10,4" />
@@ -546,7 +548,8 @@
                     <TextBlock FontWeight="SemiBold" Text="Codex" />
                     <StackPanel Margin="0,4,12,0" Orientation="Horizontal">
                         <TextBlock Text="Hook status: " />
-                        <TextBlock Text="{Binding CodexHookStatus, Mode=OneWay}" />
+                        <TextBlock Foreground="{Binding CodexHookStatus, Converter={StaticResource HookStatusColorConverter}, Mode=OneWay}"
+                                   Text="{Binding CodexHookStatus, Mode=OneWay}" />
                     </StackPanel>
                     <TextBlock Margin="0,3,12,0"
                                FontSize="10"
@@ -576,7 +579,8 @@
                     <TextBlock FontWeight="SemiBold" Text="Claude Code" />
                     <StackPanel Margin="0,4,12,0" Orientation="Horizontal">
                         <TextBlock Text="Hook status: " />
-                        <TextBlock Text="{Binding ClaudeHookStatus, Mode=OneWay}" />
+                        <TextBlock Foreground="{Binding ClaudeHookStatus, Converter={StaticResource HookStatusColorConverter}, Mode=OneWay}"
+                                   Text="{Binding ClaudeHookStatus, Mode=OneWay}" />
                     </StackPanel>
                     <TextBlock Margin="0,3,12,0"
                                FontSize="10"
@@ -608,7 +612,8 @@
                     <TextBlock FontWeight="SemiBold" Text="Google Antigravity" />
                     <StackPanel Margin="0,4,12,0" Orientation="Horizontal">
                         <TextBlock Text="Hook status: " />
-                        <TextBlock Text="{Binding AntigravityHookStatus, Mode=OneWay}" />
+                        <TextBlock Foreground="{Binding AntigravityHookStatus, Converter={StaticResource HookStatusColorConverter}, Mode=OneWay}"
+                                   Text="{Binding AntigravityHookStatus, Mode=OneWay}" />
                     </StackPanel>
                     <TextBlock Margin="0,3,12,0"
                                FontSize="10"
@@ -640,7 +645,8 @@
                     <TextBlock FontWeight="SemiBold" Text="Cursor" />
                     <StackPanel Margin="0,4,12,0" Orientation="Horizontal">
                         <TextBlock Text="Hook status: " />
-                        <TextBlock Text="{Binding CursorHookStatus, Mode=OneWay}" />
+                        <TextBlock Foreground="{Binding CursorHookStatus, Converter={StaticResource HookStatusColorConverter}, Mode=OneWay}"
+                                   Text="{Binding CursorHookStatus, Mode=OneWay}" />
                     </StackPanel>
                     <TextBlock Margin="0,3,12,0"
                                FontSize="10"
