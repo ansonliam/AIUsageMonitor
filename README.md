@@ -91,10 +91,6 @@ Claude may return a “too many requests” response if refreshed too frequently
 
 AI Usage Monitor uses the credentials already stored by each provider. It does not request separate API keys or include provider credentials in its own settings or cache.
 
-## Screenshots
-
-The screenshot above shows the optional taskbar widget floating beside the system tray. Open **Settings** to choose the providers, appearance, and taskbar visibility that suit you.
-
 ## Known limitations
 
 - Windows only
