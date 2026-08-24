@@ -61,6 +61,10 @@ public partial class TaskbarWidgetWindow : Window
     private uint _taskbarCreatedMessage;
     private HwndSource? _windowSource;
 
+    // Same purpose as MainWindow.WidgetStateChanged: Settings is non-modal, and this widget's own
+    // context menu can change state (Hide) while it is open.
+    public event Action? StateChanged;
+
     public bool ShowTaskbarWidget { get; private set; }
     public bool ShowCodexOnTaskbar { get; private set; } = true;
     public bool ShowClaudeOnTaskbar { get; private set; } = true;
@@ -465,15 +469,20 @@ public partial class TaskbarWidgetWindow : Window
     private async void RefreshAllMenuItem_Click(object sender, RoutedEventArgs e) =>
         await _applicationController.RefreshAllAsync();
 
-    private async void CloseMenuItem_Click(object sender, RoutedEventArgs e) =>
-        await _applicationController.ExitAsync();
+    private void HideMenuItem_Click(object sender, RoutedEventArgs e) => SetShowTaskbarWidget(false);
 
-    private void SaveSettings() => _settingsStore.Save(new TaskbarWidgetSettings
+    private void SaveSettings()
     {
-        ShowTaskbarWidget = ShowTaskbarWidget,
-        ShowCodexOnTaskbar = ShowCodexOnTaskbar,
-        ShowClaudeOnTaskbar = ShowClaudeOnTaskbar,
-        ShowAntigravityOnTaskbar = ShowAntigravityOnTaskbar,
-        ShowCursorOnTaskbar = ShowCursorOnTaskbar
-    });
+        _settingsStore.Save(new TaskbarWidgetSettings
+        {
+            ShowTaskbarWidget = ShowTaskbarWidget,
+            ShowCodexOnTaskbar = ShowCodexOnTaskbar,
+            ShowClaudeOnTaskbar = ShowClaudeOnTaskbar,
+            ShowAntigravityOnTaskbar = ShowAntigravityOnTaskbar,
+            ShowCursorOnTaskbar = ShowCursorOnTaskbar
+        });
+
+        // Every state setter routes through here - see StateChanged.
+        StateChanged?.Invoke();
+    }
 }

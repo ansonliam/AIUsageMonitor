@@ -21,7 +21,10 @@
             <MenuItem Header="Settings" Click="SettingsMenuItem_Click" />
             <MenuItem Header="Refresh All" Click="RefreshAllMenuItem_Click" />
             <Separator />
-            <MenuItem Header="Close" Click="CloseMenuItem_Click" />
+            <!-- Hides this strip only (persisted, same as the Settings checkbox) rather than
+                 exiting the app - app exit stays on the tray icon, where it can't be hit by
+                 someone aiming to dismiss the strip. -->
+            <MenuItem Header="Hide" Click="HideMenuItem_Click" />
         </ContextMenu>
     </Window.ContextMenu>
     <Window.Resources>

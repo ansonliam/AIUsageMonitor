@@ -316,19 +316,18 @@
                     <MenuItem Header="70%" Tag="0.7" Click="OpacityMenuItem_Click" />
                     <MenuItem Header="60%" Tag="0.6" Click="OpacityMenuItem_Click" />
                 </MenuItem>
-                <MenuItem x:Name="FontSizeMenuItem" Header="Text Size">
-                    <MenuItem Header="Compact" Tag="Compact" Click="FontSizeMenuItem_Click" />
-                    <MenuItem Header="Small" Tag="Small" Click="FontSizeMenuItem_Click" />
-                    <MenuItem Header="Normal" Tag="Normal" Click="FontSizeMenuItem_Click" />
-                    <MenuItem Header="Large" Tag="Large" Click="FontSizeMenuItem_Click" />
-                    <MenuItem Header="Extra Large" Tag="Extra Large" Click="FontSizeMenuItem_Click" />
-                </MenuItem>
                 <Separator />
                 <MenuItem x:Name="AlwaysOnTopMenuItem"
                           Click="AlwaysOnTopMenuItem_Click"
                           Header="Always on Top"
                           IsCheckable="True" />
                 <MenuItem x:Name="LockWindowMenuItem" Click="LockWindowMenuItem_Click" />
+                <Separator />
+                <!-- Hides this widget only; the app keeps running in the tray (which is also how
+                     it comes back - tray Open, or the Settings checkbox). Deliberately not an
+                     app-exit item: that stays on the tray icon, where it can't be hit by someone
+                     aiming to dismiss the widget. -->
+                <MenuItem Header="Hide Widget" Click="HideWidgetMenuItem_Click" />
             </ContextMenu>
         </Border.ContextMenu>
         <Grid>

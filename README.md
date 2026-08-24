@@ -4,6 +4,8 @@ AI Usage Monitor is a compact, always-on-top Windows desktop widget for monitori
 
 ![AI Usage Monitor compact vertical widget](docs/usage-widget.png)
 
+![AI Usage Monitor taskbar widget](docs/taskbar-widget.jpg)
+
 ## Download
 
 Download the newest automatic Windows x64 build from [GitHub Releases](https://github.com/ansonliam/AIUsageMonitor/releases/latest), or download the executable directly:
@@ -28,6 +30,7 @@ The release is a self-contained single-file application and does not require a s
 - Vertical or side-by-side provider cards
 - Customisable provider visibility, text size, colours, opacity, and window position
 - System-tray controls and optional automatic refresh hooks
+- Optional taskbar widget: a compact, independent strip that floats beside the system tray icons and clock, with its own per-provider visibility and a hover tooltip showing status, last updated, and reset times
 
 ## Requirements
 
@@ -91,7 +94,7 @@ AI Usage Monitor uses the credentials already stored by each provider. It does n
 
 ## Screenshots
 
-The screenshot above shows the compact widget. Open **Settings** to choose the providers and appearance that suit you.
+The first screenshot above shows the compact widget alongside per-endpoint API cost tracking; the second shows the optional taskbar widget floating beside the system tray. Open **Settings** to choose the providers, appearance, and taskbar visibility that suit you.
 
 ## Known limitations
 

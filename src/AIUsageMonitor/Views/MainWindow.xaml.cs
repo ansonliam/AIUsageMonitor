@@ -51,6 +51,12 @@ public partial class MainWindow : Window
     private readonly Dictionary<DashboardCardViewModel, DashboardCard> _dashboardElements = [];
     private HwndSource? _windowSource;
 
+    // Raised whenever widget state that Settings also displays has changed. Settings is shown
+    // non-modally, so the widget's own context menu (opacity, layout, lock, always-on-top, hide)
+    // can be used while the Settings window is open - without this, its controls would keep
+    // showing the values they were constructed with.
+    public event Action? WidgetStateChanged;
+
     public bool IsWindowLocked { get; private set; }
     public bool IsDashboardLayoutEnabled { get; private set; }
     public double DashboardWidgetHeight { get; private set; } = DefaultDashboardWidgetHeight;
@@ -1184,12 +1190,6 @@ public partial class MainWindow : Window
             item.IsCheckable = true;
             item.IsChecked = TryGetOpacity(item, out var opacity) && Math.Abs(Opacity - opacity) < 0.001;
         }
-
-        foreach (var item in FontSizeMenuItem.Items.OfType<System.Windows.Controls.MenuItem>())
-        {
-            item.IsCheckable = true;
-            item.IsChecked = string.Equals(item.Tag?.ToString(), FontSizePreset, StringComparison.Ordinal);
-        }
     }
 
     private void SettingsMenuItem_Click(object sender, RoutedEventArgs e) =>
@@ -1207,13 +1207,8 @@ public partial class MainWindow : Window
         }
     }
 
-    private void FontSizeMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is System.Windows.Controls.MenuItem item && item.Tag is string preset)
-        {
-            SetFontSizePreset(preset);
-        }
-    }
+    private void HideWidgetMenuItem_Click(object sender, RoutedEventArgs e) =>
+        SetDashboardWidgetVisible(false);
 
     private void LockWindowMenuItem_Click(object sender, RoutedEventArgs e) =>
         SetWindowLocked(!IsWindowLocked);
@@ -1381,6 +1376,10 @@ public partial class MainWindow : Window
         catch (UnauthorizedAccessException)
         {
         }
+
+        // Every state setter routes through here, which makes this the one place that has to
+        // notify Settings - see WidgetStateChanged.
+        WidgetStateChanged?.Invoke();
     }
 
     private static bool IsOnVirtualDesktop(WindowPlacement placement)

@@ -123,6 +123,11 @@ public sealed class SettingsViewModel : ObservableObject
         _widgetFont = mainWindow.WidgetFont;
         _widgetAppearance = mainWindow.WidgetAppearance;
         _widgetTextWeight = mainWindow.WidgetTextWeight;
+        // Settings is shown non-modally, so the widget can still be changed from its own context
+        // menu (hide, lock, always-on-top, opacity, layout) while this window is open. Mirror
+        // those changes back into these controls instead of leaving them showing stale values.
+        mainWindow.WidgetStateChanged += RefreshWindowState;
+        taskbarWidgetWindow.StateChanged += RefreshWindowState;
         RefreshUsageColorState();
         InstallCodexHookCommand = new AsyncRelayCommand(InstallCodexHookAsync);
         UninstallCodexHookCommand = new AsyncRelayCommand(UninstallCodexHookAsync);
@@ -699,6 +704,26 @@ public sealed class SettingsViewModel : ObservableObject
         SetProperty(ref _showClaude, _mainWindow.ShowClaude, nameof(ShowClaude));
         SetProperty(ref _showAntigravity, _mainWindow.ShowAntigravity, nameof(ShowAntigravity));
         SetProperty(ref _showCursor, _mainWindow.ShowCursor, nameof(ShowCursor));
+        SetProperty(
+            ref _showTaskbarWidget,
+            _taskbarWidgetWindow.ShowTaskbarWidget,
+            nameof(ShowTaskbarWidget));
+        SetProperty(
+            ref _showCodexOnTaskbar,
+            _taskbarWidgetWindow.ShowCodexOnTaskbar,
+            nameof(ShowCodexOnTaskbar));
+        SetProperty(
+            ref _showClaudeOnTaskbar,
+            _taskbarWidgetWindow.ShowClaudeOnTaskbar,
+            nameof(ShowClaudeOnTaskbar));
+        SetProperty(
+            ref _showAntigravityOnTaskbar,
+            _taskbarWidgetWindow.ShowAntigravityOnTaskbar,
+            nameof(ShowAntigravityOnTaskbar));
+        SetProperty(
+            ref _showCursorOnTaskbar,
+            _taskbarWidgetWindow.ShowCursorOnTaskbar,
+            nameof(ShowCursorOnTaskbar));
         SetProperty(ref _autoRefreshEnabled, _mainWindow.AutoRefreshEnabled, nameof(AutoRefreshEnabled));
         SetProperty(
             ref _codexRefreshIntervalMinutes,

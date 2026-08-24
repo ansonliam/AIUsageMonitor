@@ -154,9 +154,21 @@ public partial class App : System.Windows.Application, IApplicationController
                 return;
             }
 
+            // Shown non-modally so the widget itself stays usable (drag, resize, context menu)
+            // while Settings is open - SettingsViewModel mirrors widget-side changes back into its
+            // controls via MainWindow.WidgetStateChanged. Non-modal means a second request must
+            // resurface the existing window rather than opening another copy, same as
+            // ShowIconPreview below.
+            var existing = Windows.OfType<SettingsWindow>().FirstOrDefault();
+            if (existing is not null)
+            {
+                existing.Activate();
+                return;
+            }
+
             var window = _services.GetRequiredService<SettingsWindow>();
             window.Owner = MainWindow?.IsVisible == true ? MainWindow : null;
-            window.ShowDialog();
+            window.Show();
         });
     }
 
