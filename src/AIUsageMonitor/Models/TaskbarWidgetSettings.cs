@@ -10,6 +10,7 @@ public sealed class TaskbarWidgetSettings
     // 12 roughly matches the size Windows itself uses for the language indicator ("ENG US") and
     // clock text in the tray, so the widget reads consistently with its neighbours by default.
     public double TaskbarFontSize { get; init; } = 13;
+    public double TaskbarIconSize { get; init; } = 14;
     public string TaskbarFont { get; init; } = "Chakra Petch";
     public string TaskbarTextWeight { get; init; } = "Regular";
     public double TaskbarTextVerticalOffset { get; init; }

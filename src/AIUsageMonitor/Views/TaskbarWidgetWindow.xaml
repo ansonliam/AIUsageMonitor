@@ -87,8 +87,8 @@
                     </ToolTip>
                 </StackPanel.ToolTip>
                 <Image x:Name="ProviderIconImage"
-                       Width="14"
-                       Height="14"
+                       Width="{DynamicResource TaskbarProviderIconSize}"
+                       Height="{DynamicResource TaskbarProviderIconSize}"
                        VerticalAlignment="Center"
                        RenderOptions.BitmapScalingMode="HighQuality"
                        Stretch="Uniform" />

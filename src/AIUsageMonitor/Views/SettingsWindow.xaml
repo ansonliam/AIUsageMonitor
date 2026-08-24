@@ -467,6 +467,18 @@
                         <TextBlock VerticalAlignment="Center" Text="px" />
                     </StackPanel>
                     <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
+                        <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Icon size" />
+                        <TextBox Width="64"
+                                 Margin="16,0,4,0"
+                                 Padding="7,3"
+                                 HorizontalContentAlignment="Right"
+                                 Background="#FFFFFFFF"
+                                 BorderBrush="#FFBFC7D1"
+                                 Foreground="#FF20252B"
+                                 Text="{Binding TaskbarIconSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock VerticalAlignment="Center" Text="px" />
+                    </StackPanel>
+                    <StackPanel Margin="0,4,28,0" Orientation="Horizontal">
                         <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Font" />
                         <ComboBox Width="160"
                                   Margin="16,0,0,0"

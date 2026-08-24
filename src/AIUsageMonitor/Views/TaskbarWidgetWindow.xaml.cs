@@ -73,6 +73,7 @@ public partial class TaskbarWidgetWindow : Window
     public bool ShowAntigravityOnTaskbar { get; private set; } = true;
     public bool ShowCursorOnTaskbar { get; private set; } = true;
     public double TaskbarFontSize { get; private set; } = 13;
+    public double TaskbarIconSize { get; private set; } = 14;
     public string TaskbarFont { get; private set; } = "Chakra Petch";
     public string TaskbarTextWeight { get; private set; } = "Regular";
     public double TaskbarTextVerticalOffset { get; private set; }
@@ -111,6 +112,7 @@ public partial class TaskbarWidgetWindow : Window
         ShowAntigravityOnTaskbar = settings.ShowAntigravityOnTaskbar;
         ShowCursorOnTaskbar = settings.ShowCursorOnTaskbar;
         TaskbarFontSize = settings.TaskbarFontSize;
+        TaskbarIconSize = NormalizeTaskbarIconSize(settings.TaskbarIconSize);
         TaskbarFont = NormalizeTaskbarFont(settings.TaskbarFont);
         TaskbarTextWeight = NormalizeTaskbarTextWeight(settings.TaskbarTextWeight);
         TaskbarTextVerticalOffset = NormalizeTaskbarTextVerticalOffset(settings.TaskbarTextVerticalOffset);
@@ -203,6 +205,24 @@ public partial class TaskbarWidgetWindow : Window
         SaveSettings();
     }
 
+    public void SetTaskbarIconSize(double iconSize)
+    {
+        if (!double.IsFinite(iconSize))
+        {
+            return;
+        }
+
+        var normalized = Math.Max(1, iconSize);
+        if (Math.Abs(TaskbarIconSize - normalized) < 0.01)
+        {
+            return;
+        }
+
+        TaskbarIconSize = normalized;
+        ApplyFontPresentation();
+        SaveSettings();
+    }
+
     public void SetTaskbarFont(string font)
     {
         var normalized = NormalizeTaskbarFont(font);
@@ -249,6 +269,7 @@ public partial class TaskbarWidgetWindow : Window
     private void ApplyFontPresentation()
     {
         Resources["TaskbarMetricFontSize"] = TaskbarFontSize;
+        Resources["TaskbarProviderIconSize"] = TaskbarIconSize;
         Resources["TaskbarMetricFontFamily"] = CreateTaskbarFontFamily(TaskbarFont);
         Resources["TaskbarMetricFontWeight"] = TaskbarTextWeight switch
         {
@@ -284,6 +305,9 @@ public partial class TaskbarWidgetWindow : Window
         "Regular" or "Bold" => weight,
         _ => "SemiBold"
     };
+
+    private static double NormalizeTaskbarIconSize(double iconSize) =>
+        double.IsFinite(iconSize) && iconSize >= 1 ? iconSize : 14;
 
     private static double NormalizeTaskbarTextVerticalOffset(double verticalOffset) =>
         double.IsFinite(verticalOffset) ? verticalOffset : 0;
@@ -709,6 +733,7 @@ public partial class TaskbarWidgetWindow : Window
             ShowAntigravityOnTaskbar = ShowAntigravityOnTaskbar,
             ShowCursorOnTaskbar = ShowCursorOnTaskbar,
             TaskbarFontSize = TaskbarFontSize,
+            TaskbarIconSize = TaskbarIconSize,
             TaskbarFont = TaskbarFont,
             TaskbarTextWeight = TaskbarTextWeight,
             TaskbarTextVerticalOffset = TaskbarTextVerticalOffset,

@@ -79,6 +79,7 @@ public sealed class SettingsViewModel : ObservableObject
     private string _stage4MaxPercent = "95";
     private string _stage5RangeText = "above 95%";
     private double _taskbarFontSize = 12;
+    private double _taskbarIconSize = 14;
     private string _taskbarFont = "Segoe UI Variable Text";
     private string _taskbarTextWeight = "SemiBold";
     private double _taskbarTextVerticalOffset;
@@ -128,6 +129,7 @@ public sealed class SettingsViewModel : ObservableObject
         _showAntigravityOnTaskbar = taskbarWidgetWindow.ShowAntigravityOnTaskbar;
         _showCursorOnTaskbar = taskbarWidgetWindow.ShowCursorOnTaskbar;
         _taskbarFontSize = taskbarWidgetWindow.TaskbarFontSize;
+        _taskbarIconSize = taskbarWidgetWindow.TaskbarIconSize;
         _taskbarFont = taskbarWidgetWindow.TaskbarFont;
         _taskbarTextWeight = taskbarWidgetWindow.TaskbarTextWeight;
         _taskbarTextVerticalOffset = taskbarWidgetWindow.TaskbarTextVerticalOffset;
@@ -632,6 +634,18 @@ public sealed class SettingsViewModel : ObservableObject
         }
     }
     public IReadOnlyList<string> TaskbarFonts => FontChoices;
+    public double TaskbarIconSize
+    {
+        get => _taskbarIconSize;
+        set
+        {
+            var normalized = Math.Max(1, Math.Round(value));
+            if (SetProperty(ref _taskbarIconSize, normalized))
+            {
+                _taskbarWidgetWindow.SetTaskbarIconSize(normalized);
+            }
+        }
+    }
     public string TaskbarFont
     {
         get => _taskbarFont;
@@ -884,6 +898,7 @@ public sealed class SettingsViewModel : ObservableObject
             _taskbarWidgetWindow.ShowCursorOnTaskbar,
             nameof(ShowCursorOnTaskbar));
         SetProperty(ref _taskbarFontSize, _taskbarWidgetWindow.TaskbarFontSize, nameof(TaskbarFontSize));
+        SetProperty(ref _taskbarIconSize, _taskbarWidgetWindow.TaskbarIconSize, nameof(TaskbarIconSize));
         SetProperty(ref _taskbarFont, _taskbarWidgetWindow.TaskbarFont, nameof(TaskbarFont));
         SetProperty(ref _taskbarTextWeight, _taskbarWidgetWindow.TaskbarTextWeight, nameof(TaskbarTextWeight));
         SetProperty(ref _taskbarTextVerticalOffset, _taskbarWidgetWindow.TaskbarTextVerticalOffset, nameof(TaskbarTextVerticalOffset));
