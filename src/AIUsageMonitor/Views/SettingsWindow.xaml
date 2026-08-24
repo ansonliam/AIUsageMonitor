@@ -215,29 +215,13 @@
         </Style>
     </Window.Resources>
 
-    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-    <Grid Margin="18,12,18,8">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <TabControl Margin="10,10,10,8">
+        <TabItem Header="General">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="8,10,8,8">
 
-        <TextBlock Grid.Row="0" FontSize="16" FontWeight="SemiBold" Text="Window Widget" />
-        <Border Grid.Row="1"
-                Margin="0,8,0,10"
+        <TextBlock FontSize="16" FontWeight="SemiBold" Text="Window Widget" />
+        <Border Margin="0,8,0,10"
                 Padding="10"
                 Background="#FFFFFFFF"
                 BorderBrush="#FFD6DBE1"
@@ -352,78 +336,11 @@
                                   SelectedItem="{Binding WidgetAppearance, Mode=TwoWay}" />
                     </StackPanel>
                 </WrapPanel>
-                <StackPanel Margin="0,14,0,4" Orientation="Horizontal">
-                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Usage colour stages" />
-                    <Button Margin="12,0,0,0"
-                            VerticalAlignment="Center"
-                            Command="{Binding ResetUsageColorsCommand}"
-                            Content="Reset to default"
-                            Style="{StaticResource LinkButtonStyle}" />
-                </StackPanel>
-                <UniformGrid Columns="2">
-                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
-                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 1" />
-                        <TextBox x:Name="GreenColorTextBox" Width="90" Text="{Binding GreenColorHex, UpdateSourceTrigger=PropertyChanged}" />
-                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=GreenColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
-                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=GreenColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
-                        </Button>
-                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
-                        <TextBox Width="40" Text="{Binding Stage1MaxPercent}" />
-                        <TextBlock VerticalAlignment="Center" Text="%" />
-                    </StackPanel>
-                    <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
-                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 2" />
-                        <TextBox x:Name="LimeColorTextBox" Width="90" Text="{Binding LimeColorHex, UpdateSourceTrigger=PropertyChanged}" />
-                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=LimeColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
-                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=LimeColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
-                        </Button>
-                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
-                        <TextBox Width="40" Text="{Binding Stage2MaxPercent}" />
-                        <TextBlock VerticalAlignment="Center" Text="%" />
-                    </StackPanel>
-                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
-                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 3" />
-                        <TextBox x:Name="YellowColorTextBox" Width="90" Text="{Binding YellowColorHex, UpdateSourceTrigger=PropertyChanged}" />
-                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=YellowColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
-                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=YellowColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
-                        </Button>
-                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
-                        <TextBox Width="40" Text="{Binding Stage3MaxPercent}" />
-                        <TextBlock VerticalAlignment="Center" Text="%" />
-                    </StackPanel>
-                    <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
-                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 4" />
-                        <TextBox x:Name="OrangeColorTextBox" Width="90" Text="{Binding OrangeColorHex, UpdateSourceTrigger=PropertyChanged}" />
-                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=OrangeColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
-                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=OrangeColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
-                        </Button>
-                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
-                        <TextBox Width="40" Text="{Binding Stage4MaxPercent}" />
-                        <TextBlock VerticalAlignment="Center" Text="%" />
-                    </StackPanel>
-                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
-                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 5" />
-                        <TextBox x:Name="RedColorTextBox" Width="90" Text="{Binding RedColorHex, UpdateSourceTrigger=PropertyChanged}" />
-                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=RedColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
-                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=RedColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
-                        </Button>
-                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="up to" />
-                        <TextBox Width="40" Text="{Binding Stage5MaxPercent}" />
-                        <TextBlock VerticalAlignment="Center" Text="%" />
-                    </StackPanel>
-                    <Button Width="112"
-                            Margin="0,3,0,3"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Center"
-                            Command="{Binding ApplyUsageColorsCommand}"
-                            Content="Apply Stages" />
-                </UniformGrid>
             </StackPanel>
         </Border>
 
-        <TextBlock Grid.Row="2" FontSize="16" FontWeight="SemiBold" Text="Taskbar Widget" />
-        <Border Grid.Row="3"
-                Margin="0,8,0,10"
+        <TextBlock FontSize="16" FontWeight="SemiBold" Text="Taskbar Widget" />
+        <Border Margin="0,8,0,10"
                 Padding="10"
                 Background="#FFFFFFFF"
                 BorderBrush="#FFD6DBE1"
@@ -483,9 +400,93 @@
             </StackPanel>
         </Border>
 
-        <TextBlock Grid.Row="4" FontSize="16" FontWeight="SemiBold" Text="Refresh" />
-        <Border Grid.Row="5"
-                Margin="0,8,0,10"
+        <TextBlock FontSize="16" FontWeight="SemiBold" Text="Usage Colour Stages" />
+        <Border Margin="0,8,0,10"
+                Padding="10"
+                Background="#FFFFFFFF"
+                BorderBrush="#FFD6DBE1"
+                BorderThickness="1"
+                CornerRadius="6">
+            <StackPanel>
+                <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" Text="Show" />
+                    <CheckBox Margin="8,0,0,0"
+                              VerticalAlignment="Center"
+                              Content="usage remaining instead of usage used"
+                              IsChecked="{Binding ShowUsageRemaining, Mode=TwoWay}"
+                              ToolTip="Displays 100% minus the used percentage on both widgets. Stage percentages below auto-convert between used and remaining." />
+                </StackPanel>
+                <StackPanel Margin="0,0,0,8" Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="Window widget stages" />
+                    <Button Margin="12,0,0,0"
+                            VerticalAlignment="Center"
+                            Command="{Binding ResetUsageColorsCommand}"
+                            Content="Reset to default"
+                            Style="{StaticResource LinkButtonStyle}" />
+                </StackPanel>
+                <UniformGrid Columns="2">
+                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 1" />
+                        <TextBox x:Name="GreenColorTextBox" Width="90" Text="{Binding GreenColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=GreenColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=GreenColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="{Binding StageBoundaryLabel}" />
+                        <TextBox Width="40" Text="{Binding Stage1MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 2" />
+                        <TextBox x:Name="LimeColorTextBox" Width="90" Text="{Binding LimeColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=LimeColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=LimeColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="{Binding StageBoundaryLabel}" />
+                        <TextBox Width="40" Text="{Binding Stage2MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 3" />
+                        <TextBox x:Name="YellowColorTextBox" Width="90" Text="{Binding YellowColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=YellowColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=YellowColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="{Binding StageBoundaryLabel}" />
+                        <TextBox Width="40" Text="{Binding Stage3MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,0,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 4" />
+                        <TextBox x:Name="OrangeColorTextBox" Width="90" Text="{Binding OrangeColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=OrangeColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=OrangeColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="{Binding StageBoundaryLabel}" />
+                        <TextBox Width="40" Text="{Binding Stage4MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <StackPanel Margin="0,3,20,3" Orientation="Horizontal">
+                        <TextBlock Width="55" VerticalAlignment="Center" Text="Stage 5" />
+                        <TextBox x:Name="RedColorTextBox" Width="90" Text="{Binding RedColorHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Width="30" Height="28" Margin="4,0,0,0" Padding="3" Tag="{Binding ElementName=RedColorTextBox}" Click="ColorPickerButton_Click" ToolTip="Choose stage colour">
+                            <Border Width="22" Height="22" BorderBrush="#FF7A828A" BorderThickness="1" Background="{Binding Text, ElementName=RedColorTextBox, Converter={StaticResource HexColorBrushConverter}}" />
+                        </Button>
+                        <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="{Binding StageBoundaryLabel}" />
+                        <TextBox Width="40" Text="{Binding Stage5MaxPercent}" />
+                        <TextBlock VerticalAlignment="Center" Text="%" />
+                    </StackPanel>
+                    <Button Width="112"
+                            Margin="0,3,0,3"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Command="{Binding ApplyUsageColorsCommand}"
+                            Content="Apply Stages" />
+                </UniformGrid>
+            </StackPanel>
+        </Border>
+
+        <TextBlock FontSize="16" FontWeight="SemiBold" Text="Refresh" />
+        <Border Margin="0,8,0,10"
                 Padding="10"
                 Background="#FFFFFFFF"
                 BorderBrush="#FFD6DBE1"
@@ -646,9 +647,8 @@
             </StackPanel>
         </Border>
 
-        <TextBlock Grid.Row="6" FontSize="16" FontWeight="SemiBold" Text="Integrations" />
-        <Border Grid.Row="7"
-                Margin="0,8,0,6"
+        <TextBlock FontSize="16" FontWeight="SemiBold" Text="Integrations" />
+        <Border Margin="0,8,0,6"
                 Padding="10"
                 Background="#FFFFFFFF"
                 BorderBrush="#FFD6DBE1"
@@ -679,8 +679,7 @@
                 </StackPanel>
             </Grid>
         </Border>
-        <Border Grid.Row="8"
-                Padding="10"
+        <Border Padding="10"
                 Background="#FFFFFFFF"
                 BorderBrush="#FFD6DBE1"
                 BorderThickness="1"
@@ -715,8 +714,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="9"
-                Margin="0,6,0,0"
+        <Border Margin="0,6,0,0"
                 Padding="10"
                 Background="#FFFFFFFF"
                 BorderBrush="#FFD6DBE1"
@@ -748,8 +746,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="10"
-                Margin="0,6,0,0"
+        <Border Margin="0,6,0,0"
                 Padding="10"
                 Background="#FFFFFFFF"
                 BorderBrush="#FFD6DBE1"
@@ -781,7 +778,76 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="11" Margin="0,14,0,0">
+        <StackPanel Margin="0,14,0,0">
+            <TextBlock FontSize="16" FontWeight="SemiBold" Text="Developer" />
+            <Border Margin="0,8,0,0"
+                    Padding="10"
+                    Background="#FFFFFFFF"
+                    BorderBrush="#FFD6DBE1"
+                    BorderThickness="1"
+                    CornerRadius="6">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <CheckBox IsChecked="{Binding DeveloperModeEnabled, Mode=TwoWay}"
+                                  FontWeight="SemiBold"
+                                  Content="Developer mode" />
+                        <TextBlock Margin="22,4,12,0"
+                                   Foreground="#FF65717D"
+                                   Text="Enables diagnostic logging and developer tools. Ctrl+Alt+D toggles this same setting."
+                                   TextWrapping="Wrap" />
+                        <TextBlock Margin="22,4,12,0"
+                                   Foreground="#FF65717D"
+                                   Text="Logs record scheduled, hook, startup and manual refreshes, plus provider API status and timing. Authentication values and response bodies are never logged."
+                                   TextWrapping="Wrap" />
+                        <TextBlock Margin="22,4,12,0"
+                                   FontSize="10"
+                                   Foreground="#FF65717D"
+                                   Text="{Binding DeveloperLogFolder}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Visibility="{Binding DeveloperModeEnabled, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Button Command="{Binding OpenIconPreviewCommand}"
+                                Content="Open Icon Preview" />
+                        <Button Margin="0,6,0,0"
+                                Command="{Binding OpenDeveloperLogFolderCommand}"
+                                Content="Open Log Folder" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </StackPanel>
+
+        <StackPanel Margin="0,8,0,0">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Foreground="#FF4E5964" Text="Version " />
+                <TextBlock FontWeight="SemiBold" Foreground="#FF4E5964" Text="{Binding InstalledVersion}" />
+                <TextBlock Margin="14,0,0,0" Foreground="#FF4E5964" Text="{Binding UpdateStatus}" />
+                <Button Margin="10,0,0,0"
+                        Command="{Binding OpenUpdateCommand}"
+                        Content="Open GitHub update"
+                        Style="{StaticResource LinkButtonStyle}"
+                        Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            </StackPanel>
+            <TextBlock Margin="0,4,0,0"
+                       Foreground="#FF4E5964"
+                       Text="{Binding TestResult}"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        </StackPanel>
+        </ScrollViewer>
+        </TabItem>
+        <TabItem Header="API Cost">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="8,10,8,8">
+
+        <Grid Margin="0,0,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -799,7 +865,7 @@
             </StackPanel>
             <Button Grid.Column="1" VerticalAlignment="Top" Command="{Binding AddCodexApiEndpointCommand}" Content="+ Add Endpoint" />
         </Grid>
-        <StackPanel Grid.Row="12" Margin="0,8,0,0">
+        <StackPanel Margin="0,8,0,0">
             <ItemsControl ItemsSource="{Binding CodexApiEndpoints}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
@@ -989,67 +1055,8 @@
             </Grid>
         </StackPanel>
 
-        <StackPanel Grid.Row="13" Margin="0,14,0,0">
-            <TextBlock FontSize="16" FontWeight="SemiBold" Text="Developer" />
-            <Border Margin="0,8,0,0"
-                    Padding="10"
-                    Background="#FFFFFFFF"
-                    BorderBrush="#FFD6DBE1"
-                    BorderThickness="1"
-                    CornerRadius="6">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <CheckBox IsChecked="{Binding DeveloperModeEnabled, Mode=TwoWay}"
-                                  FontWeight="SemiBold"
-                                  Content="Developer mode" />
-                        <TextBlock Margin="22,4,12,0"
-                                   Foreground="#FF65717D"
-                                   Text="Enables diagnostic logging and developer tools. Ctrl+Alt+D toggles this same setting."
-                                   TextWrapping="Wrap" />
-                        <TextBlock Margin="22,4,12,0"
-                                   Foreground="#FF65717D"
-                                   Text="Logs record scheduled, hook, startup and manual refreshes, plus provider API status and timing. Authentication values and response bodies are never logged."
-                                   TextWrapping="Wrap" />
-                        <TextBlock Margin="22,4,12,0"
-                                   FontSize="10"
-                                   Foreground="#FF65717D"
-                                   Text="{Binding DeveloperLogFolder}"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
-                    <StackPanel Grid.Column="1"
-                                Margin="8,0,0,0"
-                                VerticalAlignment="Center"
-                                Visibility="{Binding DeveloperModeEnabled, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <Button Command="{Binding OpenIconPreviewCommand}"
-                                Content="Open Icon Preview" />
-                        <Button Margin="0,6,0,0"
-                                Command="{Binding OpenDeveloperLogFolderCommand}"
-                                Content="Open Log Folder" />
-                    </StackPanel>
-                </Grid>
-            </Border>
         </StackPanel>
-
-        <StackPanel Grid.Row="14" Margin="0,8,0,0">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Foreground="#FF4E5964" Text="Version " />
-                <TextBlock FontWeight="SemiBold" Foreground="#FF4E5964" Text="{Binding InstalledVersion}" />
-                <TextBlock Margin="14,0,0,0" Foreground="#FF4E5964" Text="{Binding UpdateStatus}" />
-                <Button Margin="10,0,0,0"
-                        Command="{Binding OpenUpdateCommand}"
-                        Content="Open GitHub update"
-                        Style="{StaticResource LinkButtonStyle}"
-                        Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BooleanToVisibilityConverter}}" />
-            </StackPanel>
-            <TextBlock Margin="0,4,0,0"
-                       Foreground="#FF4E5964"
-                       Text="{Binding TestResult}"
-                       TextWrapping="Wrap" />
-        </StackPanel>
-    </Grid>
-    </ScrollViewer>
+        </ScrollViewer>
+        </TabItem>
+    </TabControl>
 </Window>
