@@ -953,7 +953,7 @@ public sealed class SettingsViewModel : ObservableObject
             return;
         }
 
-        var succeeded = _mainWindow.TrySetUsageColors(
+        var mainSucceeded = _mainWindow.TrySetUsageColors(
             GreenColorHex,
             LimeColorHex,
             YellowColorHex,
@@ -965,9 +965,32 @@ public sealed class SettingsViewModel : ObservableObject
             stage4Maximum,
             stage5Maximum);
 
-        TestResult = succeeded
-            ? "Usage stages saved."
-            : "Use valid HEX colours and five increasing percentages from 0 to 100.";
+        if (!mainSucceeded)
+        {
+            TestResult = "Use valid HEX colours and five increasing percentages from 0 to 100.";
+            return;
+        }
+
+        var taskbarSucceeded = _taskbarWidgetWindow.TrySetUsageColors(
+            GreenColorHex,
+            LimeColorHex,
+            YellowColorHex,
+            OrangeColorHex,
+            RedColorHex,
+            stage1Maximum,
+            stage2Maximum,
+            stage3Maximum,
+            stage4Maximum,
+            stage5Maximum);
+
+        if (!taskbarSucceeded)
+        {
+            TestResult = "Usage stages were saved for the window but could not be applied to the taskbar.";
+            return;
+        }
+
+        RefreshUsageColorState();
+        TestResult = "Usage stages saved for the window and taskbar.";
     }
 
     private void ApplyTaskbarUsageColors()
