@@ -18,13 +18,11 @@
     <Window.ContextMenu>
         <ContextMenu Closed="ContextMenu_Closed">
             <MenuItem Header="Open Window Widget" Click="OpenMenuItem_Click" />
+            <!-- Keep the two widget visibility actions together at the top of this menu. -->
+            <MenuItem Header="Hide Taskbar Widget" Click="HideMenuItem_Click" />
+            <Separator />
             <MenuItem Header="Settings" Click="SettingsMenuItem_Click" />
             <MenuItem Header="Refresh All" Click="RefreshAllMenuItem_Click" />
-            <Separator />
-            <!-- Hides this strip only (persisted, same as the Settings checkbox) rather than
-                 exiting the app - app exit stays on the tray icon, where it can't be hit by
-                 someone aiming to dismiss the strip. -->
-            <MenuItem Header="Hide Taskbar Widget" Click="HideMenuItem_Click" />
         </ContextMenu>
     </Window.ContextMenu>
     <!-- Background is #01000000 (alpha 1/255) rather than Transparent because this is a layered
