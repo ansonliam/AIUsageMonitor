@@ -55,7 +55,8 @@
             <TextBlock Margin="3,0,0,0"
                        VerticalAlignment="Center"
                        FontSize="{DynamicResource TaskbarMetricFontSize}"
-                       FontWeight="SemiBold"
+                       FontFamily="{DynamicResource TaskbarMetricFontFamily}"
+                       FontWeight="{DynamicResource TaskbarMetricFontWeight}"
                        Foreground="{Binding UsedPercent, Converter={StaticResource UsageColorConverter}}">
                 <TextBlock.Text>
                     <MultiBinding StringFormat="{}{0}:{1}">

@@ -40,8 +40,8 @@ public partial class TaskbarWidgetWindow : Window
     private readonly TaskbarWidgetViewModel _viewModel;
     private readonly TaskbarWidgetSettingsStore _settingsStore;
     private readonly TaskbarWidgetPositioningService _positioningService;
-    // Only needed to force a redraw of every UsageMetricViewModel's colour after this widget's own
-    // (independent) usage-colour-stage settings change - see TrySetUsageColors.
+    // Only needed to force a redraw of every UsageMetricViewModel's colour after the shared
+    // usage-colour-stage settings are applied - see TrySetUsageColors.
     private readonly MainViewModel _mainViewModel;
     private readonly IApplicationController _applicationController;
     private readonly ISystemIdleTimeProvider _idleTimeProvider;
@@ -73,6 +73,8 @@ public partial class TaskbarWidgetWindow : Window
     public bool ShowAntigravityOnTaskbar { get; private set; } = true;
     public bool ShowCursorOnTaskbar { get; private set; } = true;
     public double TaskbarFontSize { get; private set; } = 12;
+    public string TaskbarFont { get; private set; } = "Segoe UI Variable Text";
+    public string TaskbarTextWeight { get; private set; } = "SemiBold";
     public string GreenColorHex { get; private set; } = "#2ECC71";
     public string LimeColorHex { get; private set; } = "#9ACD32";
     public string YellowColorHex { get; private set; } = "#FFD21E";
@@ -108,6 +110,8 @@ public partial class TaskbarWidgetWindow : Window
         ShowAntigravityOnTaskbar = settings.ShowAntigravityOnTaskbar;
         ShowCursorOnTaskbar = settings.ShowCursorOnTaskbar;
         TaskbarFontSize = settings.TaskbarFontSize;
+        TaskbarFont = NormalizeTaskbarFont(settings.TaskbarFont);
+        TaskbarTextWeight = NormalizeTaskbarTextWeight(settings.TaskbarTextWeight);
         GreenColorHex = settings.GreenColorHex;
         LimeColorHex = settings.LimeColorHex;
         YellowColorHex = settings.YellowColorHex;
@@ -120,7 +124,7 @@ public partial class TaskbarWidgetWindow : Window
         Stage5MaxPercent = settings.Stage5MaxPercent;
         ApplyProviderVisibility();
         ApplySavedUsageColors();
-        ApplyFontSize();
+        ApplyFontPresentation();
 
         _foregroundChangedHandler = OnForegroundWindowChanged;
         _taskbarLocationChangedHandler = OnTaskbarLocationChanged;
@@ -193,15 +197,76 @@ public partial class TaskbarWidgetWindow : Window
         }
 
         TaskbarFontSize = normalized;
-        ApplyFontSize();
+        ApplyFontPresentation();
         SaveSettings();
     }
 
-    private void ApplyFontSize() => Resources["TaskbarMetricFontSize"] = TaskbarFontSize;
+    public void SetTaskbarFont(string font)
+    {
+        var normalized = NormalizeTaskbarFont(font);
+        if (TaskbarFont == normalized)
+        {
+            return;
+        }
 
-    // Independent from the dashboard widget's own usage-colour-stage settings - each widget has
-    // its own converter instance (see TaskbarWidgetWindow.xaml's Resources), so configuring this
-    // one has no effect on the dashboard's and vice versa.
+        TaskbarFont = normalized;
+        ApplyFontPresentation();
+        SaveSettings();
+    }
+
+    public void SetTaskbarTextWeight(string weight)
+    {
+        var normalized = NormalizeTaskbarTextWeight(weight);
+        if (TaskbarTextWeight == normalized)
+        {
+            return;
+        }
+
+        TaskbarTextWeight = normalized;
+        ApplyFontPresentation();
+        SaveSettings();
+    }
+
+    private void ApplyFontPresentation()
+    {
+        Resources["TaskbarMetricFontSize"] = TaskbarFontSize;
+        Resources["TaskbarMetricFontFamily"] = CreateTaskbarFontFamily(TaskbarFont);
+        Resources["TaskbarMetricFontWeight"] = TaskbarTextWeight switch
+        {
+            "Bold" => FontWeights.Bold,
+            "SemiBold" => FontWeights.SemiBold,
+            _ => FontWeights.Normal
+        };
+    }
+
+    private static System.Windows.Media.FontFamily CreateTaskbarFontFamily(string font)
+    {
+        if (font == "Segoe UI Variable Text")
+        {
+            return new System.Windows.Media.FontFamily(font);
+        }
+
+        return new System.Windows.Media.FontFamily(
+            new Uri("pack://application:,,,/"),
+            $"./Assets/fonts/#{font}");
+    }
+
+    private static string NormalizeTaskbarFont(string? font) => font switch
+    {
+        "Segoe UI Variable Text" or "VT323" or "Pixelify Sans" or "Silkscreen" or "Tiny5" or
+        "Space Mono" or "Chakra Petch" or "IBM Plex Mono" or "DotGothic16" or "Handjet" or
+        "Rajdhani" or "Oxanium" or "Kode Mono" => font,
+        _ => "Segoe UI Variable Text"
+    };
+
+    private static string NormalizeTaskbarTextWeight(string? weight) => weight switch
+    {
+        "Regular" or "Bold" => weight,
+        _ => "SemiBold"
+    };
+
+    // The taskbar has its own converter instance, but the app applies the main window's shared
+    // usage-colour-stage settings to it whenever settings are loaded or changed.
     public bool TrySetUsageColors(
         string green,
         string lime,
@@ -624,6 +689,8 @@ public partial class TaskbarWidgetWindow : Window
             ShowAntigravityOnTaskbar = ShowAntigravityOnTaskbar,
             ShowCursorOnTaskbar = ShowCursorOnTaskbar,
             TaskbarFontSize = TaskbarFontSize,
+            TaskbarFont = TaskbarFont,
+            TaskbarTextWeight = TaskbarTextWeight,
             GreenColorHex = GreenColorHex,
             LimeColorHex = LimeColorHex,
             YellowColorHex = YellowColorHex,

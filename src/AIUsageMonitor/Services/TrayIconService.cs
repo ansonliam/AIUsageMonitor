@@ -1,17 +1,22 @@
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
+using System.Runtime.InteropServices;
 
 namespace AIUsageMonitor.Services;
 
 public sealed class TrayIconService : IDisposable
 {
     private readonly IApplicationController _applicationController;
+    private readonly GitHubReleaseService _gitHubReleaseService;
     private Drawing.Icon? _applicationIcon;
     private Forms.NotifyIcon? _notifyIcon;
 
-    public TrayIconService(IApplicationController applicationController)
+    public TrayIconService(
+        IApplicationController applicationController,
+        GitHubReleaseService gitHubReleaseService)
     {
         _applicationController = applicationController;
+        _gitHubReleaseService = gitHubReleaseService;
     }
 
     public void Initialize()
@@ -45,6 +50,21 @@ public sealed class TrayIconService : IDisposable
             Visible = true
         };
         _notifyIcon.DoubleClick += (_, _) => _applicationController.ShowMainWindow();
+        _ = ShowUpdateIndicatorAsync();
+    }
+
+    private async Task ShowUpdateIndicatorAsync()
+    {
+        var result = await _gitHubReleaseService.CheckAsync();
+        if (!result.IsUpdateAvailable || _notifyIcon is null || _applicationIcon is null)
+        {
+            return;
+        }
+
+        var updateIcon = CreateUpdateAvailableIcon(_applicationIcon);
+        _notifyIcon.Icon = updateIcon;
+        _applicationIcon.Dispose();
+        _applicationIcon = updateIcon;
     }
 
     private void ToggleWindowWidget()
@@ -103,4 +123,34 @@ public sealed class TrayIconService : IDisposable
             return null;
         }
     }
+
+    private static Drawing.Icon CreateUpdateAvailableIcon(Drawing.Icon source)
+    {
+        using var bitmap = source.ToBitmap();
+        using (var graphics = Drawing.Graphics.FromImage(bitmap))
+        {
+            var diameter = Math.Max(5, bitmap.Width / 3);
+            var offset = Math.Max(1, bitmap.Width - diameter - 1);
+            graphics.SmoothingMode = Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var fill = new Drawing.SolidBrush(Drawing.Color.FromArgb(0x28, 0xC7, 0x6F));
+            using var outline = new Drawing.Pen(Drawing.Color.White, 1.5f);
+            graphics.FillEllipse(fill, offset, offset, diameter, diameter);
+            graphics.DrawEllipse(outline, offset, offset, diameter, diameter);
+        }
+
+        var handle = bitmap.GetHicon();
+        try
+        {
+            using var temporaryIcon = Drawing.Icon.FromHandle(handle);
+            return (Drawing.Icon)temporaryIcon.Clone();
+        }
+        finally
+        {
+            DestroyIcon(handle);
+        }
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DestroyIcon(IntPtr hIcon);
 }

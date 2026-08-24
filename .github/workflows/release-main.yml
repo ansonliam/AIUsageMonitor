@@ -1,7 +1,12 @@
-name: Build and release main
+name: Build and release
 
 on:
   push:
+    branches:
+      - main
+    tags:
+      - "v*.*.*"
+  pull_request:
     branches:
       - main
   workflow_dispatch:
@@ -10,11 +15,11 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-main
+  group: build-and-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  build-and-release:
+  build-and-test:
     runs-on: windows-latest
     steps:
       - name: Check out repository
@@ -38,14 +43,37 @@ jobs:
           dotnet build ./AIUsageMonitor.slnx --configuration Release --no-restore
           dotnet test ./AIUsageMonitor.slnx --configuration Release --no-build --no-restore
 
+  publish-release:
+    needs: build-and-test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.303
+
       - name: Publish single-file application
         shell: pwsh
         run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v\d+\.\d+\.\d+$')
+          {
+              throw "Release tags must use semantic versions such as v1.0.0."
+          }
+
+          $version = $tag.Substring(1)
           dotnet publish ./src/AIUsageMonitor/AIUsageMonitor.csproj `
             --configuration Release `
             --runtime win-x64 `
             --self-contained true `
             -p:PublishSingleFile=true `
+            -p:Version=$version `
             -p:EnableCompressionInSingleFile=true `
             --output ./release
 
@@ -65,11 +93,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "build-$env:GITHUB_RUN_NUMBER-$env:GITHUB_RUN_ATTEMPT"
-          $shortCommit = $env:GITHUB_SHA.Substring(0, 7)
-          $title = "AI Usage Monitor build $env:GITHUB_RUN_NUMBER ($shortCommit)"
+          $tag = $env:GITHUB_REF_NAME
+          $title = "AI Usage Monitor $tag"
           $notes = @"
-          Automated Windows x64 build from the main branch.
+          Windows x64 release $tag.
 
           Commit: $env:GITHUB_SHA
 

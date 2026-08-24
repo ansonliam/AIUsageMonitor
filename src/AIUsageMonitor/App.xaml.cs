@@ -96,6 +96,7 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<ClaudeSessionLogScanner>();
         services.AddSingleton<ClaudePricingRegistry>();
         services.AddSingleton<CodexApiCostService>();
+        services.AddSingleton<GitHubReleaseService>();
         services.AddSingleton<DashboardLayoutStore>();
         services.AddSingleton<TaskbarWidgetSettingsStore>();
         services.AddSingleton<TaskbarWidgetPositioningService>();
@@ -129,7 +130,19 @@ public partial class App : System.Windows.Application, IApplicationController
             mainWindow.Hide();
         }
 
-        _services.GetRequiredService<TaskbarWidgetWindow>().ApplyStartupVisibility();
+        var taskbarWidgetWindow = _services.GetRequiredService<TaskbarWidgetWindow>();
+        taskbarWidgetWindow.TrySetUsageColors(
+            mainWindow.GreenColorHex,
+            mainWindow.LimeColorHex,
+            mainWindow.YellowColorHex,
+            mainWindow.OrangeColorHex,
+            mainWindow.RedColorHex,
+            mainWindow.Stage1MaxPercent,
+            mainWindow.Stage2MaxPercent,
+            mainWindow.Stage3MaxPercent,
+            mainWindow.Stage4MaxPercent,
+            mainWindow.Stage5MaxPercent);
+        taskbarWidgetWindow.ApplyStartupVisibility();
         await PromptForMissingHooksAsync();
         _ = _services.GetRequiredService<CodexApiCostService>().RefreshAsync("Startup");
         await _services.GetRequiredService<UsagePollingService>().StartAsync();

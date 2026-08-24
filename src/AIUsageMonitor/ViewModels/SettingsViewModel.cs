@@ -24,6 +24,7 @@ public sealed class SettingsViewModel : ObservableObject
     private readonly CodexApiCostSettingsStore _codexApiCostSettingsStore;
     private readonly CodexApiCostService _codexApiCostService;
     private readonly DeveloperLoggingService _developerLoggingService;
+    private readonly GitHubReleaseService _gitHubReleaseService;
     private string _codexApiCostStatus = "";
     private string _codexHookStatus = "Checking…";
     private string _claudeHookStatus = "Checking…";
@@ -31,6 +32,9 @@ public sealed class SettingsViewModel : ObservableObject
     private string _antigravityHookStatus = "Checking…";
     private string _cursorHookStatus = "Checking…";
     private string _testResult = string.Empty;
+    private string _updateStatus = "Checking GitHub for updates…";
+    private Uri? _updateReleaseUrl;
+    private bool _isUpdateAvailable;
     private bool _isWindowLocked;
     private double _dashboardWidgetHeight = 56;
     private double _metricLabelWidth = 32;
@@ -73,6 +77,8 @@ public sealed class SettingsViewModel : ObservableObject
     private string _stage4MaxPercent = "95";
     private string _stage5MaxPercent = "100";
     private double _taskbarFontSize = 12;
+    private string _taskbarFont = "Segoe UI Variable Text";
+    private string _taskbarTextWeight = "SemiBold";
     private string _taskbarGreenColorHex = "#2ECC71";
     private string _taskbarLimeColorHex = "#9ACD32";
     private string _taskbarYellowColorHex = "#FFD21E";
@@ -95,7 +101,8 @@ public sealed class SettingsViewModel : ObservableObject
         IApplicationController applicationController,
         CodexApiCostSettingsStore codexApiCostSettingsStore,
         CodexApiCostService codexApiCostService,
-        DeveloperLoggingService developerLoggingService)
+        DeveloperLoggingService developerLoggingService,
+        GitHubReleaseService gitHubReleaseService)
     {
         _codexHookInstaller = codexHookInstaller;
         _claudeHookInstaller = claudeHookInstaller;
@@ -108,6 +115,7 @@ public sealed class SettingsViewModel : ObservableObject
         _codexApiCostSettingsStore = codexApiCostSettingsStore;
         _codexApiCostService = codexApiCostService;
         _developerLoggingService = developerLoggingService;
+        _gitHubReleaseService = gitHubReleaseService;
         CodexApiEndpoints = [];
         LoadCodexApiEndpoints();
         _isWindowLocked = mainWindow.IsWindowLocked;
@@ -126,6 +134,8 @@ public sealed class SettingsViewModel : ObservableObject
         _showAntigravityOnTaskbar = taskbarWidgetWindow.ShowAntigravityOnTaskbar;
         _showCursorOnTaskbar = taskbarWidgetWindow.ShowCursorOnTaskbar;
         _taskbarFontSize = taskbarWidgetWindow.TaskbarFontSize;
+        _taskbarFont = taskbarWidgetWindow.TaskbarFont;
+        _taskbarTextWeight = taskbarWidgetWindow.TaskbarTextWeight;
         _autoRefreshEnabled = mainWindow.AutoRefreshEnabled;
         _developerModeEnabled = developerLoggingService.IsEnabled;
         _codexRefreshIntervalMinutes = mainWindow.CodexRefreshIntervalMinutes;
@@ -184,8 +194,9 @@ public sealed class SettingsViewModel : ObservableObject
         ResetUsageColorsCommand = new RelayCommand(() =>
         {
             _mainWindow.ResetUsageColorsToDefault();
+            ApplyMainUsageColorsToTaskbar();
             RefreshWindowState();
-            TestResult = "Usage colour stages reset to defaults.";
+            TestResult = "Usage colour stages reset to defaults for the window and taskbar.";
         });
         ResetTaskbarUsageColorsCommand = new RelayCommand(() =>
         {
@@ -196,11 +207,16 @@ public sealed class SettingsViewModel : ObservableObject
         AddCodexApiEndpointCommand = new RelayCommand(AddCodexApiEndpoint);
         SaveCodexApiEndpointsCommand = new RelayCommand(SaveCodexApiEndpoints);
         OpenDeveloperLogFolderCommand = new RelayCommand(OpenDeveloperLogFolder);
+        OpenUpdateCommand = new RelayCommand(OpenUpdate);
         RefreshStatus();
+        _ = RefreshUpdateStatusAsync();
     }
 
     public string CodexHookStatus { get => _codexHookStatus; private set => SetProperty(ref _codexHookStatus, value); }
     public string TestResult { get => _testResult; private set => SetProperty(ref _testResult, value); }
+    public string InstalledVersion => _gitHubReleaseService.InstalledVersion;
+    public string UpdateStatus { get => _updateStatus; private set => SetProperty(ref _updateStatus, value); }
+    public bool IsUpdateAvailable { get => _isUpdateAvailable; private set => SetProperty(ref _isUpdateAvailable, value); }
     public string ClaudeHookStatus { get => _claudeHookStatus; private set => SetProperty(ref _claudeHookStatus, value); }
     public string ClaudeCredentialSource { get => _claudeCredentialSource; private set => SetProperty(ref _claudeCredentialSource, value); }
     public string AntigravityHookStatus
@@ -605,6 +621,30 @@ public sealed class SettingsViewModel : ObservableObject
             }
         }
     }
+    public IReadOnlyList<string> TaskbarFonts => FontChoices;
+    public string TaskbarFont
+    {
+        get => _taskbarFont;
+        set
+        {
+            if (SetProperty(ref _taskbarFont, value))
+            {
+                _taskbarWidgetWindow.SetTaskbarFont(value);
+            }
+        }
+    }
+    public IReadOnlyList<string> TaskbarTextWeights { get; } = ["Regular", "SemiBold", "Bold"];
+    public string TaskbarTextWeight
+    {
+        get => _taskbarTextWeight;
+        set
+        {
+            if (SetProperty(ref _taskbarTextWeight, value))
+            {
+                _taskbarWidgetWindow.SetTaskbarTextWeight(value);
+            }
+        }
+    }
     public string TaskbarGreenColorHex
     {
         get => _taskbarGreenColorHex;
@@ -681,6 +721,7 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand AddCodexApiEndpointCommand { get; }
     public ICommand SaveCodexApiEndpointsCommand { get; }
     public ICommand OpenDeveloperLogFolderCommand { get; }
+    public ICommand OpenUpdateCommand { get; }
     public ObservableCollection<CodexApiEndpointSettingsViewModel> CodexApiEndpoints { get; }
     public string CodexApiCostStatus
     {
@@ -736,6 +777,35 @@ public sealed class SettingsViewModel : ObservableObject
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
             TestResult = "The developer log folder could not be opened.";
+        }
+    }
+
+    private async Task RefreshUpdateStatusAsync()
+    {
+        var result = await _gitHubReleaseService.CheckAsync();
+        _updateReleaseUrl = result.ReleaseUrl;
+        IsUpdateAvailable = result.IsUpdateAvailable;
+        UpdateStatus = !result.IsAvailable
+            ? "Could not check GitHub for updates."
+            : result.IsUpdateAvailable
+                ? $"Update available: {result.LatestReleaseTag}."
+                : "You have the latest GitHub release.";
+    }
+
+    private void OpenUpdate()
+    {
+        if (_updateReleaseUrl is null)
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(_updateReleaseUrl.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            UpdateStatus = "The GitHub release page could not be opened.";
         }
     }
 
@@ -845,6 +915,8 @@ public sealed class SettingsViewModel : ObservableObject
             _taskbarWidgetWindow.ShowCursorOnTaskbar,
             nameof(ShowCursorOnTaskbar));
         SetProperty(ref _taskbarFontSize, _taskbarWidgetWindow.TaskbarFontSize, nameof(TaskbarFontSize));
+        SetProperty(ref _taskbarFont, _taskbarWidgetWindow.TaskbarFont, nameof(TaskbarFont));
+        SetProperty(ref _taskbarTextWeight, _taskbarWidgetWindow.TaskbarTextWeight, nameof(TaskbarTextWeight));
         SetProperty(ref _autoRefreshEnabled, _mainWindow.AutoRefreshEnabled, nameof(AutoRefreshEnabled));
         SetProperty(
             ref _codexRefreshIntervalMinutes,
@@ -971,17 +1043,7 @@ public sealed class SettingsViewModel : ObservableObject
             return;
         }
 
-        var taskbarSucceeded = _taskbarWidgetWindow.TrySetUsageColors(
-            GreenColorHex,
-            LimeColorHex,
-            YellowColorHex,
-            OrangeColorHex,
-            RedColorHex,
-            stage1Maximum,
-            stage2Maximum,
-            stage3Maximum,
-            stage4Maximum,
-            stage5Maximum);
+        var taskbarSucceeded = ApplyMainUsageColorsToTaskbar();
 
         if (!taskbarSucceeded)
         {
@@ -992,6 +1054,19 @@ public sealed class SettingsViewModel : ObservableObject
         RefreshUsageColorState();
         TestResult = "Usage stages saved for the window and taskbar.";
     }
+
+    private bool ApplyMainUsageColorsToTaskbar() =>
+        _taskbarWidgetWindow.TrySetUsageColors(
+            _mainWindow.GreenColorHex,
+            _mainWindow.LimeColorHex,
+            _mainWindow.YellowColorHex,
+            _mainWindow.OrangeColorHex,
+            _mainWindow.RedColorHex,
+            _mainWindow.Stage1MaxPercent,
+            _mainWindow.Stage2MaxPercent,
+            _mainWindow.Stage3MaxPercent,
+            _mainWindow.Stage4MaxPercent,
+            _mainWindow.Stage5MaxPercent);
 
     private void ApplyTaskbarUsageColors()
     {
