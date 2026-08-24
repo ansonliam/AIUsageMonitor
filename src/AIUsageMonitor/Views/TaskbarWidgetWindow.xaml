@@ -41,7 +41,7 @@
                        FontWeight="SemiBold"
                        Foreground="{Binding UsedPercent, Converter={StaticResource UsageColorConverter}}">
                 <TextBlock.Text>
-                    <MultiBinding StringFormat="{}{0}: {1}">
+                    <MultiBinding StringFormat="{}{0}:{1}">
                         <Binding Path="ShortLabel" />
                         <Binding Path="PercentText" />
                     </MultiBinding>
