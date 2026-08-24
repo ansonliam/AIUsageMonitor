@@ -189,7 +189,7 @@ public sealed class ClaudeUsageProvider : IUsageProvider
         ErrorMessage = message
     };
 
-    private static UsageWindow? ReadWindow(JsonElement root, string propertyName)
+    internal static UsageWindow? ReadWindow(JsonElement root, string propertyName)
     {
         if (!root.TryGetProperty(propertyName, out var window) ||
             window.ValueKind != JsonValueKind.Object ||
@@ -199,7 +199,7 @@ public sealed class ClaudeUsageProvider : IUsageProvider
             return null;
         }
 
-        var usedPercent = utilization <= 1 ? utilization * 100 : utilization;
+        // "utilization" is always a percentage (0-100), so a value of 1 means 1% used, not 100%.
         DateTimeOffset? resetAt = null;
         if (window.TryGetProperty("resets_at", out var resetElement) &&
             resetElement.ValueKind == JsonValueKind.String &&
@@ -212,8 +212,8 @@ public sealed class ClaudeUsageProvider : IUsageProvider
             resetAt = parsedReset;
         }
 
-        return new UsageWindow(Math.Clamp(100 - usedPercent, 0, 100), resetAt);
+        return new UsageWindow(Math.Clamp(100 - utilization, 0, 100), resetAt);
     }
 
-    private sealed record UsageWindow(double RemainingPercent, DateTimeOffset? ResetAt);
+    internal sealed record UsageWindow(double RemainingPercent, DateTimeOffset? ResetAt);
 }
