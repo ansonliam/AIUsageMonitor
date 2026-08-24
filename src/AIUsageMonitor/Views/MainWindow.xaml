@@ -119,7 +119,7 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type vm:ProviderViewModel}">
-            <Border Margin="0,0,2,3"
+            <Border Margin="0,0,2,2"
                     Padding="8,3,8,3"
                     Background="{DynamicResource ProviderCardBackground}"
                     BorderBrush="{DynamicResource ProviderCardBorderBrush}"
@@ -208,7 +208,7 @@
         </DataTemplate>
 
         <DataTemplate DataType="{x:Type vm:CodexApiCostPanelViewModel}">
-            <Border Margin="0,0,2,3"
+            <Border Margin="0,0,2,2"
                     Padding="8,3,8,3"
                     Background="{DynamicResource ProviderCardBackground}"
                     BorderBrush="{DynamicResource ProviderCardBorderBrush}"
