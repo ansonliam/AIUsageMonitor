@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Windows.Input;
 using AIUsageMonitor.Authentication;
@@ -13,6 +12,9 @@ namespace AIUsageMonitor.ViewModels;
 
 public sealed class SettingsViewModel : ObservableObject
 {
+    // Stage 5 always runs to the top of the used% scale - see UsageStagePercent.OpenEndedStageText.
+    private const double OpenEndedStageMaximum = 100;
+
     private readonly CodexHookInstaller _codexHookInstaller;
     private readonly ClaudeHookInstaller _claudeHookInstaller;
     private readonly ClaudeAuthentication _claudeAuthentication;
@@ -75,20 +77,11 @@ public sealed class SettingsViewModel : ObservableObject
     private string _stage2MaxPercent = "70";
     private string _stage3MaxPercent = "85";
     private string _stage4MaxPercent = "95";
-    private string _stage5MaxPercent = "100";
+    private string _stage5RangeText = "above 95%";
     private double _taskbarFontSize = 12;
     private string _taskbarFont = "Segoe UI Variable Text";
     private string _taskbarTextWeight = "SemiBold";
-    private string _taskbarGreenColorHex = "#2ECC71";
-    private string _taskbarLimeColorHex = "#9ACD32";
-    private string _taskbarYellowColorHex = "#FFD21E";
-    private string _taskbarOrangeColorHex = "#FF9800";
-    private string _taskbarRedColorHex = "#FF4D4F";
-    private string _taskbarStage1MaxPercent = "40";
-    private string _taskbarStage2MaxPercent = "70";
-    private string _taskbarStage3MaxPercent = "85";
-    private string _taskbarStage4MaxPercent = "95";
-    private string _taskbarStage5MaxPercent = "100";
+    private bool _showUsageRemaining;
 
     public SettingsViewModel(
         CodexHookInstaller codexHookInstaller,
@@ -152,6 +145,7 @@ public sealed class SettingsViewModel : ObservableObject
         _widgetFont = mainWindow.WidgetFont;
         _widgetAppearance = mainWindow.WidgetAppearance;
         _widgetTextWeight = mainWindow.WidgetTextWeight;
+        _showUsageRemaining = mainWindow.ShowUsageRemaining;
         // Settings is shown non-modally, so the widget can still be changed from its own context
         // menu (hide, lock, always-on-top, opacity, layout) while this window is open. Mirror
         // those changes back into these controls instead of leaving them showing stale values.
@@ -177,7 +171,6 @@ public sealed class SettingsViewModel : ObservableObject
         OpenCursorHookFileCommand = new RelayCommand(() =>
             OpenHookFile(_cursorHookInstaller.ConfigurationPath, "Cursor"));
         ApplyUsageColorsCommand = new RelayCommand(ApplyUsageColors);
-        ApplyTaskbarUsageColorsCommand = new RelayCommand(ApplyTaskbarUsageColors);
         OpenIconPreviewCommand = new RelayCommand(_applicationController.ShowIconPreview);
         ResetScheduledIntervalsCommand = new RelayCommand(() =>
         {
@@ -197,12 +190,6 @@ public sealed class SettingsViewModel : ObservableObject
             ApplyMainUsageColorsToTaskbar();
             RefreshWindowState();
             TestResult = "Usage colour stages reset to defaults for the window and taskbar.";
-        });
-        ResetTaskbarUsageColorsCommand = new RelayCommand(() =>
-        {
-            _taskbarWidgetWindow.ResetUsageColorsToDefault();
-            RefreshWindowState();
-            TestResult = "Taskbar usage colour stages reset to defaults.";
         });
         AddCodexApiEndpointCommand = new RelayCommand(AddCodexApiEndpoint);
         SaveCodexApiEndpointsCommand = new RelayCommand(SaveCodexApiEndpoints);
@@ -608,7 +595,28 @@ public sealed class SettingsViewModel : ObservableObject
     public string Stage2MaxPercent { get => _stage2MaxPercent; set => SetProperty(ref _stage2MaxPercent, value); }
     public string Stage3MaxPercent { get => _stage3MaxPercent; set => SetProperty(ref _stage3MaxPercent, value); }
     public string Stage4MaxPercent { get => _stage4MaxPercent; set => SetProperty(ref _stage4MaxPercent, value); }
-    public string Stage5MaxPercent { get => _stage5MaxPercent; set => SetProperty(ref _stage5MaxPercent, value); }
+    // Read-only: stage 5 has no boundary of its own, so its row shows the range implied by
+    // stage 4 rather than accepting a value the converter would ignore.
+    public string Stage5RangeText { get => _stage5RangeText; private set => SetProperty(ref _stage5RangeText, value); }
+    public bool ShowUsageRemaining
+    {
+        get => _showUsageRemaining;
+        set
+        {
+            if (SetProperty(ref _showUsageRemaining, value))
+            {
+                _mainWindow.SetShowUsageRemaining(value);
+                // Re-derive the stage textboxes on the new scale (e.g. used 20% <-> remaining
+                // 80%) instead of leaving them showing numbers from the old scale.
+                RefreshUsageColorState();
+                OnPropertyChanged(nameof(StageBoundaryLabel));
+            }
+        }
+    }
+    // A stage's textbox is a maximum on the used% scale but a minimum on the remaining% scale
+    // (e.g. "used up to 20%" is the same real boundary as "remaining at least 80%"), so the label
+    // has to flip along with the value, not just the number.
+    public string StageBoundaryLabel => _showUsageRemaining ? "at least" : "up to";
     public double TaskbarFontSize
     {
         get => _taskbarFontSize;
@@ -645,56 +653,6 @@ public sealed class SettingsViewModel : ObservableObject
             }
         }
     }
-    public string TaskbarGreenColorHex
-    {
-        get => _taskbarGreenColorHex;
-        set => SetProperty(ref _taskbarGreenColorHex, value);
-    }
-    public string TaskbarLimeColorHex
-    {
-        get => _taskbarLimeColorHex;
-        set => SetProperty(ref _taskbarLimeColorHex, value);
-    }
-    public string TaskbarYellowColorHex
-    {
-        get => _taskbarYellowColorHex;
-        set => SetProperty(ref _taskbarYellowColorHex, value);
-    }
-    public string TaskbarOrangeColorHex
-    {
-        get => _taskbarOrangeColorHex;
-        set => SetProperty(ref _taskbarOrangeColorHex, value);
-    }
-    public string TaskbarRedColorHex
-    {
-        get => _taskbarRedColorHex;
-        set => SetProperty(ref _taskbarRedColorHex, value);
-    }
-    public string TaskbarStage1MaxPercent
-    {
-        get => _taskbarStage1MaxPercent;
-        set => SetProperty(ref _taskbarStage1MaxPercent, value);
-    }
-    public string TaskbarStage2MaxPercent
-    {
-        get => _taskbarStage2MaxPercent;
-        set => SetProperty(ref _taskbarStage2MaxPercent, value);
-    }
-    public string TaskbarStage3MaxPercent
-    {
-        get => _taskbarStage3MaxPercent;
-        set => SetProperty(ref _taskbarStage3MaxPercent, value);
-    }
-    public string TaskbarStage4MaxPercent
-    {
-        get => _taskbarStage4MaxPercent;
-        set => SetProperty(ref _taskbarStage4MaxPercent, value);
-    }
-    public string TaskbarStage5MaxPercent
-    {
-        get => _taskbarStage5MaxPercent;
-        set => SetProperty(ref _taskbarStage5MaxPercent, value);
-    }
     public ICommand InstallCodexHookCommand { get; }
     public ICommand UninstallCodexHookCommand { get; }
     public ICommand TestCodexHookCommand { get; }
@@ -712,12 +670,10 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand TestCursorHookCommand { get; }
     public ICommand OpenCursorHookFileCommand { get; }
     public ICommand ApplyUsageColorsCommand { get; }
-    public ICommand ApplyTaskbarUsageColorsCommand { get; }
     public ICommand OpenIconPreviewCommand { get; }
     public ICommand ResetScheduledIntervalsCommand { get; }
     public ICommand ResetThrottleIntervalsCommand { get; }
     public ICommand ResetUsageColorsCommand { get; }
-    public ICommand ResetTaskbarUsageColorsCommand { get; }
     public ICommand AddCodexApiEndpointCommand { get; }
     public ICommand SaveCodexApiEndpointsCommand { get; }
     public ICommand OpenDeveloperLogFolderCommand { get; }
@@ -959,6 +915,10 @@ public sealed class SettingsViewModel : ObservableObject
         SetProperty(ref _widgetFont, _mainWindow.WidgetFont, nameof(WidgetFont));
         SetProperty(ref _widgetAppearance, _mainWindow.WidgetAppearance, nameof(WidgetAppearance));
         SetProperty(ref _widgetTextWeight, _mainWindow.WidgetTextWeight, nameof(WidgetTextWeight));
+        if (SetProperty(ref _showUsageRemaining, _mainWindow.ShowUsageRemaining, nameof(ShowUsageRemaining)))
+        {
+            OnPropertyChanged(nameof(StageBoundaryLabel));
+        }
         RefreshUsageColorState();
     }
 
@@ -969,59 +929,24 @@ public sealed class SettingsViewModel : ObservableObject
         SetProperty(ref _yellowColorHex, _mainWindow.YellowColorHex, nameof(YellowColorHex));
         SetProperty(ref _orangeColorHex, _mainWindow.OrangeColorHex, nameof(OrangeColorHex));
         SetProperty(ref _redColorHex, _mainWindow.RedColorHex, nameof(RedColorHex));
-        SetProperty(ref _stage1MaxPercent, FormatPercent(_mainWindow.Stage1MaxPercent), nameof(Stage1MaxPercent));
-        SetProperty(ref _stage2MaxPercent, FormatPercent(_mainWindow.Stage2MaxPercent), nameof(Stage2MaxPercent));
-        SetProperty(ref _stage3MaxPercent, FormatPercent(_mainWindow.Stage3MaxPercent), nameof(Stage3MaxPercent));
-        SetProperty(ref _stage4MaxPercent, FormatPercent(_mainWindow.Stage4MaxPercent), nameof(Stage4MaxPercent));
-        SetProperty(ref _stage5MaxPercent, FormatPercent(_mainWindow.Stage5MaxPercent), nameof(Stage5MaxPercent));
+        SetProperty(ref _stage1MaxPercent, FormatStagePercent(_mainWindow.Stage1MaxPercent), nameof(Stage1MaxPercent));
+        SetProperty(ref _stage2MaxPercent, FormatStagePercent(_mainWindow.Stage2MaxPercent), nameof(Stage2MaxPercent));
+        SetProperty(ref _stage3MaxPercent, FormatStagePercent(_mainWindow.Stage3MaxPercent), nameof(Stage3MaxPercent));
+        SetProperty(ref _stage4MaxPercent, FormatStagePercent(_mainWindow.Stage4MaxPercent), nameof(Stage4MaxPercent));
         SetProperty(
-            ref _taskbarGreenColorHex,
-            _taskbarWidgetWindow.GreenColorHex,
-            nameof(TaskbarGreenColorHex));
-        SetProperty(
-            ref _taskbarLimeColorHex,
-            _taskbarWidgetWindow.LimeColorHex,
-            nameof(TaskbarLimeColorHex));
-        SetProperty(
-            ref _taskbarYellowColorHex,
-            _taskbarWidgetWindow.YellowColorHex,
-            nameof(TaskbarYellowColorHex));
-        SetProperty(
-            ref _taskbarOrangeColorHex,
-            _taskbarWidgetWindow.OrangeColorHex,
-            nameof(TaskbarOrangeColorHex));
-        SetProperty(ref _taskbarRedColorHex, _taskbarWidgetWindow.RedColorHex, nameof(TaskbarRedColorHex));
-        SetProperty(
-            ref _taskbarStage1MaxPercent,
-            FormatPercent(_taskbarWidgetWindow.Stage1MaxPercent),
-            nameof(TaskbarStage1MaxPercent));
-        SetProperty(
-            ref _taskbarStage2MaxPercent,
-            FormatPercent(_taskbarWidgetWindow.Stage2MaxPercent),
-            nameof(TaskbarStage2MaxPercent));
-        SetProperty(
-            ref _taskbarStage3MaxPercent,
-            FormatPercent(_taskbarWidgetWindow.Stage3MaxPercent),
-            nameof(TaskbarStage3MaxPercent));
-        SetProperty(
-            ref _taskbarStage4MaxPercent,
-            FormatPercent(_taskbarWidgetWindow.Stage4MaxPercent),
-            nameof(TaskbarStage4MaxPercent));
-        SetProperty(
-            ref _taskbarStage5MaxPercent,
-            FormatPercent(_taskbarWidgetWindow.Stage5MaxPercent),
-            nameof(TaskbarStage5MaxPercent));
+            ref _stage5RangeText,
+            UsageStagePercent.OpenEndedStageText(_mainWindow.Stage4MaxPercent, _showUsageRemaining),
+            nameof(Stage5RangeText));
     }
 
     private void ApplyUsageColors()
     {
-        if (!TryParsePercent(Stage1MaxPercent, out var stage1Maximum) ||
-            !TryParsePercent(Stage2MaxPercent, out var stage2Maximum) ||
-            !TryParsePercent(Stage3MaxPercent, out var stage3Maximum) ||
-            !TryParsePercent(Stage4MaxPercent, out var stage4Maximum) ||
-            !TryParsePercent(Stage5MaxPercent, out var stage5Maximum))
+        if (!TryParseStagePercent(Stage1MaxPercent, out var stage1Maximum) ||
+            !TryParseStagePercent(Stage2MaxPercent, out var stage2Maximum) ||
+            !TryParseStagePercent(Stage3MaxPercent, out var stage3Maximum) ||
+            !TryParseStagePercent(Stage4MaxPercent, out var stage4Maximum))
         {
-            TestResult = "Enter five numeric stage percentages.";
+            TestResult = "Enter four numeric stage percentages.";
             return;
         }
 
@@ -1035,11 +960,14 @@ public sealed class SettingsViewModel : ObservableObject
             stage2Maximum,
             stage3Maximum,
             stage4Maximum,
-            stage5Maximum);
+            // Stage 5 runs to the top of the scale by definition. The converter ignores this
+            // value; it survives only to keep TrySetUsageColors' shape and to enforce that
+            // stage 4 leaves room above itself.
+            OpenEndedStageMaximum);
 
         if (!mainSucceeded)
         {
-            TestResult = "Use valid HEX colours and five increasing percentages from 0 to 100.";
+            TestResult = StageValidationMessage;
             return;
         }
 
@@ -1068,39 +996,16 @@ public sealed class SettingsViewModel : ObservableObject
             _mainWindow.Stage4MaxPercent,
             _mainWindow.Stage5MaxPercent);
 
-    private void ApplyTaskbarUsageColors()
-    {
-        if (!TryParsePercent(TaskbarStage1MaxPercent, out var stage1Maximum) ||
-            !TryParsePercent(TaskbarStage2MaxPercent, out var stage2Maximum) ||
-            !TryParsePercent(TaskbarStage3MaxPercent, out var stage3Maximum) ||
-            !TryParsePercent(TaskbarStage4MaxPercent, out var stage4Maximum) ||
-            !TryParsePercent(TaskbarStage5MaxPercent, out var stage5Maximum))
-        {
-            TestResult = "Enter five numeric stage percentages.";
-            return;
-        }
+    // Stage textboxes always show/accept values on the current display scale (used or
+    // remaining), while stage storage/validation always stays in "used%" terms. The conversion
+    // itself lives in UsageStagePercent so it can be tested without a MainWindow.
+    private string StageValidationMessage => UsageStagePercent.ValidationMessage(_showUsageRemaining);
 
-        var succeeded = _taskbarWidgetWindow.TrySetUsageColors(
-            TaskbarGreenColorHex,
-            TaskbarLimeColorHex,
-            TaskbarYellowColorHex,
-            TaskbarOrangeColorHex,
-            TaskbarRedColorHex,
-            stage1Maximum,
-            stage2Maximum,
-            stage3Maximum,
-            stage4Maximum,
-            stage5Maximum);
+    private string FormatStagePercent(double usedPercent) =>
+        UsageStagePercent.Format(usedPercent, _showUsageRemaining);
 
-        TestResult = succeeded
-            ? "Taskbar usage stages saved."
-            : "Use valid HEX colours and five increasing percentages from 0 to 100.";
-    }
-
-    private static string FormatPercent(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
-
-    private static bool TryParsePercent(string value, out double percent) =>
-        double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out percent);
+    private bool TryParseStagePercent(string text, out double usedPercent) =>
+        UsageStagePercent.TryParse(text, _showUsageRemaining, out usedPercent);
 
     private async Task InstallCodexHookAsync()
     {

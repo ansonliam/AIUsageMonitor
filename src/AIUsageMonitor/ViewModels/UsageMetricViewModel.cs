@@ -3,6 +3,8 @@ namespace AIUsageMonitor.ViewModels;
 public sealed class UsageMetricViewModel(string label) : ObservableObject
 {
     private double? _usedPercent;
+    private double? _remainingPercent;
+    private bool _showRemaining;
     private string _resetText = "Reset unavailable";
     private string? _resetSummary;
     private bool _isStale;
@@ -10,8 +12,11 @@ public sealed class UsageMetricViewModel(string label) : ObservableObject
     public string Label { get; } = label;
     public string ShortLabel { get; } = AbbreviateLabel(label);
     public string HoverText => ResetSummary is null ? Label : $"{Label}\n{ResetSummary}";
-    public double ProgressValue => Math.Clamp(UsedPercent ?? 0, 0, 100);
-    public string PercentText => UsedPercent is null ? "—" : $"{UsedPercent:0.#}%";
+    // Colour severity always keys off UsedPercent, regardless of display mode, so the "remaining"
+    // toggle only changes what number is shown - not which stage/colour it falls into.
+    private double? DisplayPercent => _showRemaining ? _remainingPercent : UsedPercent;
+    public double ProgressValue => Math.Clamp(DisplayPercent ?? 0, 0, 100);
+    public string PercentText => DisplayPercent is null ? "—" : $"{DisplayPercent:0.#}%";
     public double? UsedPercent
     {
         get => _usedPercent;
@@ -23,6 +28,18 @@ public sealed class UsageMetricViewModel(string label) : ObservableObject
                 OnPropertyChanged(nameof(PercentText));
             }
         }
+    }
+
+    public void SetShowRemaining(bool showRemaining)
+    {
+        if (_showRemaining == showRemaining)
+        {
+            return;
+        }
+
+        _showRemaining = showRemaining;
+        OnPropertyChanged(nameof(ProgressValue));
+        OnPropertyChanged(nameof(PercentText));
     }
 
     public string ResetText { get => _resetText; private set => SetProperty(ref _resetText, value); }
@@ -43,9 +60,8 @@ public sealed class UsageMetricViewModel(string label) : ObservableObject
 
     public void SetUsage(double? remainingPercent, DateTimeOffset? resetAt)
     {
-        UsedPercent = remainingPercent is null
-            ? null
-            : 100 - Math.Clamp(remainingPercent.Value, 0, 100);
+        _remainingPercent = remainingPercent is null ? null : Math.Clamp(remainingPercent.Value, 0, 100);
+        UsedPercent = _remainingPercent is null ? null : 100 - _remainingPercent.Value;
         IsStale = false;
 
         if (resetAt is null)

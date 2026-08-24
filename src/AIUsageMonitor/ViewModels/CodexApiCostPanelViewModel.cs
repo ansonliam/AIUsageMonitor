@@ -13,6 +13,10 @@ public sealed class CodexApiCostPanelViewModel : ObservableObject
     private bool _hasBudget;
     private string _statusText = "";
     private bool _hasStatus;
+    // Raw "percent of budget spent", kept so the display can be re-derived when the used/
+    // remaining toggle flips without waiting for the next cost refresh.
+    private double? _budgetPercent;
+    private bool _showRemaining;
 
     public CodexApiCostPanelViewModel(Guid endpointId)
     {
@@ -42,16 +46,8 @@ public sealed class CodexApiCostPanelViewModel : ObservableObject
         TodayText = FormatCost(summary.TodayCost, summary.TodayCostHigh, summary.PricingUnavailable);
 
         HasBudget = summary.MonthlyBudget is > 0;
-        if (HasBudget && summary.MonthlyBudgetPercent is { } percent)
-        {
-            PercentText = $"{percent:0.#}%";
-            ProgressValue = Math.Clamp(percent, 0, 100);
-        }
-        else
-        {
-            PercentText = "";
-            ProgressValue = 0;
-        }
+        _budgetPercent = HasBudget ? summary.MonthlyBudgetPercent : null;
+        ApplyBudgetPercent();
 
         if (summary.TurnCount == 0)
         {
@@ -69,6 +65,34 @@ public sealed class CodexApiCostPanelViewModel : ObservableObject
             StatusText = "";
             HasStatus = false;
         }
+    }
+
+    public void SetShowRemaining(bool showRemaining)
+    {
+        if (_showRemaining == showRemaining)
+        {
+            return;
+        }
+
+        _showRemaining = showRemaining;
+        ApplyBudgetPercent();
+    }
+
+    private void ApplyBudgetPercent()
+    {
+        if (_budgetPercent is not { } percent)
+        {
+            PercentText = "";
+            ProgressValue = 0;
+            return;
+        }
+
+        // Budget spent is clamped first so "remaining" can never read as negative when an
+        // endpoint has overrun its monthly budget - it bottoms out at 0% left.
+        var spent = Math.Clamp(percent, 0, 100);
+        var display = UsageStagePercent.ToDisplay(spent, _showRemaining);
+        PercentText = $"{display:0.#}%";
+        ProgressValue = display;
     }
 
     private static string FormatCost(decimal cost, decimal costHigh, bool pricingUnavailable)

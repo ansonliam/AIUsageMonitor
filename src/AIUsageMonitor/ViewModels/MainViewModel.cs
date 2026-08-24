@@ -12,6 +12,7 @@ public sealed class MainViewModel
     private readonly UsageRefreshService _refreshService;
     private readonly CodexApiCostService _codexApiCostService;
     private readonly Dictionary<Guid, CodexApiCostPanelViewModel> _codexApiCostPanels = [];
+    private bool _showRemaining;
 
     public MainViewModel(
         UsageRefreshService refreshService,
@@ -94,6 +95,9 @@ public sealed class MainViewModel
             }
 
             panel = new CodexApiCostPanelViewModel(summary.EndpointId);
+            // Panels are created lazily as endpoints appear, so a panel added after the user
+            // picked "remaining" has to inherit the current mode rather than default to spent%.
+            panel.SetShowRemaining(_showRemaining);
             panel.Update(summary);
             _codexApiCostPanels[summary.EndpointId] = panel;
             CodexApiCostPanels.Add(panel);
@@ -141,6 +145,20 @@ public sealed class MainViewModel
         foreach (var provider in _providerOrder)
         {
             provider.RefreshUsageColors();
+        }
+    }
+
+    public void SetUsageDisplayMode(bool showRemaining)
+    {
+        _showRemaining = showRemaining;
+        foreach (var provider in _providerOrder)
+        {
+            provider.SetUsageDisplayMode(showRemaining);
+        }
+
+        foreach (var panel in _codexApiCostPanels.Values)
+        {
+            panel.SetShowRemaining(showRemaining);
         }
     }
 

@@ -14,6 +14,7 @@ public sealed class ProviderViewModel : ObservableObject
     private bool _showLogin;
     private bool _showRetry;
     private bool _hasSuccessfulData;
+    private bool _showRemaining;
 
     public ProviderViewModel(ProviderKind kind, string name, UsageRefreshService refreshService)
     {
@@ -122,6 +123,10 @@ public sealed class ProviderViewModel : ObservableObject
                 foreach (var window in snapshot.Windows)
                 {
                     var metric = new UsageMetricViewModel(window.Label);
+                    // These metrics are rebuilt on every refresh, so the current display mode has
+                    // to be re-applied here - otherwise Antigravity/Cursor silently revert to
+                    // showing used% the first time they refresh after the user picks "remaining".
+                    metric.SetShowRemaining(_showRemaining);
                     metric.SetUsage(window.RemainingPercent, window.ResetAt);
                     UsageWindows.Add(metric);
                 }
@@ -189,6 +194,20 @@ public sealed class ProviderViewModel : ObservableObject
         foreach (var metric in UsageWindows)
         {
             metric.RefreshUsageColor();
+        }
+    }
+
+    public void SetUsageDisplayMode(bool showRemaining)
+    {
+        _showRemaining = showRemaining;
+        // FiveHourUsage/WeeklyUsage are not in UsageWindows for every provider kind (Antigravity
+        // and Cursor start with a single dynamic "Usage" metric), so set them explicitly rather
+        // than relying on the collection to contain them.
+        FiveHourUsage.SetShowRemaining(showRemaining);
+        WeeklyUsage.SetShowRemaining(showRemaining);
+        foreach (var metric in UsageWindows)
+        {
+            metric.SetShowRemaining(showRemaining);
         }
     }
 }
