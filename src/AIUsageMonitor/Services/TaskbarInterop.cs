@@ -7,6 +7,10 @@ namespace AIUsageMonitor.Services;
 // into Shell_TrayWnd - that reparenting trick is unsupported by Explorer and known to misbehave
 // across processes with different DPI-awareness, so this only ever floats a popup positioned to
 // match the taskbar's real rect.
+//
+// Also answers whether a monitor is currently covered by a fullscreen app, which is what lets the
+// widget stand down instead of drawing over a game or a fullscreen video - see
+// IsMonitorCoveredByFullscreenWindow.
 internal static class TaskbarInterop
 {
     public const int GwlExStyle = -20;
@@ -20,6 +24,17 @@ internal static class TaskbarInterop
     public const uint SwpNoSize = 0x0001;
     public const uint SwpNoOwnerZOrder = 0x0200;
     public static readonly IntPtr HwndTopmost = new(-1);
+
+    public const uint MonitorDefaultToNull = 0x00000000;
+    public const uint GaRoot = 2;
+    public const int DwmwaCloaked = 14;
+
+    // How far a window's edge may sit from the monitor's edge and still count as fullscreen.
+    // Deliberately tiny: a *maximized* window's rect is inflated past the monitor edges by the
+    // invisible resize border (~8px at default settings), and the whole point of this comparison
+    // is to tell those two apart - a generous tolerance would classify every maximized window as
+    // fullscreen and hide the widget whenever any window was maximized.
+    private const int FullscreenEdgeTolerance = 2;
 
     // Mirrors the Win32 WINDOWPOS struct pointed to by WM_WINDOWPOSCHANGING/CHANGED's lParam.
     // Sent to a window when ITS OWN position or z-order is about to change, synchronously and
@@ -170,6 +185,141 @@ internal static class TaskbarInterop
     // reposition tick is what keeps the widget from ending up rendered behind the taskbar.
     public static void ForceTopMost(IntPtr hWnd) =>
         SetWindowPos(hWnd, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpNoOwnerZOrder);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MonitorInfo
+    {
+        public int CbSize;
+        public Rect RcMonitor;
+        public Rect RcWork;
+        public uint DwFlags;
+    }
+
+    // Public because the very high volume EVENT_OBJECT_LOCATIONCHANGE callback uses it to filter
+    // down to "did the window the user is actually in just change size" before doing any work.
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetAncestor(IntPtr hWnd, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
+
+    [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW", SetLastError = true)]
+    private static extern bool GetMonitorInfo(IntPtr hMonitor, ref MonitorInfo lpmi);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmGetWindowAttribute(IntPtr hWnd, int attribute, out int value, int size);
+
+    // Windows that legitimately span an entire monitor without being an app in fullscreen: the
+    // desktop itself (Progman hosts the icons, WorkerW hosts the wallpaper, #32769 is the root
+    // desktop window), the shell's own taskbars, and the shell's full-screen overlays.
+    // Clicking the desktop makes Progman/WorkerW the foreground window, so without this the
+    // widget would vanish on every desktop click.
+    //
+    // XamlExplorerHostIslandWindow is alt-tab, Task View (Win+Tab) and Snap Assist. Those really
+    // do cover the monitor exactly, but they also cover the taskbar, so hiding for them buys
+    // nothing the user can see - and it would cost a Hide/Show repaint on a layered window every
+    // single alt-tab. No real application uses the class.
+    private static readonly string[] ShellClassNames =
+    [
+        "Progman",
+        "WorkerW",
+        "#32769",
+        "Shell_TrayWnd",
+        "Shell_SecondaryTrayWnd",
+        "XamlExplorerHostIslandWindow"
+    ];
+
+    // Split out from IsFullscreenOn purely so the list itself is reachable from a test - the rest
+    // of that method needs a live window handle and cannot be exercised offline.
+    public static bool IsShellSurfaceClass(string className) => ShellClassNames.Contains(className);
+
+    // Answers "should the widget get out of the way right now" for the monitor that the given
+    // window (in practice, that monitor's taskbar) sits on.
+    //
+    // This exists because "sit above the taskbar but below a fullscreen app" is not a z-order
+    // position that can be expressed: the taskbar is topmost, a fullscreen app usually is not, so
+    // anything drawn above the taskbar is necessarily above the fullscreen app too. Windows
+    // solves this for its own taskbar by detecting fullscreen and standing down, and so do we.
+    //
+    // Two independent probes, either of which is enough:
+    //   * the foreground window - catches a fullscreen app whose centre pixel happens to be
+    //     covered by something else (a game/chat overlay), which the hit-test below would miss;
+    //   * whatever is actually drawn at the centre of the monitor - catches a fullscreen window
+    //     that is NOT foreground, e.g. a fullscreen video left playing on a second display while
+    //     the user works on the primary one, which the foreground probe would miss.
+    //
+    // Known limitation: if the taskbar on this monitor is set to auto-hide, the work area equals
+    // the full monitor, so a merely maximized window matches the fullscreen test and hides the
+    // widget. Accepted deliberately - the alternative (also demanding the window lack a caption)
+    // rejects real fullscreen windows, and a false negative there is the bug being fixed.
+    public static bool IsMonitorCoveredByFullscreenWindow(IntPtr monitorAnchor)
+    {
+        if (monitorAnchor == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        var monitor = MonitorFromWindow(monitorAnchor, MonitorDefaultToNull);
+        if (monitor == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        var info = new MonitorInfo { CbSize = Marshal.SizeOf<MonitorInfo>() };
+        if (!GetMonitorInfo(monitor, ref info))
+        {
+            return false;
+        }
+
+        if (IsFullscreenOn(GetForegroundWindow(), info.RcMonitor))
+        {
+            return true;
+        }
+
+        var center = new PointL
+        {
+            X = (info.RcMonitor.Left + info.RcMonitor.Right) / 2,
+            Y = (info.RcMonitor.Top + info.RcMonitor.Bottom) / 2
+        };
+
+        // GetAncestor(GA_ROOT) because WindowFromPoint returns the deepest child under the point
+        // (a render surface, a video control), whose rect is not the one worth comparing.
+        return IsFullscreenOn(GetAncestor(WindowFromPoint(center), GaRoot), info.RcMonitor);
+    }
+
+    private static bool IsFullscreenOn(IntPtr hWnd, Rect monitorRect) =>
+        hWnd != IntPtr.Zero &&
+        IsWindowVisible(hWnd) &&
+        !IsCloaked(hWnd) &&
+        GetWindowRect(hWnd, out var windowRect) &&
+        CoversMonitorExactly(windowRect, monitorRect) &&
+        !IsShellSurfaceClass(ClassNameOf(hWnd));
+
+    private static string ClassNameOf(IntPtr hWnd)
+    {
+        var className = new System.Text.StringBuilder(64);
+        return GetClassName(hWnd, className, className.Capacity) > 0 ? className.ToString() : string.Empty;
+    }
+
+    // A UWP window can report itself visible while DWM is not rendering it at all (the classic
+    // "ghost" ApplicationFrameWindow left behind by a suspended app). Those are frequently sized
+    // to the whole monitor, so they would otherwise read as a permanent fullscreen app.
+    private static bool IsCloaked(IntPtr hWnd) =>
+        DwmGetWindowAttribute(hWnd, DwmwaCloaked, out var cloaked, sizeof(int)) == 0 && cloaked != 0;
+
+    // Equality per edge rather than containment: see FullscreenEdgeTolerance for why a window
+    // that merely *encloses* the monitor is the maximized case and must not count.
+    public static bool CoversMonitorExactly(Rect windowRect, Rect monitorRect) =>
+        Math.Abs(windowRect.Left - monitorRect.Left) <= FullscreenEdgeTolerance &&
+        Math.Abs(windowRect.Top - monitorRect.Top) <= FullscreenEdgeTolerance &&
+        Math.Abs(windowRect.Right - monitorRect.Right) <= FullscreenEdgeTolerance &&
+        Math.Abs(windowRect.Bottom - monitorRect.Bottom) <= FullscreenEdgeTolerance;
 
     public static IntPtr FindTaskbar() => FindWindow("Shell_TrayWnd", null);
 

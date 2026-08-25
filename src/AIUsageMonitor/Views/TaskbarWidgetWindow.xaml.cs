@@ -32,6 +32,16 @@ public partial class TaskbarWidgetWindow : Window
     private static readonly TimeSpan SettleInterval = TimeSpan.FromMilliseconds(50);
     private const int SettleTickCount = 10;
 
+    // Win+Tab (Task View) is NOT recoverable by any amount of re-asserting, and the settle
+    // deliberately does not try. Measured: pressing Win+Tab drops the widget behind the taskbar
+    // ~200ms before the overlay even appears, and it stays there until the overlay is dismissed
+    // (~2.7s observed). Holding the settle open and contesting the slot at 20Hz for the whole
+    // duration was tried and changed nothing, which points at Explorer raising the taskbar into a
+    // z-band above normal topmost for the duration - SetWindowPos(HWND_TOPMOST) cannot cross a
+    // band boundary, so there is no retry rate that wins. Left alone on purpose: the visible
+    // result (taskbar showing without the widget) is identical to hiding for Task View, so
+    // neither contesting it nor hiding is worth the code.
+
     // Nothing user-driven can reorder windows while there has been no input at all, so the
     // watchdog skips its checks entirely once idle. Much shorter than AutoRefreshOptions' own
     // 5-minute idle notion, which exists for a different purpose (how often to poll provider
@@ -56,6 +66,14 @@ public partial class TaskbarWidgetWindow : Window
     private readonly DispatcherTimer _settleTimer;
     private int _settleTicksRemaining;
     private bool _wasIdle;
+    // True while a fullscreen app covers this widget's monitor. The widget hides for the duration
+    // rather than trying to sit below the app: it has to be in the topmost band to clear the
+    // taskbar at all, and a fullscreen app is normally NOT topmost, so there is no z-order slot
+    // that is above the taskbar and below the app - see TaskbarInterop.IsMonitorCoveredByFullscreenWindow.
+    private bool _isFullscreenActive;
+    // EVENT_OBJECT_LOCATIONCHANGE fires continuously while a window is dragged or resized, so the
+    // re-check is coalesced to one queued dispatch rather than one per event.
+    private bool _fullscreenCheckQueued;
     // Kept alive for the hook's lifetime - SetWinEventHook only stores a native function pointer
     // to the delegate, so letting it be collected would leave the hook calling into freed memory.
     private readonly TaskbarInterop.WinEventDelegate _foregroundChangedHandler;
@@ -612,10 +630,16 @@ public partial class TaskbarWidgetWindow : Window
 
     private void ApplyWindowVisibility()
     {
+        var monitor = GetTargetMonitor();
         var isEnabledForMonitor = _owner is null
-            ? IsCurrentMonitorEnabled()
+            ? monitor is not null && _enabledMonitorIds.Contains(monitor.Id)
             : _owner.ShowTaskbarWidget && _owner._enabledMonitorIds.Contains(_monitorId!);
-        if (ShowTaskbarWidget && isEnabledForMonitor)
+        var isEnabled = ShowTaskbarWidget && isEnabledForMonitor;
+        // Recomputed here rather than trusted from the last event, so the very first call (app
+        // start) already knows about a game that was fullscreen before this process existed and
+        // never paints a frame of the widget on top of it.
+        _isFullscreenActive = ComputeFullscreenActive(monitor);
+        if (isEnabled && !_isFullscreenActive)
         {
             if (IsLoaded)
             {
@@ -639,16 +663,72 @@ public partial class TaskbarWidgetWindow : Window
         }
         else
         {
-            _watchdogTimer.Stop();
             _settleTimer.Stop();
             Hide();
+
+            // Hidden for fullscreen is not the same as switched off: the watchdog keeps running
+            // so there is still a backstop that notices fullscreen ending, in case the WinEvent
+            // hooks miss it (they are the fast path, not a guarantee).
+            if (isEnabled)
+            {
+                // Those hooks are installed from SourceInitialized, which only runs on the first
+                // Show - so a widget that has been hidden for fullscreen since app start would
+                // never have any, leaving the 10s watchdog as its only way back. Materializing
+                // the handle (without showing the window) installs them now instead.
+                new WindowInteropHelper(this).EnsureHandle();
+                _watchdogTimer.Start();
+            }
+            else
+            {
+                _watchdogTimer.Stop();
+            }
         }
     }
 
-    private bool IsCurrentMonitorEnabled()
+    private bool ComputeFullscreenActive(TaskbarMonitor? monitor)
     {
-        var monitor = GetTargetMonitor();
-        return monitor is not null && _enabledMonitorIds.Contains(monitor.Id);
+        // The taskbar handle is the anchor because it is by definition on this widget's monitor,
+        // which our own window is not yet guaranteed to be before its first Reposition. The
+        // uncached lookup is the path taken before SourceInitialized has run - answering "not
+        // fullscreen" there instead would flip the state back and forth on every check.
+        var anchor = _cachedTaskbarHandle;
+        if (anchor == IntPtr.Zero)
+        {
+            anchor = (monitor ?? GetTargetMonitor())?.TaskbarHandle ?? IntPtr.Zero;
+        }
+
+        return TaskbarInterop.IsMonitorCoveredByFullscreenWindow(anchor);
+    }
+
+    // Cheap enough to run on every foreground/location event: it only touches the window tree,
+    // and only escalates to the (comparatively expensive) visibility pass on an actual transition.
+    private void RefreshFullscreenState()
+    {
+        _fullscreenCheckQueued = false;
+        if (!ShowTaskbarWidget || ComputeFullscreenActive(null) == _isFullscreenActive)
+        {
+            return;
+        }
+
+        ApplyWindowVisibility();
+        if (!_isFullscreenActive && IsVisible)
+        {
+            // Coming back from fullscreen: the app that just exited will have reshuffled the
+            // topmost band on its way out, and Explorer re-asserts the taskbar as it redraws, so
+            // one Show is not enough to keep the slot - see BeginTopMostSettle.
+            BeginTopMostSettle();
+        }
+    }
+
+    private void QueueFullscreenCheck()
+    {
+        if (_fullscreenCheckQueued)
+        {
+            return;
+        }
+
+        _fullscreenCheckQueued = true;
+        Dispatcher.BeginInvoke(RefreshFullscreenState);
     }
 
     private TaskbarMonitor? GetTargetMonitor()
@@ -744,6 +824,29 @@ public partial class TaskbarWidgetWindow : Window
 
         // EVENT_OBJECT_LOCATIONCHANGE fires for every window move/resize system-wide, so the
         // callback must filter down to just the taskbar itself before doing anything.
+        //
+        // The breadth is deliberate but not free, and the numbers are worth recording because
+        // they are not obvious from the API: measured on a 4-monitor setup, this hook receives
+        // ~126 events/sec, of which 97.8% are OBJID_CURSOR (plain mouse movement) and 1.7% are
+        // OBJID_CARET - all discarded on the callback's first line. Only ~0.5% are real window
+        // moves. Across four widget windows that is ~504 deliveries/sec into this UI thread, or
+        // roughly 0.05% of a core. Cheap enough that the two available optimisations were
+        // considered and deliberately skipped:
+        //
+        //   * Narrowing the scope. idProcess/idThread are passed as 0/0 here, so Windows filters
+        //     nothing. Scoping this hook to Explorer's thread would drop the other processes'
+        //     cursor traffic at the OS level, since the only handles the callback acts on
+        //     (Shell_TrayWnd, TrayNotifyWnd) are Explorer's. What blocks it is the fullscreen
+        //     check: that branch compares against the FOREGROUND window, which can belong to any
+        //     process. Doing it properly needs a second hook re-scoped to the foreground window's
+        //     thread on every focus change - more state than 0.05% of a core justifies.
+        //
+        //   * Sharing one hook across the windows instead of one per window (3 of every 4
+        //     deliveries exist only to bail out). Rejected on correctness, not cost: hooks are
+        //     installed from SourceInitialized, which only runs once a window is actually shown,
+        //     and the owner window is only shown when the tray-icon monitor is enabled. A shared
+        //     hook owned by it would leave every secondary widget deaf whenever the user turns
+        //     that one monitor off. Per-window hooks have no such lifetime coupling.
         _locationHook = TaskbarInterop.SetWinEventHook(
             TaskbarInterop.EventObjectLocationChange,
             TaskbarInterop.EventObjectLocationChange,
@@ -764,7 +867,15 @@ public partial class TaskbarWidgetWindow : Window
         uint dwmsEventTime)
     {
         // Kept minimal per the hook contract: just re-claim the topmost slot, no repositioning.
-        Dispatcher.BeginInvoke(BeginTopMostSettle);
+        // The fullscreen re-check rides along because a game or a video taking focus IS a
+        // foreground change - and BeginTopMostSettle stands down once that check says so.
+        Dispatcher.BeginInvoke(HandleForegroundChanged);
+    }
+
+    private void HandleForegroundChanged()
+    {
+        RefreshFullscreenState();
+        BeginTopMostSettle();
     }
 
     // Only re-asserts when something is actually covering us. The check matters as much as the
@@ -774,7 +885,7 @@ public partial class TaskbarWidgetWindow : Window
     private void ReassertTopMost()
     {
         var handle = new WindowInteropHelper(this).Handle;
-        if (!ShowTaskbarWidget || handle == IntPtr.Zero)
+        if (!ShowTaskbarWidget || _isFullscreenActive || handle == IntPtr.Zero)
         {
             return;
         }
@@ -796,7 +907,7 @@ public partial class TaskbarWidgetWindow : Window
     // Re-assert now, then again a few times over Explorer's settling window - see SettleInterval.
     private void BeginTopMostSettle()
     {
-        if (!ShowTaskbarWidget)
+        if (!ShowTaskbarWidget || _isFullscreenActive)
         {
             return;
         }
@@ -819,13 +930,24 @@ public partial class TaskbarWidgetWindow : Window
         // Reorganizing which tray icons are hidden/shown resizes TrayNotifyWnd without Shell_
         // TrayWnd's own outer bounds changing at all, so both handles need watching - only
         // Shell_TrayWnd moving/resizing wouldn't catch that case.
-        if (idObject != TaskbarInterop.ObjIdWindow ||
-            (hwnd != _cachedTaskbarHandle && hwnd != _cachedTrayNotifyHandle))
+        if (idObject != TaskbarInterop.ObjIdWindow)
         {
             return;
         }
 
-        Dispatcher.BeginInvoke(Reposition);
+        if (hwnd == _cachedTaskbarHandle || hwnd == _cachedTrayNotifyHandle)
+        {
+            Dispatcher.BeginInvoke(Reposition);
+            return;
+        }
+
+        // Toggling fullscreen inside the window that already has focus (F11, a video player's
+        // fullscreen button) resizes it without any foreground change, so the hook above never
+        // fires for it - this is the only signal that case produces.
+        if (hwnd == TaskbarInterop.GetForegroundWindow())
+        {
+            QueueFullscreenCheck();
+        }
     }
 
     private IntPtr WindowMessageHook(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -842,6 +964,9 @@ public partial class TaskbarWidgetWindow : Window
             // for the location-change filter above.
             RefreshCachedTaskbarHandles();
             SynchronizeSecondaryWindows();
+            // Which monitor this widget lives on may have just changed, and that monitor is what
+            // the fullscreen check is asked about.
+            QueueFullscreenCheck();
             Dispatcher.BeginInvoke(Reposition, DispatcherPriority.Background);
         }
 
@@ -854,7 +979,7 @@ public partial class TaskbarWidgetWindow : Window
     // no message here at all. That case is handled by BeginTopMostSettle/RunWatchdog instead.
     private void InterceptWindowPosChanging(IntPtr lParam)
     {
-        if (!ShowTaskbarWidget)
+        if (!ShowTaskbarWidget || _isFullscreenActive)
         {
             return;
         }
@@ -879,7 +1004,7 @@ public partial class TaskbarWidgetWindow : Window
 
     private void Reposition()
     {
-        if (!ShowTaskbarWidget || !IsLoaded)
+        if (!ShowTaskbarWidget || _isFullscreenActive || !IsLoaded)
         {
             return;
         }
@@ -907,7 +1032,7 @@ public partial class TaskbarWidgetWindow : Window
     // unconditional rather than gated on the position/size checks below.
     private void RunWatchdog()
     {
-        if (!ShowTaskbarWidget || !IsLoaded)
+        if (!ShowTaskbarWidget)
         {
             return;
         }
@@ -928,8 +1053,23 @@ public partial class TaskbarWidgetWindow : Window
             // sleep/wake, resolution or DPI change on resume), so do the full correction rather
             // than a single check.
             RefreshCachedTaskbarHandles();
+            RefreshFullscreenState();
+            if (_isFullscreenActive)
+            {
+                return;
+            }
+
             Reposition();
             BeginTopMostSettle();
+            return;
+        }
+
+        // Backstop for the WinEvent hooks - and the reason IsLoaded is checked here rather than
+        // at the top of the method: while a fullscreen app has kept the widget hidden since
+        // startup it was never loaded, and bailing on that would strand it hidden forever.
+        RefreshFullscreenState();
+        if (_isFullscreenActive || !IsLoaded)
+        {
             return;
         }
 
