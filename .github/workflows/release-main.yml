@@ -1,12 +1,10 @@
 name: Build and release
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  # GitHub Actions cron is UTC: 16:00 UTC is 2:00 AM AEST / 3:00 AM AEDT.
+  # Scheduled workflows always use the latest commit on the default branch (main).
+  schedule:
+    - cron: '0 16 * * *'
   workflow_dispatch:
 
 permissions:
@@ -43,7 +41,8 @@ jobs:
 
   publish-release:
     needs: build-and-test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # A manual dispatch is deliberately retained for an on-demand release.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: windows-latest
     env:
       RELEASE_TAG: v1.0.${{ github.run_number }}
