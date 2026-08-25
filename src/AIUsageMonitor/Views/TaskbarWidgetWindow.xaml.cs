@@ -890,6 +890,15 @@ public partial class TaskbarWidgetWindow : Window
             return;
         }
 
+        // A menu of ours is open - see AppMenuState. Menus overlap the taskbar strip, so winning
+        // the z-order race here draws this widget over the items the user is trying to click.
+        // Whatever coverage is deferred is picked up when the menu closes: dismissing it changes
+        // the foreground window, which runs the settle sequence again.
+        if (AppMenuState.IsMenuOpen)
+        {
+            return;
+        }
+
         if (!TaskbarInterop.GetWindowRect(handle, out var rect))
         {
             TaskbarInterop.ForceTopMost(handle);
@@ -1136,7 +1145,15 @@ public partial class TaskbarWidgetWindow : Window
     // closing it is a known point where this window can end up a slot lower in the topmost band.
     // Worth handling explicitly rather than waiting for whatever gets clicked next to fire
     // EVENT_SYSTEM_FOREGROUND.
-    private void ContextMenu_Closed(object sender, RoutedEventArgs e) => BeginTopMostSettle();
+    private void ContextMenu_Closed(object sender, RoutedEventArgs e)
+    {
+        AppMenuState.MenuClosed();
+        BeginTopMostSettle();
+    }
+
+    // This menu opens over the widget itself, so the same standing-down applies as for the tray
+    // icon's menu - see AppMenuState.
+    private void ContextMenu_Opened(object sender, RoutedEventArgs e) => AppMenuState.MenuOpened();
 
     private void SettingsMenuItem_Click(object sender, RoutedEventArgs e) => _applicationController.ShowSettings();
 

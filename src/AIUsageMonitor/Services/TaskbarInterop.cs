@@ -16,6 +16,7 @@ internal static class TaskbarInterop
     public const int GwlExStyle = -20;
     public const int WsExToolWindow = 0x00000080;
     public const int WsExNoActivate = 0x08000000;
+    public const int WsExTopMost = 0x00000008;
     public const int WmDisplayChange = 0x007E;
     public const int WmWindowPosChanging = 0x0046;
     public const uint SwpNoActivate = 0x0010;
@@ -111,10 +112,37 @@ internal static class TaskbarInterop
     // returns whichever window is topmost at that point. Used to skip redundant SetWindowPos
     // calls - this window is layered (AllowsTransparency), so every needless z-order change costs
     // a repaint, which is itself visible as a flicker.
+    //
+    // Windows we own are excluded, but only when they are themselves topmost. That split is the
+    // point of the check: our own topmost popups are menus, tooltips and dropdowns (the tray
+    // icon's context menu among them, which Windows is free to lay over the taskbar strip this
+    // widget sits in) - raising ourselves above one of those hides part of a menu the user is
+    // reading. A window of ours that is NOT topmost cannot be in front of us at all unless we
+    // have dropped out of the topmost band, which is exactly the state worth recovering from.
     public static bool IsObscuredAt(IntPtr hWnd, int x, int y)
     {
         var topMostAtPoint = WindowFromPoint(new PointL { X = x, Y = y });
-        return topMostAtPoint != IntPtr.Zero && topMostAtPoint != hWnd;
+        if (topMostAtPoint == IntPtr.Zero || topMostAtPoint == hWnd)
+        {
+            return false;
+        }
+
+        // WindowFromPoint returns the deepest child under the point; the process and the ex-style
+        // that matter here both live on the top-level window.
+        var root = GetAncestor(topMostAtPoint, GaRoot);
+        if (root == IntPtr.Zero)
+        {
+            root = topMostAtPoint;
+        }
+
+        return root != hWnd && !IsOwnTopMostWindow(root);
+    }
+
+    private static bool IsOwnTopMostWindow(IntPtr hWnd)
+    {
+        GetWindowThreadProcessId(hWnd, out var processId);
+        return processId == (uint)Environment.ProcessId &&
+               (GetWindowExStyle(hWnd).ToInt64() & WsExTopMost) != 0;
     }
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -205,6 +233,9 @@ internal static class TaskbarInterop
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetAncestor(IntPtr hWnd, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);

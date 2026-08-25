@@ -16,7 +16,7 @@
         WindowStyle="None"
         TextOptions.TextFormattingMode="Display">
     <Window.ContextMenu>
-        <ContextMenu Closed="ContextMenu_Closed">
+        <ContextMenu Opened="ContextMenu_Opened" Closed="ContextMenu_Closed">
             <MenuItem Header="Hide Taskbar Widget" Click="HideMenuItem_Click" />
             <Separator />
             <MenuItem Header="Settings" Click="SettingsMenuItem_Click" />

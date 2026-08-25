@@ -37,6 +37,12 @@ public sealed class TrayIconService : IDisposable
         windowWidgetMenuItem.Click += (_, _) => ToggleWindowWidget();
         taskbarWidgetMenuItem.Click += (_, _) => ToggleTaskbarWidget();
         menu.Opening += (_, _) => UpdateWidgetVisibilityMenuItems(windowWidgetMenuItem, taskbarWidgetMenuItem);
+        // The taskbar widget floats above the taskbar and re-claims the top of the topmost band
+        // whenever it finds itself covered. This menu is laid out against the screen bounds, so
+        // its lower items sit over that strip - without standing the widget down for as long as
+        // the menu is up, the widget is drawn over them.
+        menu.Opened += (_, _) => AppMenuState.MenuOpened();
+        menu.Closed += (_, _) => AppMenuState.MenuClosed();
 
         menu.Items.Add(_updateMenuItem);
         menu.Items.Add(windowWidgetMenuItem);
