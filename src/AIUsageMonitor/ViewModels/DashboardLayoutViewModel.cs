@@ -85,7 +85,11 @@ public sealed class DashboardLayoutViewModel : ObservableObject
             {
                 // A user may intentionally leave a card in the lower parking rows. Do not pack
                 // the layout on Done, otherwise its former empty row is removed and the card is
-                // silently pulled back to where it started.
+                // silently pulled back to where it started. Rows *below* the lowest card are a
+                // different matter - nothing is parked there and they are the spare space
+                // EnsureEditableSpace just added, so they go back now rather than lingering as
+                // invisible window under the widget until the next restart.
+                TrimTrailingEmptyRows();
                 SaveLayout();
             }
         }
@@ -200,6 +204,22 @@ public sealed class DashboardLayoutViewModel : ObservableObject
         }
     }
 
+    // The counterpart to EnsureEditableSpace: give the spare rows back, leaving any gap *between*
+    // cards exactly as the user arranged it.
+    private void TrimTrailingEmptyRows()
+    {
+        if (Cards.Count == 0)
+        {
+            return;
+        }
+
+        var lowestOccupiedRow = Cards.Max(card => card.Row + card.RowSpan);
+        if (Rows > lowestOccupiedRow)
+        {
+            Rows = lowestOccupiedRow;
+        }
+    }
+
     // Adds a card for every currently-visible provider/endpoint that doesn't have one yet, and
     // removes cards for ones that disappeared (hidden, or an API cost endpoint that was deleted).
     // Run on startup and every time Providers or CodexApiCostPanels changes.
@@ -284,7 +304,11 @@ public sealed class DashboardLayoutViewModel : ObservableObject
         }
         else
         {
-            card.RowSpan = Math.Max(minRowSpan, Math.Min(defaultRowSpan, Rows));
+            // Not capped at Rows: the board is only as tall as the cards already on it (see
+            // CompactEmptyRows), so capping would hand a new card a squashed default height
+            // whenever the current board happens to be shorter than one. FindFreeSlot grows the
+            // board to fit instead.
+            card.RowSpan = Math.Max(minRowSpan, defaultRowSpan);
             card.ColumnSpan = Math.Max(minColumnSpan, Math.Min(defaultColumnSpan, Columns));
             var (row, column) = FindFreeSlot(card.RowSpan, card.ColumnSpan);
             card.Row = row;
@@ -349,8 +373,12 @@ public sealed class DashboardLayoutViewModel : ObservableObject
         return false;
     }
 
-    // Remove only rows that no card occupies. This never changes a card's span or column, but
-    // prevents the blank full-width bands seen after a card was moved through temporary space.
+    // Remove every row that no card occupies - the blank bands left behind after a card was moved
+    // through temporary space, and equally the spare rows left below the lowest card once editing
+    // is over. Trailing rows are not free: Rows is what MainWindow sizes the (transparent) widget
+    // window to, so any kept beyond the last card become window that cannot be seen but still
+    // takes up screen space beneath the cards. EnsureEditableSpace puts them back on demand.
+    // This never changes a card's span or column.
     private void CompactEmptyRows()
     {
         var usedRows = new bool[Rows];
@@ -373,7 +401,9 @@ public sealed class DashboardLayoutViewModel : ObservableObject
             card.Row -= emptyRows.Count(emptyRow => emptyRow < card.Row);
         }
 
-        Rows = Math.Max(6, Rows - emptyRows.Count);
+        // With no cards at all there is nothing to measure against, so keep the default board so
+        // the empty dashboard is still a visible, droppable surface.
+        Rows = Cards.Count == 0 ? 6 : Math.Max(1, Rows - emptyRows.Count);
     }
 
     private static bool RectanglesOverlap(

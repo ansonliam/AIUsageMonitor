@@ -356,7 +356,10 @@
                           HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto"
                           Visibility="Collapsed">
-                <Grid MinHeight="280">
+                <!-- No MinHeight: the grid's own height (row count x DashboardWidgetHeight) is
+                     the whole content height, and a floor here would show up as invisible window
+                     below the last card that the widget cannot be dragged past. -->
+                <Grid>
                     <Border x:Name="DashboardEditBackground"
                             Background="#66FFFFFF"
                             IsHitTestVisible="False"

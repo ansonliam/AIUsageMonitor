@@ -29,7 +29,10 @@ public partial class MainWindow : Window
     private const int HtBottomLeft = 16;
     private const int HtBottomRight = 17;
     private const double DashboardMinWidth = 420;
-    private const double DashboardMinHeight = 320;
+    // Only a floor for manual resizing - the height a dashboard actually opens at comes from its
+    // grid (see FitDashboardPanelToContent). Kept near one grid row so a small board can size
+    // down to its cards instead of carrying invisible window beneath them.
+    private const double DashboardMinHeight = 60;
     private static readonly string PlacementPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "AIUsageMonitor",
@@ -115,6 +118,26 @@ public partial class MainWindow : Window
         DashboardGrid.SizeChanged += (_, _) => RenderDashboardGridLines();
         Loaded += MainWindow_Loaded;
         SourceInitialized += MainWindow_SourceInitialized;
+
+        IsVisibleChanged += (_, e) =>
+        {
+            if (e.NewValue is not true)
+            {
+                return;
+            }
+
+            // Sizing needs a laid-out ScrollViewer, which a hidden window has no reason to keep
+            // up to date - so a card that appeared or disappeared while the widget was hidden is
+            // only reflected in its height now.
+            FitDashboardPanelToContent();
+
+            // Showing the widget again from the tray is also the moment Windows would quietly
+            // move a window that is off the display; keep our saved position in step with it.
+            if (EnsureOnScreen())
+            {
+                SavePlacement();
+            }
+        };
     }
 
     protected override void OnClosing(CancelEventArgs e)
@@ -251,7 +274,14 @@ public partial class MainWindow : Window
                 Width = placement.Width;
             }
 
-            if (double.IsFinite(placement.Height) && placement.Height >= MinHeight)
+            // Height is restored only for the compact view, which owns it. In Dashboard Layout
+            // the height is not user state at all - it is the grid's row count times the
+            // configured row height, recomputed by FitDashboardPanelToContent below. Deriving it
+            // every start rather than trusting the file means a height measured at a bad moment
+            // lasts until the next fit instead of persisting forever.
+            if (!placement.IsDashboardLayoutEnabled &&
+                double.IsFinite(placement.Height) &&
+                placement.Height >= MinHeight)
             {
                 Height = placement.Height;
             }
@@ -336,6 +366,18 @@ public partial class MainWindow : Window
         ApplyDashboardLayoutMode();
         ApplyDashboardEditModeVisuals();
         Topmost = AlwaysOnTop;
+
+        // Run once the restored size has actually been applied. A placement can be outside the
+        // work area through no fault of this session - saved before this check existed, or saved
+        // on a monitor arrangement that has since changed - so correct it on the way in rather
+        // than leaving Windows to do it at some unrelated moment later.
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (EnsureOnScreen())
+            {
+                SavePlacement();
+            }
+        }, DispatcherPriority.ContextIdle);
     }
 
     public void SetWindowLocked(bool isLocked)
@@ -475,13 +517,13 @@ public partial class MainWindow : Window
             Width = 640;
         }
 
-        if (Height < DashboardMinHeight)
-        {
-            Height = 480;
-        }
-
         RebuildDashboardGrid();
         ApplyDashboardGridOverlaySize();
+
+        // Height is not seeded from a constant the way Width is: the grid knows exactly how tall
+        // it needs to be, so let it say - a two-row dashboard has no business opening 480 tall
+        // with the bottom half of the window empty and transparent.
+        Dispatcher.BeginInvoke(FitDashboardPanelToContent, DispatcherPriority.ContextIdle);
     }
 
     private void DashboardLayout_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -493,39 +535,66 @@ public partial class MainWindow : Window
                 {
                     RebuildDashboardGrid();
                     ApplyDashboardGridOverlaySize();
-                });
+                    // The row count is the grid's height, so the window follows it - including
+                    // downwards, when rows are packed away again (see CompactEmptyRows).
+                    FitDashboardPanelToContent();
+                }, DispatcherPriority.ContextIdle);
                 break;
             case nameof(DashboardLayoutViewModel.IsEditMode):
                 Dispatcher.BeginInvoke(() =>
                 {
                     ApplyDashboardEditModeVisuals();
-                    if (!_viewModel.DashboardLayout.IsEditMode)
-                    {
-                        FitDashboardPanelToContent();
-                    }
+
+                    // Both directions: entering edit mode has just added the spare parking rows
+                    // and the window has to grow to show them, leaving it packs them away again
+                    // and the window gives the space back.
+                    FitDashboardPanelToContent();
                 }, DispatcherPriority.ContextIdle);
                 break;
         }
     }
 
-    // Edit mode deliberately keeps spare parking rows so a card can be left there. Once editing
-    // is finished, retain those positions but grow the panel by just its current overflow. This
-    // prevents the ScrollViewer from hiding the bottom cards or leaving a vertical scrollbar.
+    // Sizes the window to exactly the height of the dashboard grid - in BOTH directions. Growing
+    // stops the ScrollViewer from hiding the bottom cards; shrinking matters just as much,
+    // because the window is transparent: rows the grid no longer needs (Edit Layout's spare
+    // parking rows, or a card that has been hidden) would otherwise stay as invisible window
+    // below the last card. That dead space cannot be seen, only felt - it is what stops the
+    // widget being dragged any lower once its bottom edge reaches the taskbar.
     private void FitDashboardPanelToContent()
     {
-        if (!IsDashboardLayoutEnabled)
+        // Only measure a window that is actually laid out. A hidden or not-yet-loaded window can
+        // report a viewport that has nothing to do with what the user will see, and acting on
+        // that would resize the widget from a meaningless number. Becoming visible re-runs this.
+        if (!IsDashboardLayoutEnabled || !IsLoaded || !IsVisible)
         {
             return;
         }
 
         DashboardScrollViewer.UpdateLayout();
-        var overflow = DashboardScrollViewer.ScrollableHeight;
-        if (overflow <= 0.5)
+        var viewport = DashboardScrollViewer.ViewportHeight;
+        var content = DashboardScrollViewer.ExtentHeight;
+        if (viewport <= 0 || content <= 0)
         {
             return;
         }
 
-        Height += Math.Ceiling(overflow) + 2;
+        // Positive = cards are being clipped, negative = window is taller than its content.
+        var difference = content - viewport;
+        if (Math.Abs(difference) <= 0.5)
+        {
+            return;
+        }
+
+        Height = Math.Max(MinHeight, Height + Math.Ceiling(difference) + (difference > 0 ? 2 : 0));
+
+        // Growing only ever pushes the bottom edge down, so a widget already sitting low on the
+        // screen can end up hanging off it - see EnsureOnScreen. Position is worth saving;
+        // the height deliberately is not (see MainWindow_Loaded).
+        if (EnsureOnScreen())
+        {
+            SavePlacement();
+        }
+
         DashboardScrollViewer.UpdateLayout();
     }
 
@@ -1209,6 +1278,13 @@ public partial class MainWindow : Window
         if (Height != compactHeight)
         {
             Height = compactHeight;
+
+            // Compact content grows the window downwards as usage windows arrive, which can push
+            // a widget parked low on the screen off the bottom of it - see EnsureOnScreen.
+            if (EnsureOnScreen())
+            {
+                SavePlacement();
+            }
         }
     }
 
@@ -1366,6 +1442,72 @@ public partial class MainWindow : Window
         const double margin = 10;
         Left = bottomRight.X - ActualWidth - margin;
         Top = bottomRight.Y - ActualHeight - margin;
+    }
+
+    // Keeps the widget on the screen it is on - screen *bounds*, deliberately not the work area,
+    // so parking it against or partly beneath the taskbar stays possible. This only rescues a
+    // widget that has ended up genuinely off the display, which Windows would otherwise do at the
+    // next display change, wake or resolution switch - and because that correction is never
+    // saved, the widget reappears somewhere other than where it was left, which reads as the app
+    // moving on its own. Doing it here means the correction is at least persisted.
+    //
+    // Not called for user drags or resizes: where the user puts it is where it stays.
+    // Callers save when this returns true.
+    private bool EnsureOnScreen()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero || !double.IsFinite(Left) || !double.IsFinite(Top))
+        {
+            return false;
+        }
+
+        var bounds = Forms.Screen.FromHandle(handle).Bounds;
+        var transform = PresentationSource.FromVisual(this)?.CompositionTarget?.TransformFromDevice
+            ?? Matrix.Identity;
+        var topLeft = transform.Transform(new System.Windows.Point(bounds.Left, bounds.Top));
+        var bottomRight = transform.Transform(new System.Windows.Point(bounds.Right, bounds.Bottom));
+
+        var width = double.IsFinite(Width) ? Width : ActualWidth;
+        var height = double.IsFinite(Height) ? Height : ActualHeight;
+        if (width <= 0 || height <= 0)
+        {
+            return false;
+        }
+
+        var changed = false;
+
+        // A widget larger than the screen can never be fully placed on it. Trim it to fit
+        // first - the dashboard's ScrollViewer keeps the overflowing cards reachable.
+        if (height > bottomRight.Y - topLeft.Y)
+        {
+            height = Math.Max(MinHeight, bottomRight.Y - topLeft.Y);
+            Height = height;
+            changed = true;
+        }
+
+        if (width > bottomRight.X - topLeft.X)
+        {
+            width = Math.Max(MinWidth, bottomRight.X - topLeft.X);
+            Width = width;
+            changed = true;
+        }
+
+        var left = Math.Clamp(Left, topLeft.X, Math.Max(topLeft.X, bottomRight.X - width));
+        var top = Math.Clamp(Top, topLeft.Y, Math.Max(topLeft.Y, bottomRight.Y - height));
+
+        if (Math.Abs(left - Left) > 0.5)
+        {
+            Left = left;
+            changed = true;
+        }
+
+        if (Math.Abs(top - Top) > 0.5)
+        {
+            Top = top;
+            changed = true;
+        }
+
+        return changed;
     }
 
     private static WindowPlacement? ReadPlacement()
