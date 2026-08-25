@@ -15,7 +15,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check-for-new-release:
+    runs-on: windows-latest
+    outputs:
+      should-build: ${{ steps.release-check.outputs.should-build }}
+    steps:
+      - name: Check whether main has changed since the latest release
+        id: release-check
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Manual runs are the explicit escape hatch: build and publish even if the commit is
+          # already the latest release. Scheduled runs only spend a runner when main has changed.
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch')
+          {
+              'should-build=true' >> $env:GITHUB_OUTPUT
+              exit 0
+          }
+
+          $latestReleaseCommit = gh release view --repo $env:GITHUB_REPOSITORY --json targetCommitish --jq .targetCommitish 2>$null
+          if ($LASTEXITCODE -ne 0 -or -not $latestReleaseCommit)
+          {
+              # The first scheduled release has nothing to compare against.
+              'should-build=true' >> $env:GITHUB_OUTPUT
+              exit 0
+          }
+
+          $shouldBuild = ($latestReleaseCommit.Trim() -ne $env:GITHUB_SHA).ToString().ToLowerInvariant()
+          "should-build=$shouldBuild" >> $env:GITHUB_OUTPUT
+
   build-and-test:
+    needs: check-for-new-release
+    if: needs.check-for-new-release.outputs.should-build == 'true'
     runs-on: windows-latest
     steps:
       - name: Check out repository
@@ -40,9 +72,9 @@ jobs:
           dotnet test ./AIUsageMonitor.slnx --configuration Release --no-build --no-restore -m:1
 
   publish-release:
-    needs: build-and-test
+    needs: [check-for-new-release, build-and-test]
     # A manual dispatch is deliberately retained for an on-demand release.
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    if: github.ref == 'refs/heads/main' && needs.check-for-new-release.outputs.should-build == 'true' && needs.build-and-test.result == 'success'
     runs-on: windows-latest
     env:
       RELEASE_TAG: v1.0.${{ github.run_number }}
