@@ -69,8 +69,11 @@ public sealed class GitHubReleaseService(
                 return GitHubReleaseCheckResult.Unavailable(InstalledVersion, isUpdateSimulated, null);
             }
 
-            var notes = root.TryGetProperty("body", out var bodyElement) ? bodyElement.GetString() : null;
-            var isCritical = GetIsCritical(notes);
+            // Critical is relative to the release stream, not to what's installed: it's whether
+            // this release bumped the version further than the previous one this service knew
+            // about, e.g. v1.0.60 -> v1.1.61. Nothing to compare against yet (first ever check)
+            // defaults to not critical.
+            var isCritical = IsCriticalRelease(latestVersion, cache?.LatestReleaseTag);
 
             var result = new GitHubReleaseCheckResult(
                 InstalledVersion,
@@ -237,27 +240,15 @@ public sealed class GitHubReleaseService(
     // the week `now` happens to fall on, for no benefit here.
     private static DateTimeOffset GetMostRecentWeeklyCheckUtc(DateTimeOffset now) => now.AddDays(-7);
 
-    // "## Severity" is a section in the release notes, same convention as "## Changes" below -
-    // absent (older releases, or a release with no matching commit trailer) defaults to not
-    // critical, since most of this project's daily builds are routine.
-    private static bool GetIsCritical(string? notes)
+    // A release is critical when its Major.Minor moved past the previous release this service
+    // knew about (e.g. v1.0.60 -> v1.1.61) - routine daily builds only bump the trailing build
+    // number (v1.0.60 -> v1.0.61) and stay non-critical. The version string itself is the marker:
+    // bump the middle number in the repo's VERSION file to flag a release as critical.
+    private static bool IsCriticalRelease(Version latestVersion, string? previousTag)
     {
-        if (string.IsNullOrWhiteSpace(notes))
-        {
-            return false;
-        }
-
-        var lines = notes.Replace("\r\n", "\n").Split('\n');
-        var severityStart = Array.FindIndex(lines, line => string.Equals(line.Trim(), "## Severity", StringComparison.OrdinalIgnoreCase));
-        if (severityStart < 0)
-        {
-            return false;
-        }
-
-        var severityValue = lines[(severityStart + 1)..]
-            .Select(line => line.Trim())
-            .FirstOrDefault(line => line.Length > 0);
-        return string.Equals(severityValue, "Critical", StringComparison.OrdinalIgnoreCase);
+        return previousTag is not null
+            && Version.TryParse(previousTag.TrimStart('v'), out var previousVersion)
+            && (latestVersion.Major != previousVersion.Major || latestVersion.Minor != previousVersion.Minor);
     }
 
     private void SaveRateLimitReset(GitHubReleaseCacheEntry? cache, HttpResponseMessage response)

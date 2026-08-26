@@ -76,9 +76,6 @@ jobs:
     # A manual dispatch is deliberately retained for an on-demand release.
     if: github.ref == 'refs/heads/main' && needs.check-for-new-release.outputs.should-build == 'true' && needs.build-and-test.result == 'success'
     runs-on: windows-latest
-    env:
-      RELEASE_TAG: v1.0.${{ github.run_number }}
-      RELEASE_VERSION: 1.0.${{ github.run_number }}
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -90,6 +87,34 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 10.0.303
+
+      - name: Compute release version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # VERSION holds the MAJOR.MINOR prefix. Bump it (e.g. 1.0 -> 1.1) in the same commit as a
+          # fix to flag that release as critical - the client treats any release whose Major.Minor
+          # moved past the previous one it saw as critical, and checks daily instead of weekly for
+          # those. The patch number restarts at 0 for a new prefix (v1.0.62 -> v1.1.0), same as
+          # ordinary semver, rather than carrying on from a global build counter.
+          $minorVersion = (Get-Content -LiteralPath ./VERSION -Raw).Trim()
+          if ($minorVersion -notmatch '^\d+\.\d+$')
+          {
+              throw "VERSION must contain a MAJOR.MINOR value, e.g. 1.0."
+          }
+
+          $prefix = "v$minorVersion."
+          $existingTags = gh release list --repo $env:GITHUB_REPOSITORY --limit 1000 --json tagName --jq '.[].tagName' 2>$null
+          $existingPatches = $existingTags |
+              Where-Object { $_ -like "$prefix*" } |
+              ForEach-Object { $_.Substring($prefix.Length) } |
+              Where-Object { $_ -match '^\d+$' } |
+              ForEach-Object { [int]$_ }
+          $nextPatch = if ($existingPatches) { ($existingPatches | Measure-Object -Maximum).Maximum + 1 } else { 0 }
+
+          "RELEASE_TAG=$prefix$nextPatch" >> $env:GITHUB_ENV
+          "RELEASE_VERSION=$minorVersion.$nextPatch" >> $env:GITHUB_ENV
 
       - name: Publish single-file application
         shell: pwsh

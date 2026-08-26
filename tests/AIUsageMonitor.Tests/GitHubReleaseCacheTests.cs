@@ -94,14 +94,18 @@ public sealed class GitHubReleaseCacheTests
     }
 
     [TestMethod]
-    public async Task ReleaseBodyWithCriticalSeverity_IsParsedAndCached()
+    public async Task ReleaseWithBumpedMinorVersion_IsMarkedCriticalAndCached()
     {
         var root = CreateRoot();
         try
         {
             var cache = new GitHubReleaseCacheStore(root);
+            // Non-critical and stale enough to force a live fetch (see NonCriticalCache_ExpiresAfterAWeek).
+            cache.Save(new GitHubReleaseCacheEntry(
+                DateTimeOffset.UtcNow.AddDays(-8), "v1.0.60", "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.60", null,
+                IsLatestReleaseCritical: false));
             var service = CreateService(root, cache, _ => JsonResponse("""
-                { "tag_name": "v1.0.1", "html_url": "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.1", "body": "## Severity\nCritical\n\n## Changes\n- Fix" }
+                { "tag_name": "v1.1.61", "html_url": "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.1.61" }
                 """));
 
             var result = await service.CheckAsync();
@@ -113,14 +117,35 @@ public sealed class GitHubReleaseCacheTests
     }
 
     [TestMethod]
-    public async Task ReleaseBodyWithoutSeverityMarker_DefaultsToNotCritical()
+    public async Task ReleaseWithPatchOnlyBump_IsNotCritical()
+    {
+        var root = CreateRoot();
+        try
+        {
+            var cache = new GitHubReleaseCacheStore(root);
+            cache.Save(new GitHubReleaseCacheEntry(
+                DateTimeOffset.UtcNow.AddDays(-8), "v1.0.60", "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.60", null,
+                IsLatestReleaseCritical: false));
+            var service = CreateService(root, cache, _ => JsonResponse("""
+                { "tag_name": "v1.0.61", "html_url": "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.61" }
+                """));
+
+            var result = await service.CheckAsync();
+
+            Assert.IsFalse(result.IsCritical);
+        }
+        finally { DeleteRoot(root); }
+    }
+
+    [TestMethod]
+    public async Task FirstEverCheck_HasNothingToCompareAgainst_IsNotCritical()
     {
         var root = CreateRoot();
         try
         {
             var cache = new GitHubReleaseCacheStore(root);
             var service = CreateService(root, cache, _ => JsonResponse("""
-                { "tag_name": "v1.0.1", "html_url": "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.1", "body": "## Changes\n- Fix" }
+                { "tag_name": "v1.4.9", "html_url": "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.4.9" }
                 """));
 
             var result = await service.CheckAsync();
