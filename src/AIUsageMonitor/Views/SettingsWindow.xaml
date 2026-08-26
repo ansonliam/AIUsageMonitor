@@ -1249,9 +1249,7 @@
                                         CornerRadius="6">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
-                                            <TextBlock Margin="8,0,0,0"
-                                                       Foreground="#FF65717D"
+                                            <TextBlock FontWeight="SemiBold"
                                                        Text="{Binding Tag}" />
                                             <TextBlock Margin="8,0,0,0"
                                                        Foreground="#FF65717D"
