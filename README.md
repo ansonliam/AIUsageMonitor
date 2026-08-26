@@ -1,6 +1,6 @@
 # AI Usage Monitor
 
-AI Usage Monitor is a compact, always-on-top Windows desktop widget for monitoring subscription usage across OpenAI Codex, Claude Code, Google Antigravity, and Cursor. It displays used quota, reset times, and provider state without requiring a browser dashboard.
+AI Usage Monitor is a compact, always-on-top Windows desktop widget for **real real-time** subscription usage monitoring across OpenAI Codex, Claude Code, Google Antigravity, and Cursor. It displays used quota, reset times, and provider state without requiring a browser dashboard.
 
 <img src="https://github.com/user-attachments/assets/b1820988-dbd2-4d70-8a73-aed3bca98df5" />
 
@@ -31,6 +31,10 @@ The release is a self-contained single-file application and does not require a s
 - System-tray controls and optional automatic refresh hooks
 - Optional multi-monitor taskbar widget: enable a compact usage strip independently on each taskbar, with shared provider visibility/font styling, per-monitor text/icon sizing and positioning, and hover details for status, last updated, and reset times
 
+### Under the hood
+
+The taskbar widget is a separate top-level WPF window—not a child of `explorer.exe`. That isolation means a widget fault cannot hang the Windows taskbar. It monitors shell, taskbar, and display events; recalculates its layout; and reapplies `HWND_TOPMOST` with `SetWindowPos` when Explorer changes the z-order. This avoids the fragile “embed into Explorer” approach while keeping the widget responsive through taskbar moves, monitor changes, and Explorer restarts.
+
 ## Requirements
 
 To run the published application:
@@ -47,33 +51,18 @@ To build from source:
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - Visual Studio 2022 or later with the .NET desktop development workload, or the `dotnet` CLI
 
-## Build and run
-
-Clone the repository and build the solution:
+## Build from source
 
 ```powershell
 git clone https://github.com/ansonliam/AIUsageMonitor.git
 cd AIUsageMonitor
-dotnet build .\AIUsageMonitor.slnx -c Release
-```
-
-Run from source:
-
-```powershell
 dotnet run --project .\src\AIUsageMonitor\AIUsageMonitor.csproj -c Release
 ```
 
-Create a self-contained, single-file Windows build:
+To create a self-contained Windows executable:
 
 ```powershell
-dotnet publish .\src\AIUsageMonitor\AIUsageMonitor.csproj `
-  -c Release `
-  -r win-x64 `
-  --self-contained true `
-  -p:PublishSingleFile=true `
-  -p:IncludeNativeLibrariesForSelfExtract=true `
-  -p:EnableCompressionInSingleFile=true `
-  -o .\dist
+dotnet publish .\src\AIUsageMonitor\AIUsageMonitor.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o .\dist
 ```
 
 ## Configuration and setup
