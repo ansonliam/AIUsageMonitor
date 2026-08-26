@@ -28,6 +28,7 @@ public sealed class SettingsViewModel : ObservableObject
     private readonly CodexApiCostSettingsStore _codexApiCostSettingsStore;
     private readonly CodexApiCostService _codexApiCostService;
     private readonly DeveloperLoggingService _developerLoggingService;
+    private readonly DeveloperModeSettingsStore _developerModeSettingsStore;
     private readonly GitHubReleaseService _gitHubReleaseService;
     private string _codexApiCostStatus = "";
     private string _codexHookStatus = "Checking…";
@@ -37,9 +38,12 @@ public sealed class SettingsViewModel : ObservableObject
     private string _cursorHookStatus = "Checking…";
     private string _testResult = string.Empty;
     private string _updateStatus = "Checking GitHub for updates…";
+    private string _releaseHistoryStatus = "Loading recent release history…";
     private Uri? _updateReleaseUrl;
+    private IReadOnlyList<GitHubRelease> _recentReleaseHistory = [];
     private bool _isUpdateAvailable;
     private bool _isLatestGitHubRelease;
+    private bool _simulateUpdateAvailable;
     private bool _isWindowLocked;
     private double _dashboardWidgetHeight = 56;
     private double _metricLabelWidth = 32;
@@ -103,6 +107,7 @@ public sealed class SettingsViewModel : ObservableObject
         CodexApiCostSettingsStore codexApiCostSettingsStore,
         CodexApiCostService codexApiCostService,
         DeveloperLoggingService developerLoggingService,
+        DeveloperModeSettingsStore developerModeSettingsStore,
         GitHubReleaseService gitHubReleaseService)
     {
         _codexHookInstaller = codexHookInstaller;
@@ -117,6 +122,7 @@ public sealed class SettingsViewModel : ObservableObject
         _codexApiCostSettingsStore = codexApiCostSettingsStore;
         _codexApiCostService = codexApiCostService;
         _developerLoggingService = developerLoggingService;
+        _developerModeSettingsStore = developerModeSettingsStore;
         _gitHubReleaseService = gitHubReleaseService;
         CodexApiEndpoints = [];
         LoadCodexApiEndpoints();
@@ -146,6 +152,7 @@ public sealed class SettingsViewModel : ObservableObject
         _taskbarTextVerticalOffset = taskbarWidgetWindow.TaskbarTextVerticalOffset;
         _autoRefreshEnabled = mainWindow.AutoRefreshEnabled;
         _developerModeEnabled = developerLoggingService.IsEnabled;
+        _simulateUpdateAvailable = _developerModeEnabled && developerModeSettingsStore.LoadSimulateUpdateAvailable();
         _codexRefreshIntervalMinutes = mainWindow.CodexRefreshIntervalMinutes;
         _claudeRefreshIntervalMinutes = mainWindow.ClaudeRefreshIntervalMinutes;
         _antigravityRefreshIntervalMinutes = mainWindow.AntigravityRefreshIntervalMinutes;
@@ -219,8 +226,28 @@ public sealed class SettingsViewModel : ObservableObject
     public string TestResult { get => _testResult; private set => SetProperty(ref _testResult, value); }
     public string InstalledVersion => _gitHubReleaseService.InstalledVersion;
     public string UpdateStatus { get => _updateStatus; private set => SetProperty(ref _updateStatus, value); }
+    public string ReleaseHistoryStatus { get => _releaseHistoryStatus; private set => SetProperty(ref _releaseHistoryStatus, value); }
+    public IReadOnlyList<GitHubRelease> RecentReleaseHistory { get => _recentReleaseHistory; private set => SetProperty(ref _recentReleaseHistory, value); }
     public bool IsUpdateAvailable { get => _isUpdateAvailable; private set => SetProperty(ref _isUpdateAvailable, value); }
     public bool IsLatestGitHubRelease { get => _isLatestGitHubRelease; private set => SetProperty(ref _isLatestGitHubRelease, value); }
+    public bool SimulateUpdateAvailable
+    {
+        get => _simulateUpdateAvailable;
+        set
+        {
+            if (!_developerModeSettingsStore.TrySaveSimulateUpdateAvailable(value))
+            {
+                TestResult = "The update simulation setting could not be saved. Check access to the local app-data folder.";
+                OnPropertyChanged();
+                return;
+            }
+
+            if (SetProperty(ref _simulateUpdateAvailable, value))
+            {
+                _ = RefreshUpdateStatusAsync();
+            }
+        }
+    }
     public string ClaudeHookStatus { get => _claudeHookStatus; private set => SetProperty(ref _claudeHookStatus, value); }
     public string ClaudeCredentialSource { get => _claudeCredentialSource; private set => SetProperty(ref _claudeCredentialSource, value); }
     public string AntigravityHookStatus
@@ -431,6 +458,10 @@ public sealed class SettingsViewModel : ObservableObject
 
             SetProperty(ref _developerModeEnabled, value);
             OnPropertyChanged(nameof(SettingsWindowTitle));
+            if (!value)
+            {
+                SimulateUpdateAvailable = false;
+            }
             TestResult = value
                 ? "Developer mode enabled. Diagnostic logs are now being written."
                 : "Developer mode disabled. Diagnostic file logging has stopped.";
@@ -808,13 +839,28 @@ public sealed class SettingsViewModel : ObservableObject
     {
         var result = await _gitHubReleaseService.CheckAsync();
         _updateReleaseUrl = result.ReleaseUrl;
+        var isSimulatingUpdate = result.IsUpdateSimulated;
         IsUpdateAvailable = result.IsUpdateAvailable;
-        IsLatestGitHubRelease = result.IsAvailable && !result.IsUpdateAvailable;
+        IsLatestGitHubRelease = result.IsAvailable && !IsUpdateAvailable;
         UpdateStatus = !result.IsAvailable
-            ? "Could not check GitHub for updates."
-            : result.IsUpdateAvailable
+            ? isSimulatingUpdate
+                ? "Simulated update available."
+                : "Could not check GitHub for updates."
+            : isSimulatingUpdate
+                ? $"Simulated update available: {result.LatestReleaseTag}."
+                : result.IsUpdateAvailable
                 ? $"Update available: {result.LatestReleaseTag}."
                 : "You have the latest GitHub ";
+
+        if (!IsUpdateAvailable)
+        {
+            return;
+        }
+
+        RecentReleaseHistory = await _gitHubReleaseService.GetRecentReleasesAsync();
+        ReleaseHistoryStatus = RecentReleaseHistory.Count == 0
+            ? "Recent release history could not be loaded."
+            : "Recent releases";
     }
 
     private void OpenUpdate()

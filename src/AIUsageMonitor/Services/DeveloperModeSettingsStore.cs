@@ -16,24 +16,42 @@ public sealed class DeveloperModeSettingsStore
     }
 
     public bool LoadEnabled()
+        => LoadSettings().Enabled;
+
+    public bool LoadSimulateUpdateAvailable()
+        => LoadSettings().SimulateUpdateAvailable;
+
+    public bool IsUpdateSimulationEnabled()
+    {
+        var settings = LoadSettings();
+        return settings.Enabled && settings.SimulateUpdateAvailable;
+    }
+
+    public bool TrySaveEnabled(bool enabled)
+        => TrySaveSettings(LoadSettings() with { Enabled = enabled });
+
+    public bool TrySaveSimulateUpdateAvailable(bool simulateUpdateAvailable)
+        => TrySaveSettings(LoadSettings() with { SimulateUpdateAvailable = simulateUpdateAvailable });
+
+    private DeveloperModeSettings LoadSettings()
     {
         try
         {
             if (!File.Exists(_settingsPath))
             {
-                return false;
+                return new DeveloperModeSettings();
             }
 
             var settings = JsonSerializer.Deserialize<DeveloperModeSettings>(File.ReadAllText(_settingsPath));
-            return settings?.Enabled == true;
+            return settings ?? new DeveloperModeSettings();
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
-            return false;
+            return new DeveloperModeSettings();
         }
     }
 
-    public bool TrySaveEnabled(bool enabled)
+    private bool TrySaveSettings(DeveloperModeSettings settings)
     {
         try
         {
@@ -41,7 +59,7 @@ public sealed class DeveloperModeSettingsStore
             var temporaryPath = _settingsPath + ".tmp";
             File.WriteAllText(
                 temporaryPath,
-                JsonSerializer.Serialize(new DeveloperModeSettings { Enabled = enabled }));
+                JsonSerializer.Serialize(settings));
             File.Move(temporaryPath, _settingsPath, overwrite: true);
             return true;
         }
@@ -51,8 +69,9 @@ public sealed class DeveloperModeSettingsStore
         }
     }
 
-    private sealed class DeveloperModeSettings
+    private sealed record DeveloperModeSettings
     {
         public bool Enabled { get; init; }
+        public bool SimulateUpdateAvailable { get; init; }
     }
 }

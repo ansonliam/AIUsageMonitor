@@ -117,4 +117,35 @@ public sealed class DeveloperLoggingTests
             }
         }
     }
+
+    [TestMethod]
+    public void DeveloperMode_UpdateSimulationPersistsWithoutOverwritingDeveloperMode()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "AIUsageMonitor.Tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new DeveloperModeSettingsStore(root);
+
+            Assert.IsTrue(store.TrySaveEnabled(true));
+            Assert.IsTrue(store.TrySaveSimulateUpdateAvailable(true));
+
+            var reloaded = new DeveloperModeSettingsStore(root);
+            Assert.IsTrue(reloaded.LoadEnabled());
+            Assert.IsTrue(reloaded.LoadSimulateUpdateAvailable());
+            Assert.IsTrue(reloaded.IsUpdateSimulationEnabled());
+        }
+        finally
+        {
+            try
+            {
+                Directory.Delete(root, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+    }
 }
