@@ -1019,6 +1019,15 @@ public partial class TaskbarWidgetWindow : Window
             return;
         }
 
+        // Same reasoning as ReassertTopMost: while one of our own menus is open, don't fight for
+        // the topmost slot even if something else (e.g. Reposition, triggered by the tray icon
+        // cluster resizing) is moving us right now. Coverage left behind is picked up when the
+        // menu closes via BeginTopMostSettle.
+        if (AppMenuState.IsMenuOpen)
+        {
+            return;
+        }
+
         var pos = Marshal.PtrToStructure<TaskbarInterop.WindowPos>(lParam);
         if (pos.HwndInsertAfter == TaskbarInterop.HwndTopmost &&
             (pos.Flags & TaskbarInterop.SwpNoZOrder) == 0)
