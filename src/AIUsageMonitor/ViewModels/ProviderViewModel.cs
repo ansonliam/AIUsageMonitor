@@ -25,7 +25,11 @@ public sealed class ProviderViewModel : ObservableObject
         WeeklyUsage = new UsageMetricViewModel("W");
         UsageWindows = kind switch
         {
-            ProviderKind.Codex => new ObservableCollection<UsageMetricViewModel> { WeeklyUsage },
+            ProviderKind.Codex => new ObservableCollection<UsageMetricViewModel>
+            {
+                FiveHourUsage,
+                WeeklyUsage
+            },
             ProviderKind.Claude => new ObservableCollection<UsageMetricViewModel>
             {
                 FiveHourUsage,

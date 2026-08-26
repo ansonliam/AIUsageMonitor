@@ -153,6 +153,14 @@ public sealed class UsageDisplayModeTests
     }
 
     [TestMethod]
+    public void CodexProvider_ExposesFiveHourAndWeeklyUsageMetrics()
+    {
+        var provider = new ProviderViewModel(ProviderKind.Codex, "OpenAI Codex", null!);
+
+        CollectionAssert.AreEqual(new[] { "5H", "W" }, provider.UsageWindows.Select(metric => metric.Label).ToArray());
+    }
+
+    [TestMethod]
     public void CodexApiCostPanel_DefaultsToBudgetSpentDisplay()
     {
         var panel = new CodexApiCostPanelViewModel(Guid.NewGuid());
