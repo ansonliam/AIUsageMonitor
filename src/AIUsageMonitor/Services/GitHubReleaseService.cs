@@ -27,7 +27,7 @@ public sealed class GitHubReleaseService(
             return CreateCachedOrUnavailable(cache, isUpdateSimulated, rateLimitResetUtc);
         }
 
-        if (!force && IsFresh(cache?.LastSuccessfulCheckUtc, now))
+        if (!force && IsFresh(cache, now))
         {
             return CreateCachedOrUnavailable(cache, isUpdateSimulated, null);
         }
@@ -69,6 +69,9 @@ public sealed class GitHubReleaseService(
                 return GitHubReleaseCheckResult.Unavailable(InstalledVersion, isUpdateSimulated, null);
             }
 
+            var notes = root.TryGetProperty("body", out var bodyElement) ? bodyElement.GetString() : null;
+            var isCritical = GetIsCritical(notes);
+
             var result = new GitHubReleaseCheckResult(
                 InstalledVersion,
                 tag,
@@ -77,6 +80,7 @@ public sealed class GitHubReleaseService(
                 IsAvailable: true,
                 IsUpdateSimulated: isUpdateSimulated,
                 IsCached: false,
+                IsCritical: isCritical,
                 LastCheckedUtc: now,
                 NextCheckAfterUtc: null);
             cacheStore.Save((cache ?? new GitHubReleaseCacheEntry(null, null, null, null)) with
@@ -84,7 +88,8 @@ public sealed class GitHubReleaseService(
                 LastSuccessfulCheckUtc = now,
                 LatestReleaseTag = tag,
                 ReleaseUrl = releaseUrl,
-                RateLimitResetUtc = null
+                RateLimitResetUtc = null,
+                IsLatestReleaseCritical = isCritical
             });
             return result;
         }
@@ -124,6 +129,7 @@ public sealed class GitHubReleaseService(
                 IsAvailable: true,
                 IsUpdateSimulated: isUpdateSimulated,
                 IsCached: true,
+                IsCritical: cache.IsLatestReleaseCritical,
                 LastCheckedUtc: cache.LastSuccessfulCheckUtc,
                 NextCheckAfterUtc: nextCheckAfterUtc);
         }
@@ -142,7 +148,7 @@ public sealed class GitHubReleaseService(
             return cache.RecentReleases ?? [];
         }
 
-        if (!force && IsFresh(cache?.LastSuccessfulHistoryCheckUtc, now) && cache?.RecentReleases is { Count: > 0 } cachedReleases)
+        if (!force && IsFreshDaily(cache?.LastSuccessfulHistoryCheckUtc, now) && cache?.RecentReleases is { Count: > 0 } cachedReleases)
         {
             return cachedReleases;
         }
@@ -195,7 +201,26 @@ public sealed class GitHubReleaseService(
         }
     }
 
-    private static bool IsFresh(DateTimeOffset? checkedAtUtc, DateTimeOffset now)
+    // The latest release known from the last check decides the cadence for the next one: a
+    // critical release keeps re-checking daily, anything else (including no cache yet) only needs
+    // a weekly recheck. Whichever release turns out to actually be latest next time may of course
+    // change that cadence again.
+    private static bool IsFresh(GitHubReleaseCacheEntry? cache, DateTimeOffset now)
+    {
+        if (cache?.LastSuccessfulCheckUtc is not { } checkedAtUtc)
+        {
+            return false;
+        }
+
+        var boundary = cache.IsLatestReleaseCritical
+            ? GetMostRecentDailyCheckUtc(now)
+            : GetMostRecentWeeklyCheckUtc(now);
+        return checkedAtUtc >= boundary;
+    }
+
+    // Recent-release history isn't part of the update-available indicator, so it isn't
+    // severity-gated - it stays on the plain daily cadence.
+    private static bool IsFreshDaily(DateTimeOffset? checkedAtUtc, DateTimeOffset now)
     {
         return checkedAtUtc is { } value && value >= GetMostRecentDailyCheckUtc(now);
     }
@@ -205,6 +230,34 @@ public sealed class GitHubReleaseService(
     {
         var todayAtTwentyOneUtc = new DateTimeOffset(now.Year, now.Month, now.Day, 21, 0, 0, TimeSpan.Zero);
         return now >= todayAtTwentyOneUtc ? todayAtTwentyOneUtc : todayAtTwentyOneUtc.AddDays(-1);
+    }
+
+    // Deliberately a plain rolling 7-day window rather than a fixed-weekday boundary like the
+    // daily gate above - anchoring it to a specific day would make "fresh" depend on which day of
+    // the week `now` happens to fall on, for no benefit here.
+    private static DateTimeOffset GetMostRecentWeeklyCheckUtc(DateTimeOffset now) => now.AddDays(-7);
+
+    // "## Severity" is a section in the release notes, same convention as "## Changes" below -
+    // absent (older releases, or a release with no matching commit trailer) defaults to not
+    // critical, since most of this project's daily builds are routine.
+    private static bool GetIsCritical(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+        {
+            return false;
+        }
+
+        var lines = notes.Replace("\r\n", "\n").Split('\n');
+        var severityStart = Array.FindIndex(lines, line => string.Equals(line.Trim(), "## Severity", StringComparison.OrdinalIgnoreCase));
+        if (severityStart < 0)
+        {
+            return false;
+        }
+
+        var severityValue = lines[(severityStart + 1)..]
+            .Select(line => line.Trim())
+            .FirstOrDefault(line => line.Length > 0);
+        return string.Equals(severityValue, "Critical", StringComparison.OrdinalIgnoreCase);
     }
 
     private void SaveRateLimitReset(GitHubReleaseCacheEntry? cache, HttpResponseMessage response)
@@ -298,6 +351,7 @@ public sealed record GitHubReleaseCheckResult(
     bool IsAvailable,
     bool IsUpdateSimulated,
     bool IsCached,
+    bool IsCritical,
     DateTimeOffset? LastCheckedUtc,
     DateTimeOffset? NextCheckAfterUtc)
 {
@@ -305,7 +359,7 @@ public sealed record GitHubReleaseCheckResult(
         string installedVersion,
         bool isUpdateSimulated,
         DateTimeOffset? nextCheckAfterUtc) =>
-        new(installedVersion, string.Empty, new Uri("https://github.com/ansonliam/AIUsageMonitor/releases"), isUpdateSimulated, false, isUpdateSimulated, false, null, nextCheckAfterUtc);
+        new(installedVersion, string.Empty, new Uri("https://github.com/ansonliam/AIUsageMonitor/releases"), isUpdateSimulated, false, isUpdateSimulated, false, false, null, nextCheckAfterUtc);
 }
 
 public sealed record GitHubRelease(

@@ -53,4 +53,7 @@ public sealed record GitHubReleaseCacheEntry(
     string? ReleaseUrl,
     DateTimeOffset? RateLimitResetUtc,
     DateTimeOffset? LastSuccessfulHistoryCheckUtc = null,
-    IReadOnlyList<GitHubRelease>? RecentReleases = null);
+    IReadOnlyList<GitHubRelease>? RecentReleases = null,
+    // Absent on cache entries written before severity existed - treated as Minor (the weekly
+    // cadence), same as any release whose notes don't carry a "## Severity" section.
+    bool IsLatestReleaseCritical = false);

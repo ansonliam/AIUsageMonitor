@@ -8,18 +8,19 @@ namespace AIUsageMonitor.Services;
 public sealed class TrayIconService : IDisposable
 {
     private readonly IApplicationController _applicationController;
-    private readonly GitHubReleaseService _gitHubReleaseService;
-    private Drawing.Icon? _applicationIcon;
+    private readonly UpdateAvailabilityMonitor _updateAvailabilityMonitor;
+    private Drawing.Icon? _baseApplicationIcon;
+    private Drawing.Icon? _updateAvailableIcon;
     private Forms.NotifyIcon? _notifyIcon;
     private Forms.ToolStripMenuItem? _updateMenuItem;
     private Uri? _updateReleaseUrl;
 
     public TrayIconService(
         IApplicationController applicationController,
-        GitHubReleaseService gitHubReleaseService)
+        UpdateAvailabilityMonitor updateAvailabilityMonitor)
     {
         _applicationController = applicationController;
-        _gitHubReleaseService = gitHubReleaseService;
+        _updateAvailabilityMonitor = updateAvailabilityMonitor;
     }
 
     public void Initialize()
@@ -53,37 +54,51 @@ public sealed class TrayIconService : IDisposable
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Close", null, async (_, _) => await _applicationController.ExitAsync());
 
-        _applicationIcon = LoadApplicationIcon();
+        _baseApplicationIcon = LoadApplicationIcon();
         _notifyIcon = new Forms.NotifyIcon
         {
             Text = "AI Usage Monitor",
-            Icon = _applicationIcon ?? Drawing.SystemIcons.Application,
+            Icon = _baseApplicationIcon ?? Drawing.SystemIcons.Application,
             ContextMenuStrip = menu,
             Visible = true
         };
         _notifyIcon.DoubleClick += (_, _) => _applicationController.ShowMainWindow();
-        _ = ShowUpdateIndicatorAsync();
+        // The monitor re-checks GitHub periodically for the lifetime of the tray session (not just
+        // once at startup), so this needs to react every time it fires, not just the first.
+        _updateAvailabilityMonitor.UpdateChecked += ApplyUpdateResult;
     }
 
-    private async Task ShowUpdateIndicatorAsync()
+    private void ApplyUpdateResult(GitHubReleaseCheckResult result)
     {
-        var result = await _gitHubReleaseService.CheckAsync();
-        if (!result.IsUpdateAvailable || _notifyIcon is null || _applicationIcon is null)
+        if (_notifyIcon is null || _baseApplicationIcon is null)
         {
             return;
         }
 
-        var updateIcon = CreateUpdateAvailableIcon(_applicationIcon);
-        _notifyIcon.Icon = updateIcon;
-        _notifyIcon.Text = $"AI Usage Monitor - Update available: {result.LatestReleaseTag}";
+        if (!result.IsUpdateAvailable)
+        {
+            _notifyIcon.Icon = _baseApplicationIcon;
+            _notifyIcon.Text = "AI Usage Monitor";
+            _updateReleaseUrl = null;
+            if (_updateMenuItem is not null)
+            {
+                _updateMenuItem.Visible = false;
+            }
+            return;
+        }
+
+        var updateLabel = result.IsCritical
+            ? $"Critical update available: {result.LatestReleaseTag}"
+            : $"Update available: {result.LatestReleaseTag}";
+        _updateAvailableIcon ??= CreateUpdateAvailableIcon(_baseApplicationIcon);
+        _notifyIcon.Icon = _updateAvailableIcon;
+        _notifyIcon.Text = $"AI Usage Monitor - {updateLabel}";
         _updateReleaseUrl = result.ReleaseUrl;
         if (_updateMenuItem is not null)
         {
-            _updateMenuItem.Text = $"Update available: {result.LatestReleaseTag}";
+            _updateMenuItem.Text = updateLabel;
             _updateMenuItem.Visible = true;
         }
-        _applicationIcon.Dispose();
-        _applicationIcon = updateIcon;
     }
 
     private void OpenUpdateRelease()
@@ -129,6 +144,8 @@ public sealed class TrayIconService : IDisposable
 
     public void Dispose()
     {
+        _updateAvailabilityMonitor.UpdateChecked -= ApplyUpdateResult;
+
         if (_notifyIcon is null)
         {
             return;
@@ -140,8 +157,10 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon = null;
         _updateMenuItem = null;
         _updateReleaseUrl = null;
-        _applicationIcon?.Dispose();
-        _applicationIcon = null;
+        _baseApplicationIcon?.Dispose();
+        _baseApplicationIcon = null;
+        _updateAvailableIcon?.Dispose();
+        _updateAvailableIcon = null;
     }
 
     private static Drawing.Icon? LoadApplicationIcon()

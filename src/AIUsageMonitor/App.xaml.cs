@@ -98,6 +98,7 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<CodexApiCostService>();
         services.AddSingleton<GitHubReleaseCacheStore>();
         services.AddSingleton<GitHubReleaseService>();
+        services.AddSingleton<UpdateAvailabilityMonitor>();
         services.AddSingleton<DashboardLayoutStore>();
         services.AddSingleton<TaskbarWidgetSettingsStore>();
         services.AddSingleton<TaskbarMonitorService>();
@@ -124,6 +125,7 @@ public partial class App : System.Windows.Application, IApplicationController
         var mainWindow = _services.GetRequiredService<MainWindow>();
         MainWindow = mainWindow;
         _services.GetRequiredService<TrayIconService>().Initialize();
+        _services.GetRequiredService<UpdateAvailabilityMonitor>().Start();
         await _services.GetRequiredService<HookNotificationListener>().StartAsync();
 
         mainWindow.Show();

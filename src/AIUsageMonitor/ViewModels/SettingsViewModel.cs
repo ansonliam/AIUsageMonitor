@@ -31,6 +31,7 @@ public sealed class SettingsViewModel : ObservableObject
     private readonly DeveloperLoggingService _developerLoggingService;
     private readonly DeveloperModeSettingsStore _developerModeSettingsStore;
     private readonly GitHubReleaseService _gitHubReleaseService;
+    private readonly UpdateAvailabilityMonitor _updateAvailabilityMonitor;
     private string _codexApiCostStatus = "";
     private string _codexHookStatus = "Checking…";
     private string _claudeHookStatus = "Checking…";
@@ -109,7 +110,8 @@ public sealed class SettingsViewModel : ObservableObject
         CodexApiCostService codexApiCostService,
         DeveloperLoggingService developerLoggingService,
         DeveloperModeSettingsStore developerModeSettingsStore,
-        GitHubReleaseService gitHubReleaseService)
+        GitHubReleaseService gitHubReleaseService,
+        UpdateAvailabilityMonitor updateAvailabilityMonitor)
     {
         _codexHookInstaller = codexHookInstaller;
         _claudeHookInstaller = claudeHookInstaller;
@@ -125,6 +127,7 @@ public sealed class SettingsViewModel : ObservableObject
         _developerLoggingService = developerLoggingService;
         _developerModeSettingsStore = developerModeSettingsStore;
         _gitHubReleaseService = gitHubReleaseService;
+        _updateAvailabilityMonitor = updateAvailabilityMonitor;
         CodexApiEndpoints = [];
         LoadCodexApiEndpoints();
         _isWindowLocked = mainWindow.IsWindowLocked;
@@ -223,6 +226,10 @@ public sealed class SettingsViewModel : ObservableObject
         OpenUpdateCommand = new RelayCommand(OpenUpdate);
         RefreshStatus();
         _ = RefreshUpdateStatusAsync();
+        // Settings is a singleton that outlives its own window being closed, same as the
+        // WidgetStateChanged subscriptions above - so it can keep reflecting whatever the shared
+        // monitor's daily re-check finds without the window needing to be reopened to see it.
+        _updateAvailabilityMonitor.UpdateChecked += result => _ = ApplyUpdateStatusAsync(result);
     }
 
     public string CodexHookStatus { get => _codexHookStatus; private set => SetProperty(ref _codexHookStatus, value); }
@@ -842,13 +849,16 @@ public sealed class SettingsViewModel : ObservableObject
 
     private async Task RefreshUpdateStatusAsync()
     {
-        var result = await _gitHubReleaseService.CheckAsync();
+        // Route through the shared monitor (not _gitHubReleaseService directly) so its UpdateChecked
+        // event fires and the tray icon stays in sync with whatever Settings just found - including
+        // toggling the simulate-update developer switch.
+        var result = await _updateAvailabilityMonitor.TriggerCheckAsync();
         await ApplyUpdateStatusAsync(result);
     }
 
     private async Task CheckForGitHubUpdateAsync()
     {
-        var result = await _gitHubReleaseService.CheckAsync(force: true);
+        var result = await _updateAvailabilityMonitor.TriggerCheckAsync(force: true);
         await ApplyUpdateStatusAsync(result, forceReleaseHistory: true);
 
         // A manual update check is also the user's explicit request to refresh release notes,
@@ -876,7 +886,9 @@ public sealed class SettingsViewModel : ObservableObject
             : isSimulatingUpdate
                 ? $"Simulated update available: {result.LatestReleaseTag}."
                 : result.IsUpdateAvailable
-                ? $"Update available: {result.LatestReleaseTag}."
+                ? result.IsCritical
+                    ? $"Critical update available: {result.LatestReleaseTag}."
+                    : $"Update available: {result.LatestReleaseTag}."
                 : result.IsCached
                 ? $"Last checked GitHub at {result.LastCheckedUtc?.LocalDateTime:g}; latest "
                 : "You have the latest GitHub ";
