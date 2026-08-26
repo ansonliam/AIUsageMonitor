@@ -14,11 +14,8 @@ public sealed class GitHubReleaseCacheTests
         try
         {
             var cache = new GitHubReleaseCacheStore(root);
-            // Cached as critical so a 2-day-old cache is expired under the daily cadence - the
-            // default (non-critical) cadence is weekly, see GitHubReleaseCacheSeverityTests.
             cache.Save(new GitHubReleaseCacheEntry(
-                DateTimeOffset.UtcNow.AddDays(-2), "v1.0.0", "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.0", null,
-                IsLatestReleaseCritical: true));
+                DateTimeOffset.UtcNow.AddDays(-2), "v1.0.0", "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.0", null));
             var requests = 0;
             var service = CreateService(root, cache, _ =>
             {
@@ -100,10 +97,8 @@ public sealed class GitHubReleaseCacheTests
         try
         {
             var cache = new GitHubReleaseCacheStore(root);
-            // Non-critical and stale enough to force a live fetch (see NonCriticalCache_ExpiresAfterAWeek).
             cache.Save(new GitHubReleaseCacheEntry(
-                DateTimeOffset.UtcNow.AddDays(-8), "v1.0.60", "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.60", null,
-                IsLatestReleaseCritical: false));
+                DateTimeOffset.UtcNow.AddDays(-2), "v1.0.60", "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.60", null));
             var service = CreateService(root, cache, _ => JsonResponse("""
                 { "tag_name": "v1.1.61", "html_url": "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.1.61" }
                 """));
@@ -124,8 +119,7 @@ public sealed class GitHubReleaseCacheTests
         {
             var cache = new GitHubReleaseCacheStore(root);
             cache.Save(new GitHubReleaseCacheEntry(
-                DateTimeOffset.UtcNow.AddDays(-8), "v1.0.60", "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.60", null,
-                IsLatestReleaseCritical: false));
+                DateTimeOffset.UtcNow.AddDays(-2), "v1.0.60", "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.60", null));
             var service = CreateService(root, cache, _ => JsonResponse("""
                 { "tag_name": "v1.0.61", "html_url": "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.61" }
                 """));
@@ -156,20 +150,20 @@ public sealed class GitHubReleaseCacheTests
     }
 
     [TestMethod]
-    public async Task NonCriticalCache_StaysFreshWithinAWeek()
+    public async Task FreshCache_IsReusedRegardlessOfPreviousSeverity()
     {
         var root = CreateRoot();
         try
         {
             var cache = new GitHubReleaseCacheStore(root);
             cache.Save(new GitHubReleaseCacheEntry(
-                DateTimeOffset.UtcNow.AddDays(-2), "v1.0.0", "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.0", null,
+                DateTimeOffset.UtcNow, "v1.0.0", "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.0", null,
                 IsLatestReleaseCritical: false));
             var requests = 0;
             var service = CreateService(root, cache, _ =>
             {
                 requests++;
-                throw new InvalidOperationException("A cache within the weekly cadence should prevent this request.");
+                throw new InvalidOperationException("A same-day cache should prevent this request.");
             });
 
             var result = await service.CheckAsync();
@@ -177,31 +171,6 @@ public sealed class GitHubReleaseCacheTests
             Assert.AreEqual(0, requests);
             Assert.IsTrue(result.IsCached);
             Assert.AreEqual("v1.0.0", result.LatestReleaseTag);
-        }
-        finally { DeleteRoot(root); }
-    }
-
-    [TestMethod]
-    public async Task NonCriticalCache_ExpiresAfterAWeek()
-    {
-        var root = CreateRoot();
-        try
-        {
-            var cache = new GitHubReleaseCacheStore(root);
-            cache.Save(new GitHubReleaseCacheEntry(
-                DateTimeOffset.UtcNow.AddDays(-8), "v1.0.0", "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.0", null,
-                IsLatestReleaseCritical: false));
-            var requests = 0;
-            var service = CreateService(root, cache, _ =>
-            {
-                requests++;
-                return JsonResponse("""{ "tag_name": "v1.0.1", "html_url": "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.1" }""");
-            });
-
-            var result = await service.CheckAsync();
-
-            Assert.AreEqual(1, requests);
-            Assert.AreEqual("v1.0.1", result.LatestReleaseTag);
         }
         finally { DeleteRoot(root); }
     }
@@ -215,12 +184,8 @@ public sealed class GitHubReleaseCacheTests
             var old = DateTimeOffset.UtcNow.AddDays(-2);
             var cachedHistory = new[] { new GitHubRelease("Version 1.0.0", "v1.0.0", "1 July 2026", ["Cached change"]) };
             var cache = new GitHubReleaseCacheStore(root);
-            // Cached as critical so the 2-day-old cache is expired (daily cadence) and CheckAsync
-            // actually reaches the stubbed 403 response below, rather than short-circuiting on the
-            // default weekly cadence and never exercising the rate-limit fallback this test covers.
             cache.Save(new GitHubReleaseCacheEntry(
-                old, "v1.0.0", "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.0", null, old, cachedHistory,
-                IsLatestReleaseCritical: true));
+                old, "v1.0.0", "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.0", null, old, cachedHistory));
             var reset = DateTimeOffset.UtcNow.AddMinutes(30).ToUnixTimeSeconds().ToString();
             var service = CreateService(root, cache, _ =>
             {

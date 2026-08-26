@@ -27,7 +27,7 @@ public sealed class GitHubReleaseService(
             return CreateCachedOrUnavailable(cache, isUpdateSimulated, rateLimitResetUtc);
         }
 
-        if (!force && IsFresh(cache, now))
+        if (!force && IsFresh(cache?.LastSuccessfulCheckUtc, now))
         {
             return CreateCachedOrUnavailable(cache, isUpdateSimulated, null);
         }
@@ -151,7 +151,7 @@ public sealed class GitHubReleaseService(
             return cache.RecentReleases ?? [];
         }
 
-        if (!force && IsFreshDaily(cache?.LastSuccessfulHistoryCheckUtc, now) && cache?.RecentReleases is { Count: > 0 } cachedReleases)
+        if (!force && IsFresh(cache?.LastSuccessfulHistoryCheckUtc, now) && cache?.RecentReleases is { Count: > 0 } cachedReleases)
         {
             return cachedReleases;
         }
@@ -204,26 +204,14 @@ public sealed class GitHubReleaseService(
         }
     }
 
-    // The latest release known from the last check decides the cadence for the next one: a
-    // critical release keeps re-checking daily, anything else (including no cache yet) only needs
-    // a weekly recheck. Whichever release turns out to actually be latest next time may of course
-    // change that cadence again.
-    private static bool IsFresh(GitHubReleaseCacheEntry? cache, DateTimeOffset now)
-    {
-        if (cache?.LastSuccessfulCheckUtc is not { } checkedAtUtc)
-        {
-            return false;
-        }
-
-        var boundary = cache.IsLatestReleaseCritical
-            ? GetMostRecentDailyCheckUtc(now)
-            : GetMostRecentWeeklyCheckUtc(now);
-        return checkedAtUtc >= boundary;
-    }
-
-    // Recent-release history isn't part of the update-available indicator, so it isn't
-    // severity-gated - it stays on the plain daily cadence.
-    private static bool IsFreshDaily(DateTimeOffset? checkedAtUtc, DateTimeOffset now)
+    // Deliberately NOT severity-gated: cadence has to be decided from what was known BEFORE this
+    // check, but a release only reveals itself as critical AFTER fetching it. Stretching the
+    // interval for a "so far non-critical" cache would leave exactly the newly-critical release
+    // undetected for up to that whole interval - the one case promptness matters most. Checking
+    // GitHub daily is cheap regardless (well under its rate limit, and this app doesn't nag - the
+    // indicator is a static tray icon/menu item, not a repeated popup), so there's no upside to
+    // trading that promptness away.
+    private static bool IsFresh(DateTimeOffset? checkedAtUtc, DateTimeOffset now)
     {
         return checkedAtUtc is { } value && value >= GetMostRecentDailyCheckUtc(now);
     }
@@ -234,11 +222,6 @@ public sealed class GitHubReleaseService(
         var todayAtTwentyOneUtc = new DateTimeOffset(now.Year, now.Month, now.Day, 21, 0, 0, TimeSpan.Zero);
         return now >= todayAtTwentyOneUtc ? todayAtTwentyOneUtc : todayAtTwentyOneUtc.AddDays(-1);
     }
-
-    // Deliberately a plain rolling 7-day window rather than a fixed-weekday boundary like the
-    // daily gate above - anchoring it to a specific day would make "fresh" depend on which day of
-    // the week `now` happens to fall on, for no benefit here.
-    private static DateTimeOffset GetMostRecentWeeklyCheckUtc(DateTimeOffset now) => now.AddDays(-7);
 
     // A release is critical when its Major.Minor moved past the previous release this service
     // knew about (e.g. v1.0.60 -> v1.1.61) - routine daily builds only bump the trailing build
