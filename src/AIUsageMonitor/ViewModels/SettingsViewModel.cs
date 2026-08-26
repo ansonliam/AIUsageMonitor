@@ -849,10 +849,19 @@ public sealed class SettingsViewModel : ObservableObject
     private async Task CheckForGitHubUpdateAsync()
     {
         var result = await _gitHubReleaseService.CheckAsync(force: true);
-        await ApplyUpdateStatusAsync(result);
+        await ApplyUpdateStatusAsync(result, forceReleaseHistory: true);
+
+        // A manual update check is also the user's explicit request to refresh release notes,
+        // even when the installed version is already current or the latest-version check failed.
+        if (!result.IsAvailable || !result.IsUpdateAvailable)
+        {
+            await RefreshReleaseHistoryAsync(force: true);
+        }
     }
 
-    private async Task ApplyUpdateStatusAsync(GitHubReleaseCheckResult result)
+    private async Task ApplyUpdateStatusAsync(
+        GitHubReleaseCheckResult result,
+        bool forceReleaseHistory = false)
     {
         _updateReleaseUrl = result.ReleaseUrl;
         var isSimulatingUpdate = result.IsUpdateSimulated;
@@ -877,7 +886,12 @@ public sealed class SettingsViewModel : ObservableObject
             return;
         }
 
-        RecentReleaseHistory = await _gitHubReleaseService.GetRecentReleasesAsync();
+        await RefreshReleaseHistoryAsync(forceReleaseHistory);
+    }
+
+    private async Task RefreshReleaseHistoryAsync(bool force = false)
+    {
+        RecentReleaseHistory = await _gitHubReleaseService.GetRecentReleasesAsync(force);
         ReleaseHistoryStatus = RecentReleaseHistory.Count == 0
             ? "Recent release history could not be loaded."
             : "Recent releases";

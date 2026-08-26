@@ -62,6 +62,35 @@ public sealed class GitHubReleaseCacheTests
     }
 
     [TestMethod]
+    public async Task ForcedReleaseHistoryRefresh_ReplacesFreshHistory()
+    {
+        var root = CreateRoot();
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            var cachedHistory = new[] { new GitHubRelease("Version 1.0.1", "v1.0.1", "1 August 2026", ["Cached change"]) };
+            var cache = new GitHubReleaseCacheStore(root);
+            cache.Save(new GitHubReleaseCacheEntry(
+                now, "v1.0.1", "https://github.com/ansonliam/AIUsageMonitor/releases/tag/v1.0.1", null, now, cachedHistory));
+            var requests = 0;
+            var service = CreateService(root, cache, _ =>
+            {
+                requests++;
+                return JsonResponse("""
+                    [{ "tag_name": "v1.0.2", "name": "Version 1.0.2", "body": "## Changes\n- Fresh change", "published_at": "2026-08-26T00:00:00Z" }]
+                    """);
+            });
+
+            var history = await service.GetRecentReleasesAsync(force: true);
+
+            Assert.AreEqual(1, requests);
+            Assert.AreEqual("v1.0.2", history[0].Tag);
+            CollectionAssert.AreEqual(new[] { "Fresh change" }, history[0].ChangeTitles.ToArray());
+        }
+        finally { DeleteRoot(root); }
+    }
+
+    [TestMethod]
     public async Task RateLimitedOrOfflineRequest_FallsBackToExpiredSuccessfulCache()
     {
         var root = CreateRoot();

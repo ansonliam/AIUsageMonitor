@@ -131,7 +131,9 @@ public sealed class GitHubReleaseService(
         return GitHubReleaseCheckResult.Unavailable(InstalledVersion, isUpdateSimulated, nextCheckAfterUtc);
     }
 
-    public async Task<IReadOnlyList<GitHubRelease>> GetRecentReleasesAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<GitHubRelease>> GetRecentReleasesAsync(
+        bool force = false,
+        CancellationToken cancellationToken = default)
     {
         var cache = cacheStore.Load();
         var now = DateTimeOffset.UtcNow;
@@ -140,7 +142,7 @@ public sealed class GitHubReleaseService(
             return cache.RecentReleases ?? [];
         }
 
-        if (IsFresh(cache?.LastSuccessfulHistoryCheckUtc, now) && cache?.RecentReleases is { Count: > 0 } cachedReleases)
+        if (!force && IsFresh(cache?.LastSuccessfulHistoryCheckUtc, now) && cache?.RecentReleases is { Count: > 0 } cachedReleases)
         {
             return cachedReleases;
         }
