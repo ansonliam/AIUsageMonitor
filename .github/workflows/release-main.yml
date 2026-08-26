@@ -158,7 +158,6 @@ jobs:
           ## Changes
           $changeTitles
 
-          Download AIUsageMonitor.exe and optionally verify it with AIUsageMonitor.exe.sha256.
           This executable is unsigned, so Windows SmartScreen may show an Unknown publisher warning.
           "@
 
