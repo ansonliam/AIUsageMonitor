@@ -145,9 +145,23 @@ jobs:
           {
               $env:GITHUB_SHA
           }
+          # Commits that only touch README.md or the release workflow itself aren't
+          # user-facing changes, so they're left out of the published notes.
+          $excludedPaths = 'README.md', '.github/workflows/release-main.yml'
+          $commitHashes = git log $commitRange --format='%H'
+          $changeLines = foreach ($commitHash in $commitHashes)
+          {
+              $touchedFiles = git diff-tree --no-commit-id --name-only -r $commitHash
+              $isExcluded = -not ($touchedFiles | Where-Object { $excludedPaths -notcontains $_ })
+              if (-not $isExcluded)
+              {
+                  $subject = git log -1 --format='%s' $commitHash
+                  "- $subject"
+              }
+          }
           # Native-command output is an array in PowerShell; join explicitly so Markdown receives
           # a line break between every commit rather than a single space-separated bullet.
-          $changeTitles = (git log $commitRange --format='- %s') -join [Environment]::NewLine
+          $changeTitles = $changeLines -join [Environment]::NewLine
           if (-not $changeTitles)
           {
               $changeTitles = '- No code changes since the previous release.'
