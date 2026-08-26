@@ -96,6 +96,7 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<ClaudeSessionLogScanner>();
         services.AddSingleton<ClaudePricingRegistry>();
         services.AddSingleton<CodexApiCostService>();
+        services.AddSingleton<GitHubReleaseCacheStore>();
         services.AddSingleton<GitHubReleaseService>();
         services.AddSingleton<DashboardLayoutStore>();
         services.AddSingleton<TaskbarWidgetSettingsStore>();

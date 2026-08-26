@@ -216,6 +216,7 @@ public sealed class SettingsViewModel : ObservableObject
         AddCodexApiEndpointCommand = new RelayCommand(AddCodexApiEndpoint);
         SaveCodexApiEndpointsCommand = new RelayCommand(SaveCodexApiEndpoints);
         OpenDeveloperLogFolderCommand = new RelayCommand(OpenDeveloperLogFolder);
+        CheckForGitHubUpdateCommand = new AsyncRelayCommand(CheckForGitHubUpdateAsync);
         OpenGitHubRepositoryCommand = new RelayCommand(OpenGitHubRepository);
         OpenUpdateCommand = new RelayCommand(OpenUpdate);
         RefreshStatus();
@@ -774,6 +775,7 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand AddCodexApiEndpointCommand { get; }
     public ICommand SaveCodexApiEndpointsCommand { get; }
     public ICommand OpenDeveloperLogFolderCommand { get; }
+    public ICommand CheckForGitHubUpdateCommand { get; }
     public ICommand OpenGitHubRepositoryCommand { get; }
     public ICommand OpenUpdateCommand { get; }
     public ObservableCollection<TaskbarMonitorOption> TaskbarMonitors { get; }
@@ -838,6 +840,17 @@ public sealed class SettingsViewModel : ObservableObject
     private async Task RefreshUpdateStatusAsync()
     {
         var result = await _gitHubReleaseService.CheckAsync();
+        await ApplyUpdateStatusAsync(result);
+    }
+
+    private async Task CheckForGitHubUpdateAsync()
+    {
+        var result = await _gitHubReleaseService.CheckAsync(force: true);
+        await ApplyUpdateStatusAsync(result);
+    }
+
+    private async Task ApplyUpdateStatusAsync(GitHubReleaseCheckResult result)
+    {
         _updateReleaseUrl = result.ReleaseUrl;
         var isSimulatingUpdate = result.IsUpdateSimulated;
         IsUpdateAvailable = result.IsUpdateAvailable;
@@ -845,14 +858,18 @@ public sealed class SettingsViewModel : ObservableObject
         UpdateStatus = !result.IsAvailable
             ? isSimulatingUpdate
                 ? "Simulated update available."
+                : result.NextCheckAfterUtc is { } retryAfter
+                ? $"GitHub rate limit reached. Try again after {retryAfter.LocalDateTime:t}."
                 : "Could not check GitHub for updates."
             : isSimulatingUpdate
                 ? $"Simulated update available: {result.LatestReleaseTag}."
                 : result.IsUpdateAvailable
                 ? $"Update available: {result.LatestReleaseTag}."
+                : result.IsCached
+                ? $"Last checked GitHub at {result.LastCheckedUtc?.LocalDateTime:g}; latest "
                 : "You have the latest GitHub ";
 
-        if (!IsUpdateAvailable)
+        if (!result.IsAvailable || !IsUpdateAvailable)
         {
             return;
         }

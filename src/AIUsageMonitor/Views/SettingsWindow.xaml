@@ -958,6 +958,9 @@
                         <Button Margin="0,6,0,0"
                                 Command="{Binding OpenDeveloperLogFolderCommand}"
                                 Content="Open Log Folder" />
+                        <Button Margin="0,6,0,0"
+                                Command="{Binding CheckForGitHubUpdateCommand}"
+                                Content="Check GitHub Update" />
                     </StackPanel>
                 </Grid>
             </Border>
@@ -1221,14 +1224,12 @@
             <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                 <StackPanel Margin="8,10,8,8">
                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="Update available" />
-                    <TextBlock Margin="0,4,0,0"
-                               Foreground="#FF65717D"
-                               Text="A newer version is ready to download from GitHub."
-                               TextWrapping="Wrap" />
-                    <Button Margin="0,12,0,16"
-                            HorizontalAlignment="Left"
-                            Command="{Binding OpenUpdateCommand}"
-                            Content="Open GitHub update" />
+                    <StackPanel Margin="0,4,0,16" Orientation="Horizontal">
+                        <TextBlock Foreground="#FF65717D" Text="A newer version is ready to download from " />
+                        <Button Command="{Binding OpenUpdateCommand}"
+                                Content="GitHub."
+                                Style="{StaticResource LinkButtonStyle}" />
+                    </StackPanel>
 
                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="{Binding ReleaseHistoryStatus}" />
                     <ItemsControl Margin="0,8,0,0" ItemsSource="{Binding RecentReleaseHistory}">
