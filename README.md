@@ -2,7 +2,7 @@
 
 AI Usage Monitor is a compact, always-on-top Windows desktop widget for **real real-time** subscription usage monitoring across OpenAI Codex, Claude Code, Google Antigravity, and Cursor. It displays used quota, reset times, and provider state without requiring a browser dashboard.
 
-<img src="https://github.com/user-attachments/assets/b1820988-dbd2-4d70-8a73-aed3bca98df5" />
+<img width="522" height="257" alt="image" src="https://github.com/user-attachments/assets/66616c5f-952c-46c2-8365-336207a2fb01" />
 
 
 ## Download
