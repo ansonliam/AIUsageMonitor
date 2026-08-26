@@ -1231,7 +1231,13 @@
                                 Style="{StaticResource LinkButtonStyle}" />
                     </StackPanel>
 
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="{Binding ReleaseHistoryStatus}" />
+                    <Button HorizontalAlignment="Left"
+                            Command="{Binding OpenGitHubReleasesCommand}"
+                            Content="{Binding ReleaseHistoryStatus}"
+                            FontSize="16"
+                            FontWeight="SemiBold"
+                            Foreground="#FF000000"
+                            Style="{StaticResource LinkButtonStyle}" />
                     <ItemsControl Margin="0,8,0,0" ItemsSource="{Binding RecentReleaseHistory}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type services:GitHubRelease}">

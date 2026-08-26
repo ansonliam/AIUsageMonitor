@@ -15,6 +15,7 @@ public sealed class SettingsViewModel : ObservableObject
     // Stage 5 always runs to the top of the used% scale - see UsageStagePercent.OpenEndedStageText.
     private const double OpenEndedStageMaximum = 100;
     private static readonly Uri GitHubRepositoryUri = new("https://github.com/ansonliam/AIUsageMonitor");
+    private static readonly Uri GitHubReleasesUri = new("https://github.com/ansonliam/AIUsageMonitor/releases");
 
     private readonly CodexHookInstaller _codexHookInstaller;
     private readonly ClaudeHookInstaller _claudeHookInstaller;
@@ -218,6 +219,7 @@ public sealed class SettingsViewModel : ObservableObject
         OpenDeveloperLogFolderCommand = new RelayCommand(OpenDeveloperLogFolder);
         CheckForGitHubUpdateCommand = new AsyncRelayCommand(CheckForGitHubUpdateAsync);
         OpenGitHubRepositoryCommand = new RelayCommand(OpenGitHubRepository);
+        OpenGitHubReleasesCommand = new RelayCommand(OpenGitHubReleases);
         OpenUpdateCommand = new RelayCommand(OpenUpdate);
         RefreshStatus();
         _ = RefreshUpdateStatusAsync();
@@ -777,6 +779,7 @@ public sealed class SettingsViewModel : ObservableObject
     public ICommand OpenDeveloperLogFolderCommand { get; }
     public ICommand CheckForGitHubUpdateCommand { get; }
     public ICommand OpenGitHubRepositoryCommand { get; }
+    public ICommand OpenGitHubReleasesCommand { get; }
     public ICommand OpenUpdateCommand { get; }
     public ObservableCollection<TaskbarMonitorOption> TaskbarMonitors { get; }
     public ObservableCollection<CodexApiEndpointSettingsViewModel> CodexApiEndpoints { get; }
@@ -906,6 +909,18 @@ public sealed class SettingsViewModel : ObservableObject
         catch (System.ComponentModel.Win32Exception)
         {
             TestResult = "The GitHub repository could not be opened.";
+        }
+    }
+
+    private void OpenGitHubReleases()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(GitHubReleasesUri.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            TestResult = "The GitHub releases page could not be opened.";
         }
     }
 
