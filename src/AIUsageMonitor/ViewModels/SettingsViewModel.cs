@@ -1187,12 +1187,14 @@ public sealed class SettingsViewModel : ObservableObject
 
             existing.ApplyState(
                 monitor.DisplayName,
-                monitor.UsesRightOffset,
+                monitor.HasTrayIcons,
                 monitor.IsEnabled,
                 monitor.TextSize,
                 monitor.IconSize,
                 monitor.TextVerticalOffset,
-                monitor.RightOffset);
+                monitor.LeftOffsetRaw,
+                monitor.RightOffsetRaw,
+                monitor.Alignment);
         }
     }
 

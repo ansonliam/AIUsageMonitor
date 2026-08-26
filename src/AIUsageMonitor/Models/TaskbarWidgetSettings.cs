@@ -43,4 +43,12 @@ public sealed class TaskbarMonitorAppearanceSettings
     public double TextVerticalOffset { get; init; }
     // Nullable distinguishes older settings with no offset from an intentional 0px offset.
     public double? RightOffset { get; init; }
+    // Stored separately from RightOffset: left and right alignment each remember their own
+    // offset, so switching sides doesn't carry one over as the other's value. Defaults to 0 -
+    // left alignment starts flush with the taskbar's left edge.
+    public double? LeftOffset { get; init; }
+    // "Left" or "Right". Defaults to "Right" so settings files written before per-monitor
+    // alignment existed keep their original placement (flush against the tray, or offset in from
+    // the right edge on a secondary monitor).
+    public string Alignment { get; init; } = "Right";
 }

@@ -500,32 +500,71 @@
                         <DataTemplate>
                             <Grid Margin="0,3,0,3">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="205" />
+                                    <ColumnDefinition Width="185" />
                                     <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="64" />
+                                    <ColumnDefinition Width="40" />
                                     <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="64" />
+                                    <ColumnDefinition Width="40" />
                                     <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="64" />
+                                    <ColumnDefinition Width="40" />
                                     <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="64" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <CheckBox Grid.Column="0" IsChecked="{Binding IsEnabled, Mode=TwoWay}" Content="{Binding DisplayName}" />
-                                <TextBlock Grid.Column="1" Margin="12,0,5,0" VerticalAlignment="Center" Text="Text px" />
-                                <TextBox Grid.Column="2" HorizontalContentAlignment="Right" Text="{Binding TextSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                <TextBlock Grid.Column="3" Margin="12,0,5,0" VerticalAlignment="Center" Text="Icon px" />
-                                <TextBox Grid.Column="4" HorizontalContentAlignment="Right" Text="{Binding IconSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                <TextBlock Grid.Column="5" Margin="12,0,5,0" VerticalAlignment="Center" Text="Vertical px" />
-                                <TextBox Grid.Column="6" HorizontalContentAlignment="Right" Text="{Binding TextVerticalOffset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                <TextBlock Grid.Column="7"
-                                           Margin="12,0,5,0"
-                                           VerticalAlignment="Center"
-                                           Text="Right offset px"
-                                           Visibility="{Binding UsesRightOffset, Converter={StaticResource BooleanToVisibilityConverter}}" />
-                                <TextBox Grid.Column="8"
-                                         HorizontalContentAlignment="Right"
-                                         Text="{Binding RightOffset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                         Visibility="{Binding UsesRightOffset, Converter={StaticResource BooleanToVisibilityConverter}}" />
+                                <Border Grid.Column="1"
+                                        Width="46"
+                                        Height="20"
+                                        Margin="12,0,0,0"
+                                        VerticalAlignment="Center"
+                                        Background="#FFD6DBE1"
+                                        CornerRadius="10"
+                                        Cursor="Hand"
+                                        MouseLeftButtonUp="AlignToggle_Click"
+                                        ToolTip="Align widget to the left or right edge of this monitor's taskbar">
+                                    <Grid>
+                                        <Border Width="20"
+                                                Height="20"
+                                                Background="#FF4D8DC4"
+                                                CornerRadius="10">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="HorizontalAlignment" Value="Left" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding AlignRight}" Value="True">
+                                                            <Setter Property="HorizontalAlignment" Value="Right" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+                                        <TextBlock Margin="6,0,0,0"
+                                                   HorizontalAlignment="Left"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="9"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="White"
+                                                   IsHitTestVisible="False"
+                                                   Text="L" />
+                                        <TextBlock Margin="0,0,6,0"
+                                                   HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="9"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="White"
+                                                   IsHitTestVisible="False"
+                                                   Text="R" />
+                                    </Grid>
+                                </Border>
+                                <TextBlock Grid.Column="2" Margin="12,0,5,0" VerticalAlignment="Center" Text="Text px" />
+                                <TextBox Grid.Column="3" HorizontalContentAlignment="Right" Text="{Binding TextSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Grid.Column="4" Margin="12,0,5,0" VerticalAlignment="Center" Text="Icon px" />
+                                <TextBox Grid.Column="5" HorizontalContentAlignment="Right" Text="{Binding IconSize, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Grid.Column="6" Margin="12,0,5,0" VerticalAlignment="Center" Text="Vertical px" />
+                                <TextBox Grid.Column="7" HorizontalContentAlignment="Right" Text="{Binding TextVerticalOffset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <StackPanel Grid.Column="8" Orientation="Horizontal" Visibility="{Binding ShowOffsetField, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Margin="12,0,5,0" VerticalAlignment="Center" Text="Offset px" />
+                                    <TextBox Width="40" HorizontalContentAlignment="Right" Text="{Binding OffsetPx, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
                             </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

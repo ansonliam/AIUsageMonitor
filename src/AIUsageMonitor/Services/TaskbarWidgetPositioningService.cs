@@ -30,7 +30,8 @@ public sealed class TaskbarWidgetPositioningService
         double widgetWidthDip,
         IntPtr taskbarHandle,
         bool useTrayAnchor,
-        double secondaryRightOffsetDip,
+        bool alignLeft,
+        double offsetDip,
         out double left,
         out double top,
         out double taskbarHeightDip)
@@ -44,7 +45,9 @@ public sealed class TaskbarWidgetPositioningService
             return false;
         }
 
-        var trayNotifyHandle = useTrayAnchor ? TaskbarInterop.FindTrayNotifyArea(taskbarHandle) : IntPtr.Zero;
+        // Left alignment ignores the tray entirely - it is measured from the taskbar's own left
+        // edge, not from wherever the tray icons happen to start.
+        var trayNotifyHandle = useTrayAnchor && !alignLeft ? TaskbarInterop.FindTrayNotifyArea(taskbarHandle) : IntPtr.Zero;
         var anchorPixels = taskbarRect.Left;
         if (trayNotifyHandle != IntPtr.Zero && TaskbarInterop.GetWindowRect(trayNotifyHandle, out var trayRect))
         {
@@ -69,9 +72,11 @@ public sealed class TaskbarWidgetPositioningService
             return false;
         }
 
-        left = trayNotifyHandle == IntPtr.Zero
-            ? taskbarRightDip - widgetWidthDip - Math.Max(0, secondaryRightOffsetDip)
-            : anchorDip - widgetWidthDip;
+        left = alignLeft
+            ? taskbarTopLeftDip.X + Math.Max(0, offsetDip)
+            : trayNotifyHandle == IntPtr.Zero
+                ? taskbarRightDip - widgetWidthDip - Math.Max(0, offsetDip)
+                : anchorDip - widgetWidthDip;
         top = taskbarTopLeftDip.Y;
         return true;
     }

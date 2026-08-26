@@ -18,6 +18,7 @@ public partial class TaskbarWidgetWindow : Window
     private static readonly TimeSpan WatchdogInterval = TimeSpan.FromSeconds(10);
     private const double PositionToleranceDip = 1.0;
     private const double DefaultSecondaryRightOffset = 120;
+    private const double DefaultLeftOffset = 0;
 
     // Explorer re-asserts its own topmost slot as part of taskbar interaction, and can do so a
     // moment AFTER we re-assert ours - whichever SetWindowPos(HWND_TOPMOST) call lands last wins
@@ -103,7 +104,9 @@ public partial class TaskbarWidgetWindow : Window
     public string TaskbarFont { get; private set; } = "Chakra Petch";
     public string TaskbarTextWeight { get; private set; } = "Regular";
     public double TaskbarTextVerticalOffset { get; private set; }
+    public double TaskbarLeftOffset { get; private set; }
     public double TaskbarRightOffset { get; private set; } = DefaultSecondaryRightOffset;
+    public string TaskbarAlignment { get; private set; } = "Right";
     public string GreenColorHex { get; private set; } = "#2ECC71";
     public string LimeColorHex { get; private set; } = "#9ACD32";
     public string YellowColorHex { get; private set; } = "#FFD21E";
@@ -286,8 +289,10 @@ public partial class TaskbarWidgetWindow : Window
                     appearance.TextSize,
                     appearance.IconSize,
                     appearance.TextVerticalOffset,
+                    appearance.LeftOffset ?? DefaultLeftOffset,
                     appearance.RightOffset ?? DefaultSecondaryRightOffset,
-                    !monitor.HasTrayIcons,
+                    NormalizeTaskbarAlignment(appearance.Alignment),
+                    monitor.HasTrayIcons,
                     SetMonitorEnabled,
                     SetMonitorAppearance);
             })
@@ -329,26 +334,40 @@ public partial class TaskbarWidgetWindow : Window
                 TextSize = TaskbarFontSize,
                 IconSize = TaskbarIconSize,
                 TextVerticalOffset = TaskbarTextVerticalOffset,
-                RightOffset = DefaultSecondaryRightOffset
+                LeftOffset = DefaultLeftOffset,
+                RightOffset = DefaultSecondaryRightOffset,
+                Alignment = "Right"
             };
 
-    private void SetMonitorAppearance(string monitorId, double textSize, double iconSize, double verticalOffset, double rightOffset)
+    private static string NormalizeTaskbarAlignment(string? alignment) => alignment switch
+    {
+        "Left" => "Left",
+        _ => "Right"
+    };
+
+    private void SetMonitorAppearance(string monitorId, double textSize, double iconSize, double verticalOffset, double leftOffset, double rightOffset, string alignment)
     {
         var normalizedTextSize = double.IsFinite(textSize) ? Math.Max(1, Math.Round(textSize)) : 1;
         var normalizedIconSize = double.IsFinite(iconSize) ? Math.Max(1, Math.Round(iconSize)) : 1;
         var normalizedOffset = double.IsFinite(verticalOffset) ? verticalOffset : 0;
+        var normalizedLeftOffset = double.IsFinite(leftOffset) ? Math.Max(0, leftOffset) : DefaultLeftOffset;
         var normalizedRightOffset = double.IsFinite(rightOffset) ? Math.Max(0, rightOffset) : DefaultSecondaryRightOffset;
+        var normalizedAlignment = NormalizeTaskbarAlignment(alignment);
         var sourceAppearance = new TaskbarMonitorAppearanceSettings
         {
             MonitorId = monitorId,
             TextSize = normalizedTextSize,
             IconSize = normalizedIconSize,
             TextVerticalOffset = normalizedOffset,
-            RightOffset = normalizedRightOffset
+            LeftOffset = normalizedLeftOffset,
+            RightOffset = normalizedRightOffset,
+            Alignment = normalizedAlignment
         };
         _monitorAppearances[monitorId] = sourceAppearance;
         if (SyncTaskbarMonitorAppearance)
         {
+            // Alignment and offset are per-monitor placement, not shared appearance - each
+            // monitor's own values are kept even while size/vertical offset sync.
             foreach (var id in _enabledMonitorIds.Where(id => !string.Equals(id, monitorId, StringComparison.OrdinalIgnoreCase)))
             {
                 var current = GetMonitorAppearance(id);
@@ -358,7 +377,9 @@ public partial class TaskbarWidgetWindow : Window
                     TextSize = normalizedTextSize,
                     IconSize = normalizedIconSize,
                     TextVerticalOffset = normalizedOffset,
-                    RightOffset = current.RightOffset ?? DefaultSecondaryRightOffset
+                    LeftOffset = current.LeftOffset ?? DefaultLeftOffset,
+                    RightOffset = current.RightOffset ?? DefaultSecondaryRightOffset,
+                    Alignment = current.Alignment
                 };
             }
         }
@@ -388,8 +409,11 @@ public partial class TaskbarWidgetWindow : Window
         window.TaskbarFontSize = appearance.TextSize;
         window.TaskbarIconSize = appearance.IconSize;
         window.TaskbarTextVerticalOffset = appearance.TextVerticalOffset;
+        window.TaskbarLeftOffset = appearance.LeftOffset ?? DefaultLeftOffset;
         window.TaskbarRightOffset = appearance.RightOffset ?? DefaultSecondaryRightOffset;
+        window.TaskbarAlignment = NormalizeTaskbarAlignment(appearance.Alignment);
         window.ApplyFontPresentation();
+        window.Reposition();
     }
 
     public void SetTaskbarIconSize(double iconSize)
@@ -781,7 +805,9 @@ public partial class TaskbarWidgetWindow : Window
         TaskbarFont = owner.TaskbarFont;
         TaskbarTextWeight = owner.TaskbarTextWeight;
         TaskbarTextVerticalOffset = appearance.TextVerticalOffset;
+        TaskbarLeftOffset = appearance.LeftOffset ?? DefaultLeftOffset;
         TaskbarRightOffset = appearance.RightOffset ?? DefaultSecondaryRightOffset;
+        TaskbarAlignment = NormalizeTaskbarAlignment(appearance.Alignment);
         GreenColorHex = owner.GreenColorHex;
         LimeColorHex = owner.LimeColorHex;
         YellowColorHex = owner.YellowColorHex;
@@ -1024,7 +1050,8 @@ public partial class TaskbarWidgetWindow : Window
                 ActualWidth,
                 monitor.TaskbarHandle,
                 monitor.HasTrayIcons,
-                TaskbarRightOffset,
+                TaskbarAlignment == "Left",
+                TaskbarAlignment == "Left" ? TaskbarLeftOffset : TaskbarRightOffset,
                 out var left,
                 out var top,
                 out var taskbarHeight))
@@ -1107,7 +1134,8 @@ public partial class TaskbarWidgetWindow : Window
                 ActualWidth,
                 monitor.TaskbarHandle,
                 monitor.HasTrayIcons,
-                TaskbarRightOffset,
+                TaskbarAlignment == "Left",
+                TaskbarAlignment == "Left" ? TaskbarLeftOffset : TaskbarRightOffset,
                 out var expectedLeft,
                 out var expectedTop,
                 out var expectedHeight) &&

@@ -1,8 +1,10 @@
 using System.Drawing;
 using System.Windows;
+using System.Windows.Input;
 using Forms = System.Windows.Forms;
 using WpfButton = System.Windows.Controls.Button;
 using WpfTextBox = System.Windows.Controls.TextBox;
+using AIUsageMonitor.Models;
 using AIUsageMonitor.ViewModels;
 
 namespace AIUsageMonitor.Views;
@@ -35,6 +37,16 @@ public partial class SettingsWindow : Window
         {
             textBox.Text = $"#{dialog.Color.R:X2}{dialog.Color.G:X2}{dialog.Color.B:X2}";
         }
+    }
+
+    private void AlignToggle_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: TaskbarMonitorOption option })
+        {
+            return;
+        }
+
+        option.AlignRight = !option.AlignRight;
     }
 
     private static Color? TryParseColor(string text)
