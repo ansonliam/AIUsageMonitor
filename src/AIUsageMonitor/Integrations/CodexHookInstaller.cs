@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Runtime.InteropServices;
 using System.IO;
 
 namespace AIUsageMonitor.Integrations;
@@ -7,11 +8,28 @@ namespace AIUsageMonitor.Integrations;
 public sealed class CodexHookInstaller
 {
     private const string NotifyArgument = "codex";
-    private readonly string _codexDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".codex");
+    private const string LauncherFileName = "codex-notify.cmd";
+    private readonly string _codexDirectory;
+    private readonly string _launcherDirectory;
+
+    public CodexHookInstaller()
+        : this(
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex"),
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AIUsageMonitor",
+                "hooks"))
+    {
+    }
+
+    internal CodexHookInstaller(string codexDirectory, string launcherDirectory)
+    {
+        _codexDirectory = codexDirectory;
+        _launcherDirectory = launcherDirectory;
+    }
 
     public string ConfigurationPath => Path.Combine(_codexDirectory, "hooks.json");
+    internal string WindowsLauncherPath => Path.Combine(_launcherDirectory, LauncherFileName);
 
     public HookInstallationStatus GetStatus()
     {
@@ -38,7 +56,7 @@ public sealed class CodexHookInstaller
             var executable = Environment.ProcessPath;
             return handlers.Count == 1 &&
                    executable is not null &&
-                   GetCommand(handlers[0])?.Contains(executable, StringComparison.OrdinalIgnoreCase) == true
+                   IsCurrentHandler(handlers[0], executable)
                 ? HookInstallationStatus.Installed
                 : HookInstallationStatus.InvalidConfiguration;
         }
@@ -93,6 +111,7 @@ public sealed class CodexHookInstaller
         var executable = Environment.ProcessPath
             ?? throw new InvalidOperationException("The application path could not be determined.");
         var command = $"\"{executable}\" {string.Join(' ', HookProtocol.CreateArguments(NotifyArgument))}";
+        await WriteWindowsLauncherAsync(executable, cancellationToken);
         stopGroups.Add(new JsonObject
         {
             ["hooks"] = new JsonArray
@@ -101,8 +120,8 @@ public sealed class CodexHookInstaller
                 {
                     ["type"] = "command",
                     ["command"] = command,
-                    ["commandWindows"] = command,
-                    ["async"] = true,
+                    ["commandWindows"] = BuildWindowsCommand(),
+                    ["async"] = false,
                     ["timeout"] = 10
                 }
             }
@@ -157,9 +176,10 @@ public sealed class CodexHookInstaller
             root.ToJsonString(options) + Environment.NewLine,
             cancellationToken);
         File.Move(temporaryPath, hooksPath, overwrite: true);
+        DeleteWindowsLauncher();
     }
 
-    private static IEnumerable<JsonObject> FindOwnedHandlers(JsonNode? root)
+    private IEnumerable<JsonObject> FindOwnedHandlers(JsonNode? root)
     {
         if (root?["hooks"]?["Stop"] is not JsonArray groups)
         {
@@ -183,7 +203,7 @@ public sealed class CodexHookInstaller
         }
     }
 
-    private static bool RemoveOwnedHandlers(JsonArray groups)
+    private bool RemoveOwnedHandlers(JsonArray groups)
     {
         var removed = false;
         for (var groupIndex = groups.Count - 1; groupIndex >= 0; groupIndex--)
@@ -229,8 +249,87 @@ public sealed class CodexHookInstaller
         return null;
     }
 
-    private static bool IsOwnedHandler(JsonObject handler)
+    private bool IsCurrentHandler(JsonObject handler, string executable)
     {
+        var command = GetCommand(handler);
+        if (command is null || !File.Exists(WindowsLauncherPath))
+        {
+            return false;
+        }
+
+        if (!string.Equals(GetWindowsCommand(handler), BuildWindowsCommand(), StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var expectedLauncher = BuildWindowsLauncherContents(executable);
+        return string.Equals(File.ReadAllText(WindowsLauncherPath), expectedLauncher, StringComparison.Ordinal);
+    }
+
+    private async Task WriteWindowsLauncherAsync(string executable, CancellationToken cancellationToken)
+    {
+        Directory.CreateDirectory(_launcherDirectory);
+        var launcherPath = WindowsLauncherPath;
+        var temporaryPath = launcherPath + ".tmp";
+        await File.WriteAllTextAsync(
+            temporaryPath,
+            BuildWindowsLauncherContents(executable),
+            cancellationToken);
+        File.Move(temporaryPath, launcherPath, overwrite: true);
+    }
+
+    private void DeleteWindowsLauncher()
+    {
+        if (File.Exists(WindowsLauncherPath))
+        {
+            File.Delete(WindowsLauncherPath);
+        }
+    }
+
+    private string BuildWindowsCommand() =>
+        $"cmd.exe /c {GetQuoteFreePath(WindowsLauncherPath)}";
+
+    internal static string BuildWindowsLauncherContents(string executable) =>
+        $"@echo off{Environment.NewLine}\"{executable}\" {string.Join(' ', HookProtocol.CreateArguments(NotifyArgument))}{Environment.NewLine}exit /b %ERRORLEVEL%{Environment.NewLine}";
+
+    private static string GetQuoteFreePath(string path)
+    {
+        if (!path.Contains(' ', StringComparison.Ordinal))
+        {
+            return path;
+        }
+
+        var buffer = new char[512];
+        var length = GetShortPathName(path, buffer, buffer.Length);
+        if (length > 0 && length < buffer.Length)
+        {
+            var shortPath = new string(buffer, 0, (int)length);
+            if (!shortPath.Contains(' ', StringComparison.Ordinal))
+            {
+                return shortPath;
+            }
+        }
+
+        throw new InvalidOperationException(
+            "Codex needs a quote-free Windows hook launcher path, but Windows did not provide one.");
+    }
+
+    private static string? GetWindowsCommand(JsonObject handler) =>
+        handler["commandWindows"] is JsonValue value && value.TryGetValue<string>(out var command)
+            ? command
+            : null;
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern uint GetShortPathName(string longPath, char[] shortPath, int bufferLength);
+
+    private bool IsOwnedHandler(JsonObject handler)
+    {
+        if (File.Exists(WindowsLauncherPath) &&
+            string.Equals(GetWindowsCommand(handler), BuildWindowsCommand(), StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         var command = GetCommand(handler);
         if (command is null)
         {

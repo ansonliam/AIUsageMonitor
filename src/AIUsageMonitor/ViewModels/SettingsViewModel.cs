@@ -1240,7 +1240,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             await _codexHookInstaller.InstallOrRepairAsync();
             RefreshStatus();
-            TestResult = "Hook installed. Restart Codex, then use /hooks to confirm it is active and trusted.";
+            TestResult = "Hook installed. In Codex CLI, use /hooks to trust this changed hook, then restart Codex.";
         }
         catch (Exception)
         {
