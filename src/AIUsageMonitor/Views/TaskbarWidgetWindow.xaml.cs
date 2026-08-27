@@ -75,6 +75,11 @@ public partial class TaskbarWidgetWindow : Window
     // EVENT_OBJECT_LOCATIONCHANGE fires continuously while a window is dragged or resized, so the
     // re-check is coalesced to one queued dispatch rather than one per event.
     private bool _fullscreenCheckQueued;
+    // Sleep/wake and display reconnects can deliver several WM_DISPLAYCHANGE messages while WPF
+    // is still tearing down a secondary window. Reconcile once after the current native message
+    // has unwound so a closed window can never be picked up by a nested synchronization pass.
+    private bool _displayRefreshQueued;
+    private bool _isClosed;
     // Kept alive for the hook's lifetime - SetWinEventHook only stores a native function pointer
     // to the delegate, so letting it be collected would leave the hook calling into freed memory.
     private readonly TaskbarInterop.WinEventDelegate _foregroundChangedHandler;
@@ -654,6 +659,11 @@ public partial class TaskbarWidgetWindow : Window
 
     private void ApplyWindowVisibility()
     {
+        if (_isClosed)
+        {
+            return;
+        }
+
         var monitor = GetTargetMonitor();
         var isEnabledForMonitor = _owner is null
             ? monitor is not null && _enabledMonitorIds.Contains(monitor.Id)
@@ -775,13 +785,22 @@ public partial class TaskbarWidgetWindow : Window
         var requiredIds = _enabledMonitorIds.Where(id => !string.Equals(id, trayMonitorId, StringComparison.OrdinalIgnoreCase)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var id in _secondaryWindows.Keys.Where(id => !requiredIds.Contains(id)).ToArray())
         {
-            _secondaryWindows[id].Close();
+            // Remove first: Close pumps native window messages. A re-entrant display-change pass
+            // must not be able to retrieve this window after WPF has permanently closed it.
+            var window = _secondaryWindows[id];
             _secondaryWindows.Remove(id);
+            window.Close();
         }
 
         foreach (var monitor in monitors.Where(monitor => requiredIds.Contains(monitor.Id)))
         {
-            if (!_secondaryWindows.TryGetValue(monitor.Id, out var window))
+            if (_secondaryWindows.TryGetValue(monitor.Id, out var window) && window._isClosed)
+            {
+                _secondaryWindows.Remove(monitor.Id);
+                window = null;
+            }
+
+            if (window is null)
             {
                 window = new TaskbarWidgetWindow(_viewModel, _settingsStore, _positioningService, _monitorService, _mainViewModel, _applicationController, _idleTimeProvider, monitor.Id, this);
                 _secondaryWindows.Add(monitor.Id, window);
@@ -995,17 +1014,38 @@ public partial class TaskbarWidgetWindow : Window
 
         if (message == TaskbarInterop.WmDisplayChange || (uint)message == _taskbarCreatedMessage)
         {
+            QueueDisplayRefresh();
+        }
+
+        return IntPtr.Zero;
+    }
+
+    private void QueueDisplayRefresh()
+    {
+        if (_isClosed || _displayRefreshQueued)
+        {
+            return;
+        }
+
+        _displayRefreshQueued = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            _displayRefreshQueued = false;
+            if (_isClosed)
+            {
+                return;
+            }
+
             // Explorer restarting or a display change invalidates whichever handles were cached
-            // for the location-change filter above.
+            // for the location-change filter. Deferring this work also coalesces the burst of
+            // messages emitted while sleeping monitors disappear and return.
             RefreshCachedTaskbarHandles();
             SynchronizeSecondaryWindows();
             // Which monitor this widget lives on may have just changed, and that monitor is what
             // the fullscreen check is asked about.
             QueueFullscreenCheck();
-            Dispatcher.BeginInvoke(Reposition, DispatcherPriority.Background);
-        }
-
-        return IntPtr.Zero;
+            Reposition();
+        }, DispatcherPriority.Background);
     }
 
     // Rewrites a pending z-order change to this window in place, before Windows applies it.
@@ -1158,6 +1198,7 @@ public partial class TaskbarWidgetWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _isClosed = true;
         _watchdogTimer.Stop();
         _settleTimer.Stop();
         _windowSource?.RemoveHook(WindowMessageHook);
