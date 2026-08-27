@@ -56,8 +56,10 @@ public partial class App : System.Windows.Application, IApplicationController
 
         var services = new ServiceCollection();
         var developerModeSettings = new DeveloperModeSettingsStore();
+        var hookSetupSettings = new HookSetupSettingsStore();
         _developerLogging = new DeveloperLoggingService(developerModeSettings);
         services.AddSingleton(developerModeSettings);
+        services.AddSingleton(hookSetupSettings);
         services.AddSingleton(_developerLogging);
         services.AddLogging(builder => builder
             .AddDebug()
@@ -148,7 +150,7 @@ public partial class App : System.Windows.Application, IApplicationController
             mainWindow.Stage4MaxPercent,
             mainWindow.Stage5MaxPercent);
         taskbarWidgetWindow.ApplyStartupVisibility();
-        await PromptForMissingHooksAsync();
+        await PromptForHookSetupAsync();
         _ = _services.GetRequiredService<CodexApiCostService>().RefreshAsync("Startup");
         await _services.GetRequiredService<UsagePollingService>().StartAsync();
     }
@@ -290,14 +292,9 @@ public partial class App : System.Windows.Application, IApplicationController
     private static bool TryGetNotificationProvider(string[] args, out string provider)
         => HookProtocol.TryReadNotification(args, out provider);
 
-    private async Task PromptForMissingHooksAsync()
+    private async Task PromptForHookSetupAsync()
     {
         if (_services is null || MainWindow is null)
-        {
-            return;
-        }
-
-        if (!_services.GetRequiredService<AutoRefreshOptions>().Enabled)
         {
             return;
         }
@@ -306,75 +303,88 @@ public partial class App : System.Windows.Application, IApplicationController
         var claudeInstaller = _services.GetRequiredService<ClaudeHookInstaller>();
         var antigravityInstaller = _services.GetRequiredService<AntigravityHookInstaller>();
         var cursorInstaller = _services.GetRequiredService<CursorHookInstaller>();
-        var missingHooks = new List<(string Name, Func<Task> Install)>();
-
-        if (NeedsInstall(codexInstaller.GetStatus()))
+        var installers = new[]
         {
-            missingHooks.Add(("Codex", () => codexInstaller.InstallOrRepairAsync()));
-        }
+            new HookCandidate("codex", "Codex", codexInstaller.GetStatus, () => codexInstaller.InstallOrRepairAsync()),
+            new HookCandidate("claude", "Claude Code", claudeInstaller.GetStatus, () => claudeInstaller.InstallOrRepairAsync()),
+            new HookCandidate("antigravity", "Google Antigravity", antigravityInstaller.GetStatus, () => antigravityInstaller.InstallOrRepairAsync()),
+            new HookCandidate("cursor", "Cursor", cursorInstaller.GetStatus, () => cursorInstaller.InstallOrRepairAsync())
+        };
+        var settingsStore = _services.GetRequiredService<HookSetupSettingsStore>();
+        var previousSettings = settingsStore.Load();
+        var statuses = installers.ToDictionary(candidate => candidate.Key, candidate => candidate.GetStatus());
+        var options = installers
+            .Where(candidate => ShouldOfferSetup(candidate, statuses[candidate.Key], previousSettings))
+            .Select(candidate => new HookSetupOption(
+                candidate.Key,
+                candidate.DisplayName,
+                statuses[candidate.Key] == HookInstallationStatus.InvalidConfiguration))
+            .ToArray();
 
-        if (NeedsInstall(claudeInstaller.GetStatus()))
+        IReadOnlyCollection<string> selectedKeys = Array.Empty<string>();
+        if (options.Length > 0)
         {
-            missingHooks.Add(("Claude Code", () => claudeInstaller.InstallOrRepairAsync()));
-        }
-
-        if (NeedsInstall(antigravityInstaller.GetStatus()))
-        {
-            missingHooks.Add(("Google Antigravity", () => antigravityInstaller.InstallOrRepairAsync()));
-        }
-
-        if (NeedsInstall(cursorInstaller.GetStatus()))
-        {
-            missingHooks.Add(("Cursor", () => cursorInstaller.InstallOrRepairAsync()));
-        }
-
-        if (missingHooks.Count == 0)
-        {
-            return;
-        }
-
-        var providerNames = string.Join(" and ", missingHooks.Select(hook => hook.Name));
-        var result = System.Windows.MessageBox.Show(
-            MainWindow,
-            $"Automatic usage refresh hooks are not installed or need repair for {providerNames}.\n\n" +
-            "Install them automatically now? Existing settings and unrelated hooks will be preserved.",
-            "Install usage refresh hooks?",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question,
-            MessageBoxResult.Yes);
-
-        if (result != MessageBoxResult.Yes)
-        {
-            return;
+            var window = new HookSetupWindow(options) { Owner = MainWindow };
+            if (window.ShowDialog() == true)
+            {
+                selectedKeys = window.SelectedKeys;
+            }
         }
 
         var failures = new List<string>();
-        foreach (var hook in missingHooks)
+        foreach (var candidate in installers.Where(candidate => selectedKeys.Contains(candidate.Key)))
         {
-            try
-            {
-                await hook.Install();
-            }
-            catch (Exception)
-            {
-                failures.Add(hook.Name);
-            }
+            try { await candidate.Install(); }
+            catch (Exception) { failures.Add(candidate.DisplayName); }
         }
 
+        SaveHookSetupState(settingsStore, installers);
         if (failures.Count > 0)
         {
-            System.Windows.MessageBox.Show(
-                MainWindow,
-                $"The hook could not be installed for {string.Join(" and ", failures)}. " +
-                "Open Settings from the tray icon to install or repair it.",
-                "Hook installation incomplete",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
+            System.Windows.MessageBox.Show(MainWindow, $"Could not set up {string.Join(" and ", failures)}. You can repair it from Settings.",
+                "Hook setup incomplete", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
-    private static bool NeedsInstall(HookInstallationStatus status) =>
-        status == HookInstallationStatus.NotInstalled;
+    private static bool ShouldOfferSetup(HookCandidate candidate, HookInstallationStatus status, HookSetupSettings settings)
+    {
+        if (status == HookInstallationStatus.ClientNotDetected || status == HookInstallationStatus.Installed)
+        {
+            return false;
+        }
+
+        if (status == HookInstallationStatus.InvalidConfiguration)
+        {
+            return true;
+        }
+
+        return !settings.Providers.TryGetValue(candidate.Key, out var previous) ||
+               !previous.IsDetected ||
+               previous.IsHookInstalled;
+    }
+
+    private static void SaveHookSetupState(HookSetupSettingsStore settingsStore, IEnumerable<HookCandidate> candidates)
+    {
+        var providers = candidates.ToDictionary(
+            candidate => candidate.Key,
+            candidate =>
+            {
+                var status = candidate.GetStatus();
+                return new HookSetupProviderSettings
+                {
+                    IsDetected = status != HookInstallationStatus.ClientNotDetected,
+                    IsHookInstalled = status == HookInstallationStatus.Installed
+                };
+            },
+            StringComparer.OrdinalIgnoreCase);
+        settingsStore.TrySave(new HookSetupSettings { Providers = providers });
+    }
+
+    private sealed record HookCandidate(
+        string Key,
+        string DisplayName,
+        Func<HookInstallationStatus> GetStatus,
+        Func<Task> Install);
 
     private void OnDispatcherUnhandledException(
         object sender,
