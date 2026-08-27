@@ -7,7 +7,12 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Controls.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Fonts.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Dark.Teal.xaml" />
+                <!-- Keep the application default light, like AngesnHardwareMonitor. The Windows
+                     widget explicitly paints its dark cards and text, while Settings explicitly
+                     paints its light dialog palette, so their visible surfaces stay unchanged.
+                     The Windows widget's right-click menu intentionally follows this light
+                     default. -->
+                <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Light.Teal.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <Style TargetType="Window">
                 <Setter Property="Background" Value="{DynamicResource MahApps.Brushes.ThemeBackground}" />
