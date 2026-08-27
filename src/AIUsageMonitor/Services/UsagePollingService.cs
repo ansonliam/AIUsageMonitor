@@ -5,6 +5,10 @@ namespace AIUsageMonitor.Services;
 
 public sealed class UsagePollingService : IDisposable
 {
+    // An unexpected failure must not permanently disable a provider's schedule. Keep the retry
+    // short enough to restore normal polling promptly, but long enough to avoid a tight error loop.
+    private static readonly TimeSpan FailureRetryDelay = TimeSpan.FromSeconds(30);
+
     private static readonly ProviderKind[] Providers =
     [
         ProviderKind.Codex,
@@ -60,9 +64,9 @@ public sealed class UsagePollingService : IDisposable
 
     private async Task PollAsync(ProviderKind provider, CancellationToken cancellationToken)
     {
-        try
+        while (!cancellationToken.IsCancellationRequested)
         {
-            while (!cancellationToken.IsCancellationRequested)
+            try
             {
                 var settingsChanged = GetSettingsChangedTask();
                 var providerReset = GetProviderResetTask(provider);
@@ -95,9 +99,27 @@ public sealed class UsagePollingService : IDisposable
                     idleTimeNow);
                 await _refreshService.RequestRefreshAsync(provider, RefreshReason.Scheduled);
             }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError(
+                    exception,
+                    "Scheduled polling cycle failed; retrying | Provider={Provider} | RetryDelay={RetryDelay}",
+                    provider,
+                    FailureRetryDelay);
+
+                try
+                {
+                    await Task.Delay(FailureRetryDelay, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+            }
         }
     }
 
