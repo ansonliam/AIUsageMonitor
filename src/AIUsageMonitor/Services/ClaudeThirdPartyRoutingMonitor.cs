@@ -27,13 +27,18 @@ public interface IClaudeThirdPartyRoutingState
 public sealed class ClaudeThirdPartyRoutingMonitor : IClaudeThirdPartyRoutingState, IDisposable
 {
     private static readonly TimeSpan ReloadDebounce = TimeSpan.FromMilliseconds(750);
+
+    // Distinct from both real states so the very first read is reported rather than silently
+    // matching the default. A first-party install would otherwise never log anything at all,
+    // leaving no record of why cost tracking is idle.
+    private const int Unknown = -1;
     private readonly string _claudeDirectory;
     private readonly Func<string, string?>? _getEnvironmentVariable;
     private readonly ILogger<ClaudeThirdPartyRoutingMonitor> _logger;
     private readonly FileSystemWatcher? _watcher;
     private readonly object _syncRoot = new();
     private System.Threading.Timer? _reloadTimer;
-    private int _isThirdPartyRouted;
+    private int _isThirdPartyRouted = Unknown;
 
     public ClaudeThirdPartyRoutingMonitor(ILogger<ClaudeThirdPartyRoutingMonitor> logger)
         : this(ClaudeAuthentication.GetClaudeDirectory(), logger)
@@ -101,15 +106,24 @@ public sealed class ClaudeThirdPartyRoutingMonitor : IClaudeThirdPartyRoutingSta
         }
 
         var next = isThirdPartyRouted ? 1 : 0;
-        if (Interlocked.Exchange(ref _isThirdPartyRouted, next) == next)
+        var previous = Interlocked.Exchange(ref _isThirdPartyRouted, next);
+        if (previous == next)
         {
             return;
         }
 
         _logger.LogInformation(
-            "Claude 3P routing changed | ApiCostTracking={ApiCostTracking}",
+            previous == Unknown
+                ? "Claude 3P routing resolved | ApiCostTracking={ApiCostTracking}"
+                : "Claude 3P routing changed | ApiCostTracking={ApiCostTracking}",
             isThirdPartyRouted ? "Enabled" : "Paused");
-        RoutingChanged?.Invoke(isThirdPartyRouted);
+
+        // The first read establishes the starting state rather than changing it - and it happens
+        // during construction, before anything can have subscribed.
+        if (previous != Unknown)
+        {
+            RoutingChanged?.Invoke(isThirdPartyRouted);
+        }
     }
 
     public void Dispose()

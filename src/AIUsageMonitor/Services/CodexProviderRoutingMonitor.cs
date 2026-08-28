@@ -27,6 +27,11 @@ public interface ICodexProviderRoutingState
 public sealed partial class CodexProviderRoutingMonitor : ICodexProviderRoutingState, IDisposable
 {
     private const string BuiltInOpenAiProvider = "openai";
+
+    // Distinct from both real states so the very first read is reported rather than silently
+    // matching the default. A machine that is not billed per token would otherwise never log
+    // anything at all, leaving no record of why cost tracking is idle.
+    private const int Unknown = -1;
     private static readonly TimeSpan ReloadDebounce = TimeSpan.FromMilliseconds(750);
     private readonly string _configPath;
     private readonly string _authPath;
@@ -35,7 +40,7 @@ public sealed partial class CodexProviderRoutingMonitor : ICodexProviderRoutingS
     private readonly FileSystemWatcher? _watcher;
     private readonly object _syncRoot = new();
     private System.Threading.Timer? _reloadTimer;
-    private int _isApiProvider;
+    private int _isApiProvider = Unknown;
 
     public CodexProviderRoutingMonitor(ILogger<CodexProviderRoutingMonitor> logger)
         : this(
@@ -212,15 +217,24 @@ public sealed partial class CodexProviderRoutingMonitor : ICodexProviderRoutingS
             _getEnvironmentVariable);
 
         var next = usesApiProvider ? 1 : 0;
-        if (Interlocked.Exchange(ref _isApiProvider, next) == next)
+        var previous = Interlocked.Exchange(ref _isApiProvider, next);
+        if (previous == next)
         {
             return;
         }
 
         _logger.LogInformation(
-            "Codex provider routing changed | ApiCostTracking={ApiCostTracking}",
+            previous == Unknown
+                ? "Codex provider routing resolved | ApiCostTracking={ApiCostTracking}"
+                : "Codex provider routing changed | ApiCostTracking={ApiCostTracking}",
             usesApiProvider ? "Enabled" : "Paused");
-        RoutingChanged?.Invoke(usesApiProvider);
+
+        // The first read establishes the starting state rather than changing it - and it happens
+        // during construction, before anything can have subscribed.
+        if (previous != Unknown)
+        {
+            RoutingChanged?.Invoke(usesApiProvider);
+        }
     }
 
     private static string? TryReadAllText(string path)

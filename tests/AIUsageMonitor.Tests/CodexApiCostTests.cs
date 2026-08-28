@@ -675,6 +675,42 @@ public sealed class CodexApiCostTests
             service.GetCurrentSummaries().Single(summary => summary.Name == "Example Azure Codex").MonthCost);
     }
 
+    [TestMethod]
+    public async Task Service_PausedProvider_KeepsEndpointVisibleAndHonoursSettingsEditedWhilePaused()
+    {
+        var root = CreateTempDirectory();
+        var runtimeRoot = Path.Combine(root, "codex");
+        var sessionsRoot = Path.Combine(runtimeRoot, "sessions");
+        var cacheRoot = Path.Combine(root, "cache");
+        Directory.CreateDirectory(sessionsRoot);
+
+        var now = DateTimeOffset.UtcNow;
+        var endpoint = MakeEndpoint("Original Name", "example.openai.azure.com", now.AddDays(-1));
+        var settingsStore = new CodexApiCostSettingsStore(Path.Combine(root, "settings.json"));
+        settingsStore.Save(new CodexApiCostSettings { Endpoints = [endpoint] });
+
+        // An endpoint that has never been scanned has no saved summary at all, and still has to
+        // appear - dropping it would make the tile disappear from the widget.
+        var pausedService = MakeService(runtimeRoot, sessionsRoot, cacheRoot, settingsStore, new StubCodexRoutingState(false));
+        await pausedService.RefreshAsync();
+
+        var summary = pausedService.GetCurrentSummaries().Single();
+        Assert.AreEqual(endpoint.Id, summary.EndpointId);
+        Assert.AreEqual("Original Name", summary.Name);
+        Assert.AreEqual(0m, summary.MonthCost);
+
+        // Renaming or hiding an endpoint while its provider is paused has to take effect straight
+        // away, even though the costs shown alongside come from the last saved summary.
+        endpoint.Name = "Renamed While Paused";
+        endpoint.ShowInWidget = false;
+        settingsStore.Save(new CodexApiCostSettings { Endpoints = [endpoint] });
+        await pausedService.RefreshAsync();
+
+        var renamed = pausedService.GetCurrentSummaries().Single();
+        Assert.AreEqual("Renamed While Paused", renamed.Name);
+        Assert.IsFalse(renamed.ShowInWidget);
+    }
+
     private static CodexApiCostService MakeService(
         string runtimeRoot,
         string sessionsRoot,

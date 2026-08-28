@@ -138,11 +138,12 @@ public sealed class CodexApiCostService
     private void RefreshCore(string trigger)
     {
         var startedAt = Stopwatch.GetTimestamp();
+        var scannedProviders = "None";
         try
         {
-            _logger.LogInformation(
-                "API cost scan started | Providers=OpenAI Codex,Claude Code | API=Local runtime/session logs | Trigger={Trigger}",
-                trigger);
+            // Logged from inside the lock, once the gates are known: which providers this pass
+            // actually scans is the whole point of the line, and it cannot be decided before the
+            // settings are read.
             lock (_syncRoot)
             {
                 // A provider is worth scanning only when its traffic is billed per token AND
@@ -153,6 +154,11 @@ public sealed class CodexApiCostService
                     settings.Endpoints.Any(e => e.Type == ApiEndpointType.CodexAzureOpenAI);
                 var trackClaude = ShouldTrackClaudeApiCost &&
                     settings.Endpoints.Any(e => e.Type == ApiEndpointType.ClaudeAwsBedrock);
+                scannedProviders = DescribeScannedProviders(trackCodex, trackClaude);
+                _logger.LogInformation(
+                    "API cost scan started | Providers={Providers} | API=Local runtime/session logs | Trigger={Trigger}",
+                    scannedProviders,
+                    trigger);
                 EnsureLoaded(trackCodex, trackClaude);
 
                 if (trackCodex)
@@ -211,39 +217,36 @@ public sealed class CodexApiCostService
                 var summaries = new Dictionary<Guid, CodexApiUsageSummary>();
                 foreach (var endpoint in settings.Endpoints)
                 {
-                    CodexApiUsageSummary? summary;
+                    CodexApiUsageSummary summary;
                     var saveSummary = true;
-                    if (endpoint.Type == ApiEndpointType.ClaudeAwsBedrock && trackClaude)
+                    if (endpoint.Type == ApiEndpointType.ClaudeAwsBedrock)
                     {
-                        summary = BuildClaudeSummary(endpoint, claudeEndpointCount, claudeRegionCounts);
+                        if (trackClaude)
+                        {
+                            summary = BuildClaudeSummary(endpoint, claudeEndpointCount, claudeRegionCounts);
+                        }
+                        else
+                        {
+                            summary = BuildPausedSummary(endpoint);
+                            saveSummary = false;
+                        }
                     }
-                    else if (endpoint.Type == ApiEndpointType.ClaudeAwsBedrock)
-                    {
-                        summary = _cache.LoadSummary(endpoint.Id);
-                        saveSummary = false;
-                    }
-                    else if (!trackCodex)
-                    {
-                        // Preserve the last small display summary without loading or rewriting the
-                        // multi-megabyte Codex attribution/usage caches while this provider has no
-                        // per-token billing to track.
-                        summary = _cache.LoadSummary(endpoint.Id);
-                        saveSummary = false;
-                    }
-                    else
+                    else if (trackCodex)
                     {
                         var isAmbiguousHost = endpoint.NormalizedHost.Length == 0 ||
                             hostCounts.GetValueOrDefault(endpoint.NormalizedHost) > 1;
                         summary = BuildSummary(endpoint, isAmbiguousHost);
                     }
-
-                    if (summary is not null)
+                    else
                     {
-                        summaries[endpoint.Id] = summary;
-                        if (saveSummary)
-                        {
-                            _cache.SaveSummary(summary);
-                        }
+                        summary = BuildPausedSummary(endpoint);
+                        saveSummary = false;
+                    }
+
+                    summaries[endpoint.Id] = summary;
+                    if (saveSummary)
+                    {
+                        _cache.SaveSummary(summary);
                     }
                 }
 
@@ -260,7 +263,8 @@ public sealed class CodexApiCostService
 
             SummariesUpdated?.Invoke();
             _logger.LogInformation(
-                "API cost scan completed | Providers=OpenAI Codex,Claude Code | API=Local runtime/session logs | Trigger={Trigger} | DurationMs={DurationMs}",
+                "API cost scan completed | Providers={Providers} | API=Local runtime/session logs | Trigger={Trigger} | DurationMs={DurationMs}",
+                scannedProviders,
                 trigger,
                 Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds);
         }
@@ -269,6 +273,35 @@ public sealed class CodexApiCostService
             // A Codex API Cost scan failure must never take the rest of the app down with it.
             _logger.LogWarning(exception, "[CodexApiCost] Refresh failed and was skipped");
         }
+    }
+
+    private static string DescribeScannedProviders(bool trackCodex, bool trackClaude) =>
+        (trackCodex, trackClaude) switch
+        {
+            (true, true) => "OpenAI Codex,Claude Code",
+            (true, false) => "OpenAI Codex",
+            (false, true) => "Claude Code",
+            _ => "None"
+        };
+
+    // The display summary for a provider that is not being scanned this pass. The last saved
+    // summary keeps its costs visible without loading or rewriting the multi-megabyte history
+    // caches, but it was written whenever the provider was last tracked - so the fields the user
+    // can still change while it is paused have to come from the current settings instead, and an
+    // endpoint with no saved summary at all still needs an entry or it would simply disappear
+    // from the widget.
+    private CodexApiUsageSummary BuildPausedSummary(CodexApiEndpointSettings endpoint)
+    {
+        var saved = _cache.LoadSummary(endpoint.Id) ?? new CodexApiUsageSummary { EndpointId = endpoint.Id };
+        return saved with
+        {
+            Name = endpoint.Name,
+            MonthlyBudget = endpoint.MonthlyBudget,
+            MonthlyBudgetPercent = endpoint.MonthlyBudget is > 0
+                ? (double)(saved.MonthCostHigh / endpoint.MonthlyBudget.Value * 100)
+                : null,
+            ShowInWidget = endpoint.ShowInWidget
+        };
     }
 
     private void EnsureLoaded(bool loadCodex, bool loadClaude)
