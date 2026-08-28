@@ -1383,7 +1383,9 @@ public partial class MainWindow : Window
 
     private void MainWindow_SourceInitialized(object? sender, EventArgs e)
     {
-        _windowSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+        var handle = new WindowInteropHelper(this).Handle;
+        TaskbarInterop.ApplyNonActivatingToolWindowStyle(handle);
+        _windowSource = HwndSource.FromHwnd(handle);
         _windowSource?.AddHook(WindowMessageHook);
     }
 
