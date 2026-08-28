@@ -1,10 +1,12 @@
 name: Build and release
 
 on:
-  # GitHub Actions cron is UTC: 19:00 UTC is 5:00 AM AEST / 6:00 AM AEDT.
+  # GitHub Actions cron is UTC: 19:17 UTC is 5:17 AM AEST / 6:17 AM AEDT.
+  # Avoid minute 0 because GitHub warns scheduled runs can be delayed or dropped
+  # during the high-load period at the start of each hour.
   # Scheduled workflows always use the latest commit on the default branch (main).
   schedule:
-    - cron: '0 19 * * *'
+    - cron: '17 19 * * *'
   workflow_dispatch:
 
 permissions:
