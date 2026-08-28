@@ -20,8 +20,17 @@ public sealed class CodexApiScanState
     // apply to newly appended lines, not the historical backlog.
     public const int CurrentUsageCacheSchemaVersion = 3;
 
-    // Zero means a cache created before schema versioning; it must be rebuilt.
+    // Zero means a cache created before schema versioning; it must be rebuilt. The two providers
+    // carry their own version because they are also tracked independently - a machine that only
+    // ever bills per token on one of them replays and stamps only that side, and must not be
+    // recorded as having rebuilt a cache it never loaded.
     public int UsageCacheSchemaVersion { get; set; }
+
+    // Null means a state file written before the two versions were split apart, where the single
+    // UsageCacheSchemaVersion above covered both providers; zero means Claude genuinely has never
+    // been rebuilt. The distinction matters - it is what stops an install that only ever tracked
+    // Codex from being credited with a Claude rebuild it never ran.
+    public int? ClaudeUsageCacheSchemaVersion { get; set; }
     public long LastRuntimeLogId { get; set; }
     public Dictionary<string, CodexSessionFileState> SessionFiles { get; set; } = [];
 

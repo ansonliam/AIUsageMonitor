@@ -18,6 +18,8 @@ public sealed class CodexApiCostService
     private readonly CodexPricingRegistry _pricingRegistry;
     private readonly ClaudeSessionLogScanner? _claudeSessionLogScanner;
     private readonly ClaudePricingRegistry? _claudePricingRegistry;
+    private readonly ICodexProviderRoutingState? _codexRoutingState;
+    private readonly IClaudeThirdPartyRoutingState? _claudeRoutingState;
     private readonly ILogger<CodexApiCostService> _logger;
     private readonly object _syncRoot = new();
 
@@ -26,7 +28,9 @@ public sealed class CodexApiCostService
     private Dictionary<string, CodexApiUsageEvent> _usageEvents;
     private Dictionary<string, ClaudeApiUsageEvent> _claudeUsageEvents;
     private Dictionary<Guid, CodexApiUsageSummary> _currentSummaries = [];
-    private bool _loaded;
+    private bool _scanStateLoaded;
+    private bool _codexCacheLoaded;
+    private bool _claudeCacheLoaded;
 
     // claudeSessionLogScanner/claudePricingRegistry are optional purely so every pre-existing
     // `new CodexApiCostService(...)` call site (this class's own unit tests included) keeps
@@ -43,7 +47,9 @@ public sealed class CodexApiCostService
         UsageRefreshService refreshService,
         ILogger<CodexApiCostService> logger,
         ClaudeSessionLogScanner? claudeSessionLogScanner = null,
-        ClaudePricingRegistry? claudePricingRegistry = null)
+        ClaudePricingRegistry? claudePricingRegistry = null,
+        ICodexProviderRoutingState? codexRoutingState = null,
+        IClaudeThirdPartyRoutingState? claudeRoutingState = null)
     {
         _runtimeLogScanner = runtimeLogScanner;
         _sessionLogScanner = sessionLogScanner;
@@ -52,6 +58,8 @@ public sealed class CodexApiCostService
         _pricingRegistry = pricingRegistry;
         _claudeSessionLogScanner = claudeSessionLogScanner;
         _claudePricingRegistry = claudePricingRegistry;
+        _codexRoutingState = codexRoutingState;
+        _claudeRoutingState = claudeRoutingState;
         _logger = logger;
         _scanState = new CodexApiScanState();
         _attributions = [];
@@ -65,10 +73,44 @@ public sealed class CodexApiCostService
             // endpoints do.
             if (provider == ProviderKind.Codex || provider == ProviderKind.Claude)
             {
+                // A steady-state skip is logged at Debug: this fires on every poll tick, and
+                // the monitors already log the transition that caused it at Information.
+                if (provider == ProviderKind.Codex && !ShouldTrackCodexApiCost)
+                {
+                    _logger.LogDebug("Codex API cost scan skipped | Reason=NoPerTokenBilling");
+                    return;
+                }
+
+                if (provider == ProviderKind.Claude && !ShouldTrackClaudeApiCost)
+                {
+                    _logger.LogDebug("Claude 3P cost scan skipped | Reason=NotRoutedToThirdParty");
+                    return;
+                }
+
                 _ = RefreshAsync($"ProviderRefresh:{provider}");
             }
         };
+
+        // Both directions matter. Turning tracking on has to start scanning without waiting for
+        // the next poll tick; turning it off has to re-run just as promptly, because that pass is
+        // what drops the provider back to its small cached display summary.
+        if (_codexRoutingState is not null)
+        {
+            _codexRoutingState.RoutingChanged += usesApiProvider =>
+                _ = RefreshAsync(usesApiProvider ? "CodexRoutingEnabled" : "CodexRoutingPaused");
+        }
+
+        if (_claudeRoutingState is not null)
+        {
+            _claudeRoutingState.RoutingChanged += isThirdPartyRouted =>
+                _ = RefreshAsync(isThirdPartyRouted ? "Claude3PRoutingEnabled" : "Claude3PRoutingPaused");
+        }
     }
+
+    // Null routing state means "no signal wired up" (every pre-existing test call site), which
+    // keeps the original always-scan behaviour rather than silently tracking nothing.
+    private bool ShouldTrackCodexApiCost => _codexRoutingState?.IsApiProvider ?? true;
+    private bool ShouldTrackClaudeApiCost => _claudeRoutingState?.IsThirdPartyRouted ?? true;
 
     public event Action? SummariesUpdated;
 
@@ -76,7 +118,6 @@ public sealed class CodexApiCostService
     {
         lock (_syncRoot)
         {
-            EnsureLoaded();
             if (_currentSummaries.Count > 0)
             {
                 return [.. _currentSummaries.Values];
@@ -104,26 +145,54 @@ public sealed class CodexApiCostService
                 trigger);
             lock (_syncRoot)
             {
-                EnsureLoaded();
-
+                // A provider is worth scanning only when its traffic is billed per token AND
+                // the user has an endpoint configured to attribute that spend to. Either way the
+                // decision is per provider - the two never gate each other.
                 var settings = _settingsStore.Load();
-                ScanRuntimeLog();
-                ScanSessionLogs();
-                ScanClaudeSessionLogs();
+                var trackCodex = ShouldTrackCodexApiCost &&
+                    settings.Endpoints.Any(e => e.Type == ApiEndpointType.CodexAzureOpenAI);
+                var trackClaude = ShouldTrackClaudeApiCost &&
+                    settings.Endpoints.Any(e => e.Type == ApiEndpointType.ClaudeAwsBedrock);
+                EnsureLoaded(trackCodex, trackClaude);
 
-                var matchedByTurnId = _usageEvents.Values
-                    .Count(usageEvent => usageEvent.TurnId is not null && _attributions.ContainsKey(usageEvent.TurnId));
-                _logger.LogInformation(
-                    "[CodexApiCost] {UsageEventCount} JSONL token events in store, {AttributionCount} attributed turns in store, {MatchedByTurnId} token events matched to an attributed turn id",
-                    _usageEvents.Count,
-                    _attributions.Count,
-                    matchedByTurnId);
-
-                foreach (var endpoint in settings.Endpoints.Where(e => e.Type == ApiEndpointType.CodexAzureOpenAI))
+                if (trackCodex)
                 {
-                    endpoint.NormalizedHost = CodexEndpointNormalizer.TryNormalizeHost(endpoint.Endpoint, out var host)
-                        ? host
-                        : "";
+                    ScanRuntimeLog();
+                    ScanSessionLogs();
+                }
+
+                if (trackClaude)
+                {
+                    ScanClaudeSessionLogs();
+                }
+                else
+                {
+                    _logger.LogDebug("Claude 3P cost history skipped | Reason=NotRoutedToThirdParty");
+                }
+
+                if (trackCodex)
+                {
+                    var matchedByTurnId = _usageEvents.Values
+                        .Count(usageEvent => usageEvent.TurnId is not null && _attributions.ContainsKey(usageEvent.TurnId));
+                    _logger.LogInformation(
+                        "[CodexApiCost] {UsageEventCount} JSONL token events in store, {AttributionCount} attributed turns in store, {MatchedByTurnId} token events matched to an attributed turn id",
+                        _usageEvents.Count,
+                        _attributions.Count,
+                        matchedByTurnId);
+                }
+                else
+                {
+                    _logger.LogDebug("Codex API cost history skipped | Reason=NoPerTokenBilling");
+                }
+
+                if (trackCodex)
+                {
+                    foreach (var endpoint in settings.Endpoints.Where(e => e.Type == ApiEndpointType.CodexAzureOpenAI))
+                    {
+                        endpoint.NormalizedHost = CodexEndpointNormalizer.TryNormalizeHost(endpoint.Endpoint, out var host)
+                            ? host
+                            : "";
+                    }
                 }
 
                 // Two endpoints resolving to the same host are ambiguous - refuse to attribute
@@ -142,10 +211,24 @@ public sealed class CodexApiCostService
                 var summaries = new Dictionary<Guid, CodexApiUsageSummary>();
                 foreach (var endpoint in settings.Endpoints)
                 {
-                    CodexApiUsageSummary summary;
-                    if (endpoint.Type == ApiEndpointType.ClaudeAwsBedrock)
+                    CodexApiUsageSummary? summary;
+                    var saveSummary = true;
+                    if (endpoint.Type == ApiEndpointType.ClaudeAwsBedrock && trackClaude)
                     {
                         summary = BuildClaudeSummary(endpoint, claudeEndpointCount, claudeRegionCounts);
+                    }
+                    else if (endpoint.Type == ApiEndpointType.ClaudeAwsBedrock)
+                    {
+                        summary = _cache.LoadSummary(endpoint.Id);
+                        saveSummary = false;
+                    }
+                    else if (!trackCodex)
+                    {
+                        // Preserve the last small display summary without loading or rewriting the
+                        // multi-megabyte Codex attribution/usage caches while this provider has no
+                        // per-token billing to track.
+                        summary = _cache.LoadSummary(endpoint.Id);
+                        saveSummary = false;
                     }
                     else
                     {
@@ -154,13 +237,25 @@ public sealed class CodexApiCostService
                         summary = BuildSummary(endpoint, isAmbiguousHost);
                     }
 
-                    summaries[endpoint.Id] = summary;
-                    _cache.SaveSummary(summary);
+                    if (summary is not null)
+                    {
+                        summaries[endpoint.Id] = summary;
+                        if (saveSummary)
+                        {
+                            _cache.SaveSummary(summary);
+                        }
+                    }
                 }
 
                 _currentSummaries = summaries;
-                PruneOldData();
-                PersistScanArtifacts();
+
+                // Re-check the live signal before writing. A scan that started while a provider was
+                // billed per token must not write its multi-megabyte cache if that stopped being
+                // true while the scan was still running.
+                var persistCodex = trackCodex && ShouldTrackCodexApiCost;
+                var persistClaude = trackClaude && ShouldTrackClaudeApiCost;
+                PruneOldData(persistCodex, persistClaude);
+                PersistScanArtifacts(persistCodex, persistClaude);
             }
 
             SummariesUpdated?.Invoke();
@@ -176,29 +271,59 @@ public sealed class CodexApiCostService
         }
     }
 
-    private void EnsureLoaded()
+    private void EnsureLoaded(bool loadCodex, bool loadClaude)
     {
-        if (_loaded)
+        if (!loadCodex && !loadClaude)
         {
             return;
         }
 
-        _scanState = _cache.LoadScanState();
-        _attributions = _cache.LoadAttributions();
-        _usageEvents = _cache.LoadUsageEvents();
-        _claudeUsageEvents = _cache.LoadClaudeUsageEvents();
+        if (!_scanStateLoaded)
+        {
+            _scanState = _cache.LoadScanState();
+
+            // Caches written before the per-provider split carry one shared version, and both
+            // sides were always rebuilt together back then - so the single recorded version is
+            // the truth for Claude too, and adopting it spares those installs a pointless one-off
+            // replay of every Claude transcript.
+            _scanState.ClaudeUsageCacheSchemaVersion ??= _scanState.UsageCacheSchemaVersion;
+
+            _scanStateLoaded = true;
+        }
+
+        if (loadCodex && !_codexCacheLoaded)
+        {
+            _attributions = _cache.LoadAttributions();
+            _usageEvents = _cache.LoadUsageEvents();
+            _codexCacheLoaded = true;
+        }
+
+        if (loadClaude && !_claudeCacheLoaded)
+        {
+            _claudeUsageEvents = _cache.LoadClaudeUsageEvents();
+            _claudeCacheLoaded = true;
+        }
 
         // Prior caches contain summed JSONL snapshots. The versioned rebuild keeps endpoint
         // settings/prices intact but replays the original logs with cumulative-delta handling.
-        if (_scanState.UsageCacheSchemaVersion != CodexApiScanState.CurrentUsageCacheSchemaVersion)
+        //
+        // Each provider is rebuilt, and stamped, only when it is actually being tracked. Clearing
+        // an untracked provider's file offsets would strand its on-disk history: the offsets would
+        // say "replay from scratch" while its cache stayed unloaded and unwritten, so the first
+        // scan after it was tracked again would overwrite real history with an empty store.
+        if (loadCodex && _scanState.UsageCacheSchemaVersion != CodexApiScanState.CurrentUsageCacheSchemaVersion)
         {
             _scanState.UsageCacheSchemaVersion = CodexApiScanState.CurrentUsageCacheSchemaVersion;
             _scanState.SessionFiles = [];
-            _scanState.ClaudeSessionFiles = [];
             _usageEvents = [];
+        }
+
+        if (loadClaude && _scanState.ClaudeUsageCacheSchemaVersion != CodexApiScanState.CurrentUsageCacheSchemaVersion)
+        {
+            _scanState.ClaudeUsageCacheSchemaVersion = CodexApiScanState.CurrentUsageCacheSchemaVersion;
+            _scanState.ClaudeSessionFiles = [];
             _claudeUsageEvents = [];
         }
-        _loaded = true;
     }
 
     private void ScanRuntimeLog()
@@ -554,18 +679,26 @@ public sealed class CodexApiCostService
         };
     }
 
-    private void PruneOldData()
+    private void PruneOldData(bool pruneCodex, bool pruneClaude)
     {
         var cutoff = DateTimeOffset.UtcNow - CodexApiCostCache.RetentionWindow;
 
-        foreach (var key in _attributions.Where(pair => pair.Value.LastSeenAt < cutoff).Select(pair => pair.Key).ToList())
+        if (pruneCodex)
         {
-            _attributions.Remove(key);
+            foreach (var key in _attributions.Where(pair => pair.Value.LastSeenAt < cutoff).Select(pair => pair.Key).ToList())
+            {
+                _attributions.Remove(key);
+            }
+
+            foreach (var key in _usageEvents.Where(pair => pair.Value.Timestamp < cutoff).Select(pair => pair.Key).ToList())
+            {
+                _usageEvents.Remove(key);
+            }
         }
 
-        foreach (var key in _usageEvents.Where(pair => pair.Value.Timestamp < cutoff).Select(pair => pair.Key).ToList())
+        if (!pruneClaude)
         {
-            _usageEvents.Remove(key);
+            return;
         }
 
         foreach (var key in _claudeUsageEvents.Where(pair => pair.Value.Timestamp < cutoff).Select(pair => pair.Key).ToList())
@@ -574,11 +707,28 @@ public sealed class CodexApiCostService
         }
     }
 
-    private void PersistScanArtifacts()
+    private void PersistScanArtifacts(bool persistCodex, bool persistClaude)
     {
+        if (!persistCodex && !persistClaude)
+        {
+            return;
+        }
+
+        if (persistCodex)
+        {
+            _cache.SaveAttributions(_attributions);
+            _cache.SaveUsageEvents(_usageEvents);
+        }
+
+        if (persistClaude)
+        {
+            _cache.SaveClaudeUsageEvents(_claudeUsageEvents);
+        }
+
+        // Written last, and deliberately so: these are separate files, and if the process dies
+        // between them the survivable failure is offsets that lag the event stores (the next scan
+        // re-reads a little and overwrites events by key) rather than offsets that run ahead of
+        // them, which would silently drop history.
         _cache.SaveScanState(_scanState);
-        _cache.SaveAttributions(_attributions);
-        _cache.SaveUsageEvents(_usageEvents);
-        _cache.SaveClaudeUsageEvents(_claudeUsageEvents);
     }
 }

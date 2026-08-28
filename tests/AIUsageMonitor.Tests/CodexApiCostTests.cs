@@ -465,6 +465,234 @@ public sealed class CodexApiCostTests
 
     // ---- CodexApiCostService end-to-end ----
 
+    [TestMethod]
+    public async Task Service_CodexNotBilledPerToken_DoesNotWriteCodexCostHistory()
+    {
+        var root = CreateTempDirectory();
+        var runtimeRoot = Path.Combine(root, "codex");
+        var sessionsRoot = Path.Combine(runtimeRoot, "sessions");
+        var cacheRoot = Path.Combine(root, "cache");
+        Directory.CreateDirectory(sessionsRoot);
+
+        var now = DateTimeOffset.UtcNow;
+        SeedRuntimeLog(Path.Combine(runtimeRoot, "logs_2.sqlite"),
+        [
+            (1, now.ToUnixTimeSeconds(), "codex_http_client::client",
+                RunTurn("personal-turn", "gpt-5.6-sol", "example.openai.azure.com", 1, now.ToUnixTimeSeconds()))
+        ]);
+        WriteSessionFile(sessionsRoot, "session.jsonl", string.Join('\n',
+        [
+            TurnContextLine(now, "personal-turn", "gpt-5.6-sol"),
+            TokenCountLine(now, 1000000, 0, 0, 100000, 0),
+            ""
+        ]));
+
+        var settingsStore = new CodexApiCostSettingsStore(Path.Combine(root, "settings.json"));
+        settingsStore.Save(new CodexApiCostSettings
+        {
+            Endpoints = [MakeEndpoint("Example Azure Codex", "example.openai.azure.com", now.AddDays(-1))]
+        });
+
+        var service = new CodexApiCostService(
+            new CodexRuntimeLogScanner(runtimeRoot),
+            new CodexSessionLogScanner(sessionsRoot),
+            new CodexApiCostCache(cacheRoot),
+            settingsStore,
+            new CodexPricingRegistry(),
+            MakeRefreshService(),
+            NullLogger<CodexApiCostService>.Instance,
+            codexRoutingState: new StubCodexRoutingState(isApiProvider: false));
+
+        await service.RefreshAsync();
+
+        Assert.IsFalse(File.Exists(Path.Combine(cacheRoot, "attributions.json")));
+        Assert.IsFalse(File.Exists(Path.Combine(cacheRoot, "usage-events.json")));
+    }
+
+    [TestMethod]
+    public async Task Service_NeitherProviderBilledPerToken_WritesNoHistoryCaches()
+    {
+        var root = CreateTempDirectory();
+        var runtimeRoot = Path.Combine(root, "codex");
+        var sessionsRoot = Path.Combine(runtimeRoot, "sessions");
+        var cacheRoot = Path.Combine(root, "cache");
+        Directory.CreateDirectory(sessionsRoot);
+
+        var settingsStore = new CodexApiCostSettingsStore(Path.Combine(root, "settings.json"));
+        settingsStore.Save(new CodexApiCostSettings
+        {
+            Endpoints =
+            [
+                MakeEndpoint("Example Azure Codex", "example.openai.azure.com", DateTimeOffset.UtcNow.AddDays(-1)),
+                new CodexApiEndpointSettings
+                {
+                    Type = ApiEndpointType.ClaudeAwsBedrock,
+                    Name = "Example Claude 3P",
+                    TrackFrom = DateTimeOffset.UtcNow.AddDays(-1)
+                }
+            ]
+        });
+
+        var service = new CodexApiCostService(
+            new CodexRuntimeLogScanner(runtimeRoot),
+            new CodexSessionLogScanner(sessionsRoot),
+            new CodexApiCostCache(cacheRoot),
+            settingsStore,
+            new CodexPricingRegistry(),
+            MakeRefreshService(),
+            NullLogger<CodexApiCostService>.Instance,
+            codexRoutingState: new StubCodexRoutingState(isApiProvider: false),
+            claudeRoutingState: new StubClaudeRoutingState(isThirdPartyRouted: false));
+
+        await service.RefreshAsync();
+
+        Assert.IsFalse(Directory.Exists(cacheRoot));
+    }
+
+    [TestMethod]
+    public async Task Service_CodexBillingStops_LeavesExistingHistoryUntouchedAndReusesSavedSummary()
+    {
+        var root = CreateTempDirectory();
+        var runtimeRoot = Path.Combine(root, "codex");
+        var sessionsRoot = Path.Combine(runtimeRoot, "sessions");
+        var cacheRoot = Path.Combine(root, "cache");
+        Directory.CreateDirectory(sessionsRoot);
+
+        var now = DateTimeOffset.UtcNow;
+        SeedRuntimeLog(Path.Combine(runtimeRoot, "logs_2.sqlite"),
+        [
+            (1, now.ToUnixTimeSeconds(), "codex_http_client::client",
+                RunTurn("turn-a", "gpt-5.6-terra", "example.openai.azure.com", 1, now.ToUnixTimeSeconds()))
+        ]);
+        WriteSessionFile(sessionsRoot, "session.jsonl", string.Join('\n',
+        [
+            TurnContextLine(now, "turn-a", "gpt-5.6-terra"),
+            TokenCountLine(now, 1000000, 0, 0, 100000, 0),
+            ""
+        ]));
+
+        var settingsStore = new CodexApiCostSettingsStore(Path.Combine(root, "settings.json"));
+        settingsStore.Save(new CodexApiCostSettings
+        {
+            Endpoints = [MakeEndpoint("Example Azure Codex", "example.openai.azure.com", now.AddDays(-1))]
+        });
+
+        // A first pass with per-token billing on builds the real history caches and summary.
+        var trackedService = MakeService(runtimeRoot, sessionsRoot, cacheRoot, settingsStore, new StubCodexRoutingState(true));
+        await trackedService.RefreshAsync();
+        var trackedCost = trackedService.GetCurrentSummaries().Single().MonthCost;
+        Assert.IsTrue(trackedCost > 0m, "The seeded usage should produce a non-zero tracked cost.");
+
+        // Poison the large caches. Reading either one now yields an empty store, so a pass that
+        // still loaded them could only report a zero cost - which makes the surviving cost proof
+        // that they were never read, and the untouched bytes proof that they were never written.
+        var attributionsPath = Path.Combine(cacheRoot, "attributions.json");
+        var usageEventsPath = Path.Combine(cacheRoot, "usage-events.json");
+        var poison = "not json"u8.ToArray();
+        File.WriteAllBytes(attributionsPath, poison);
+        File.WriteAllBytes(usageEventsPath, poison);
+
+        var pausedService = MakeService(runtimeRoot, sessionsRoot, cacheRoot, settingsStore, new StubCodexRoutingState(false));
+        await pausedService.RefreshAsync();
+
+        CollectionAssert.AreEqual(poison, File.ReadAllBytes(attributionsPath));
+        CollectionAssert.AreEqual(poison, File.ReadAllBytes(usageEventsPath));
+        Assert.AreEqual(trackedCost, pausedService.GetCurrentSummaries().Single().MonthCost);
+    }
+
+    [TestMethod]
+    public async Task Service_UntrackedCodexProvider_KeepsItsHistoryAcrossAClaudeSchemaRebuild()
+    {
+        var root = CreateTempDirectory();
+        var runtimeRoot = Path.Combine(root, "codex");
+        var sessionsRoot = Path.Combine(runtimeRoot, "sessions");
+        var cacheRoot = Path.Combine(root, "cache");
+        Directory.CreateDirectory(sessionsRoot);
+
+        var now = DateTimeOffset.UtcNow;
+        SeedRuntimeLog(Path.Combine(runtimeRoot, "logs_2.sqlite"),
+        [
+            (1, now.ToUnixTimeSeconds(), "codex_http_client::client",
+                RunTurn("turn-a", "gpt-5.6-terra", "example.openai.azure.com", 1, now.ToUnixTimeSeconds()))
+        ]);
+        WriteSessionFile(sessionsRoot, "session.jsonl", string.Join('\n',
+        [
+            TurnContextLine(now, "turn-a", "gpt-5.6-terra"),
+            TokenCountLine(now, 1000000, 0, 0, 100000, 0),
+            ""
+        ]));
+
+        var settingsStore = new CodexApiCostSettingsStore(Path.Combine(root, "settings.json"));
+        settingsStore.Save(new CodexApiCostSettings
+        {
+            Endpoints =
+            [
+                MakeEndpoint("Example Azure Codex", "example.openai.azure.com", now.AddDays(-1)),
+                new CodexApiEndpointSettings
+                {
+                    Id = Guid.NewGuid(),
+                    Type = ApiEndpointType.ClaudeAwsBedrock,
+                    Name = "Example Claude 3P",
+                    TrackFrom = now.AddDays(-1)
+                }
+            ]
+        });
+
+        var trackedService = MakeService(runtimeRoot, sessionsRoot, cacheRoot, settingsStore, new StubCodexRoutingState(true));
+        await trackedService.RefreshAsync();
+        var trackedCost = trackedService.GetCurrentSummaries()
+            .Single(summary => summary.Name == "Example Azure Codex").MonthCost;
+        Assert.IsTrue(trackedCost > 0m);
+
+        // Claude's own versioned cache rebuild is still pending - the first pass never tracked it,
+        // so it was never replayed or stamped. Running it now, with Codex untracked, must not
+        // reset Codex's file offsets: Codex's caches are neither loaded nor rewritten in that
+        // pass, so clearing its offsets would strand them.
+        var scanState = File.ReadAllText(Path.Combine(cacheRoot, "scan-state.json"));
+        StringAssert.Contains(
+            scanState,
+            "\"UsageCacheSchemaVersion\": " + CodexApiScanState.CurrentUsageCacheSchemaVersion);
+        StringAssert.Contains(scanState, "\"ClaudeUsageCacheSchemaVersion\": 0");
+
+        var routing = new StubCodexRoutingState(false);
+        var service = MakeService(
+            runtimeRoot,
+            sessionsRoot,
+            cacheRoot,
+            settingsStore,
+            routing,
+            isThirdPartyRouted: true);
+        await service.RefreshAsync();
+
+        // Codex starts billing per token again on the same running service. Its history has to
+        // come back intact - the Claude rebuild must not have marked Codex's caches as loaded
+        // while leaving them on disk, which would replace real attributions with an empty store.
+        routing.IsApiProvider = true;
+        await service.RefreshAsync();
+
+        Assert.AreEqual(
+            trackedCost,
+            service.GetCurrentSummaries().Single(summary => summary.Name == "Example Azure Codex").MonthCost);
+    }
+
+    private static CodexApiCostService MakeService(
+        string runtimeRoot,
+        string sessionsRoot,
+        string cacheRoot,
+        CodexApiCostSettingsStore settingsStore,
+        StubCodexRoutingState codexRoutingState,
+        bool isThirdPartyRouted = false) =>
+        new(
+            new CodexRuntimeLogScanner(runtimeRoot),
+            new CodexSessionLogScanner(sessionsRoot),
+            new CodexApiCostCache(cacheRoot),
+            settingsStore,
+            new CodexPricingRegistry(),
+            MakeRefreshService(),
+            NullLogger<CodexApiCostService>.Instance,
+            codexRoutingState: codexRoutingState,
+            claudeRoutingState: new StubClaudeRoutingState(isThirdPartyRouted));
+
     private static CodexApiEndpointSettings MakeEndpoint(string name, string endpoint, DateTimeOffset trackFrom, decimal? budget = null) => new()
     {
         Id = Guid.NewGuid(),
@@ -496,6 +724,28 @@ public sealed class CodexApiCostTests
         new UsageCacheStore(),
         new AutoRefreshOptions(),
         NullLogger<UsageRefreshService>.Instance);
+
+    private sealed class StubCodexRoutingState(bool isApiProvider) : ICodexProviderRoutingState
+    {
+        // Settable so a test can flip the signal on a service that is already running, the way the
+        // real monitor does when ~/.codex changes underneath it.
+        public bool IsApiProvider { get; set; } = isApiProvider;
+        public event Action<bool>? RoutingChanged
+        {
+            add { }
+            remove { }
+        }
+    }
+
+    private sealed class StubClaudeRoutingState(bool isThirdPartyRouted) : IClaudeThirdPartyRoutingState
+    {
+        public bool IsThirdPartyRouted { get; } = isThirdPartyRouted;
+        public event Action<bool>? RoutingChanged
+        {
+            add { }
+            remove { }
+        }
+    }
 
     private static string TurnContextLine(DateTimeOffset timestamp, string turnId, string model) =>
         "{\"timestamp\":\"" + timestamp.ToString("O") + "\",\"type\":\"turn_context\",\"payload\":{\"turn_id\":\"" +

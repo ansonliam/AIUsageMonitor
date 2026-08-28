@@ -97,6 +97,12 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<CodexPricingRegistry>();
         services.AddSingleton<ClaudeSessionLogScanner>();
         services.AddSingleton<ClaudePricingRegistry>();
+        services.AddSingleton<CodexProviderRoutingMonitor>();
+        services.AddSingleton<ICodexProviderRoutingState>(sp =>
+            sp.GetRequiredService<CodexProviderRoutingMonitor>());
+        services.AddSingleton<ClaudeThirdPartyRoutingMonitor>();
+        services.AddSingleton<IClaudeThirdPartyRoutingState>(sp =>
+            sp.GetRequiredService<ClaudeThirdPartyRoutingMonitor>());
         services.AddSingleton<CodexApiCostService>();
         services.AddSingleton<GitHubReleaseCacheStore>();
         services.AddSingleton<GitHubReleaseService>();
