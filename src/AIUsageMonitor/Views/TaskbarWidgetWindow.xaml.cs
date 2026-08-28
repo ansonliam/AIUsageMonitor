@@ -844,9 +844,7 @@ public partial class TaskbarWidgetWindow : Window
     private void TaskbarWidgetWindow_SourceInitialized(object? sender, EventArgs e)
     {
         var handle = new WindowInteropHelper(this).Handle;
-        var currentStyle = TaskbarInterop.GetWindowExStyle(handle).ToInt64();
-        var newStyle = currentStyle | TaskbarInterop.WsExToolWindow | TaskbarInterop.WsExNoActivate;
-        TaskbarInterop.SetWindowExStyle(handle, new IntPtr(newStyle));
+        TaskbarInterop.ApplyNonActivatingToolWindowStyle(handle);
 
         _taskbarCreatedMessage = TaskbarInterop.RegisterWindowMessage("TaskbarCreated");
         _windowSource = HwndSource.FromHwnd(handle);

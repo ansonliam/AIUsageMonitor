@@ -15,6 +15,7 @@ internal static class TaskbarInterop
 {
     public const int GwlExStyle = -20;
     public const int WsExToolWindow = 0x00000080;
+    public const int WsExAppWindow = 0x00040000;
     public const int WsExNoActivate = 0x08000000;
     public const int WsExTopMost = 0x00000008;
     public const int WmDisplayChange = 0x007E;
@@ -24,6 +25,7 @@ internal static class TaskbarInterop
     public const uint SwpNoMove = 0x0002;
     public const uint SwpNoSize = 0x0001;
     public const uint SwpNoOwnerZOrder = 0x0200;
+    public const uint SwpFrameChanged = 0x0020;
     public static readonly IntPtr HwndTopmost = new(-1);
 
     public const uint MonitorDefaultToNull = 0x00000000;
@@ -204,6 +206,23 @@ internal static class TaskbarInterop
         {
             SetWindowLong32(hWnd, GwlExStyle, style.ToInt32());
         }
+    }
+
+    /// <summary>Makes an independent popup ineligible for Alt+Tab without parenting it to
+    /// Explorer. The frame refresh is explicitly non-activating.</summary>
+    public static void ApplyNonActivatingToolWindowStyle(IntPtr hWnd)
+    {
+        var current = GetWindowExStyle(hWnd).ToInt64();
+        var updated = (current | WsExToolWindow | WsExNoActivate) & ~WsExAppWindow;
+        SetWindowExStyle(hWnd, new IntPtr(updated));
+        SetWindowPos(
+            hWnd,
+            IntPtr.Zero,
+            0,
+            0,
+            0,
+            0,
+            SwpNoMove | SwpNoSize | SwpNoZOrder | SwpNoActivate | SwpNoOwnerZOrder | SwpFrameChanged);
     }
 
     // Explorer periodically re-asserts its own topmost position (e.g. when a taskbar button is
