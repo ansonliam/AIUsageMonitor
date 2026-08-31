@@ -160,9 +160,18 @@ public partial class MainWindow : Window
 
     private void Window_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (IsWindowLocked ||
-            e.ChangedButton != MouseButton.Left ||
-            IsInsideButton(e.OriginalSource as DependencyObject) ||
+        if (IsWindowLocked || e.ChangedButton != MouseButton.Left)
+        {
+            return;
+        }
+
+        // Raised here rather than only on drag-start: WS_EX_NOACTIVATE (see
+        // TaskbarInterop.ApplyNonActivatingToolWindowStyle) means this window is barred from ever
+        // activating, so any click - even one landing on a button rather than starting a drag -
+        // still needs this explicit nudge to come to the top of the (non-topmost) z-order.
+        TaskbarInterop.RaiseZOrderWithoutActivating(new WindowInteropHelper(this).Handle);
+
+        if (IsInsideButton(e.OriginalSource as DependencyObject) ||
             IsInsideThumb(e.OriginalSource as DependencyObject))
         {
             return;

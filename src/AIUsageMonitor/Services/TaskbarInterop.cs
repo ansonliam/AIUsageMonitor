@@ -27,6 +27,7 @@ internal static class TaskbarInterop
     public const uint SwpNoOwnerZOrder = 0x0200;
     public const uint SwpFrameChanged = 0x0020;
     public static readonly IntPtr HwndTopmost = new(-1);
+    public static readonly IntPtr HwndTop = IntPtr.Zero;
 
     public const uint MonitorDefaultToNull = 0x00000000;
     public const uint GaRoot = 2;
@@ -232,6 +233,13 @@ internal static class TaskbarInterop
     // reposition tick is what keeps the widget from ending up rendered behind the taskbar.
     public static void ForceTopMost(IntPtr hWnd) =>
         SetWindowPos(hWnd, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpNoOwnerZOrder);
+
+    // WS_EX_NOACTIVATE (see ApplyNonActivatingToolWindowStyle) keeps this window out of Alt+Tab, but
+    // it also means Windows never promotes the window's z-order on click - that promotion normally
+    // rides along with activation, which this window is barred from. Bring it to the top of the
+    // non-topmost stack explicitly, still without activating or stealing focus.
+    public static void RaiseZOrderWithoutActivating(IntPtr hWnd) =>
+        SetWindowPos(hWnd, HwndTop, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct MonitorInfo
