@@ -27,7 +27,7 @@ internal static class TaskbarInterop
     public const uint SwpNoOwnerZOrder = 0x0200;
     public const uint SwpFrameChanged = 0x0020;
     public static readonly IntPtr HwndTopmost = new(-1);
-    public static readonly IntPtr HwndTop = IntPtr.Zero;
+    public static readonly IntPtr HwndNoTopmost = new(-2);
 
     public const uint MonitorDefaultToNull = 0x00000000;
     public const uint GaRoot = 2;
@@ -236,10 +236,18 @@ internal static class TaskbarInterop
 
     // WS_EX_NOACTIVATE (see ApplyNonActivatingToolWindowStyle) keeps this window out of Alt+Tab, but
     // it also means Windows never promotes the window's z-order on click - that promotion normally
-    // rides along with activation, which this window is barred from. Bring it to the top of the
-    // non-topmost stack explicitly, still without activating or stealing focus.
-    public static void RaiseZOrderWithoutActivating(IntPtr hWnd) =>
-        SetWindowPos(hWnd, HwndTop, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+    // rides along with activation, which this window is barred from.
+    //
+    // A plain SetWindowPos(HWND_TOP) does not reliably work around this: Windows' foreground-lock
+    // heuristic can silently ignore a z-order-only request from a window that isn't the foreground
+    // application. Briefly flashing the window into the topmost band and immediately back out is
+    // not subject to that restriction, so it reliably lands the widget above whatever it was
+    // clicked through, still without activating or stealing focus.
+    public static void RaiseZOrderWithoutActivating(IntPtr hWnd)
+    {
+        SetWindowPos(hWnd, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+        SetWindowPos(hWnd, HwndNoTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct MonitorInfo
