@@ -113,7 +113,9 @@ jobs:
               ForEach-Object { $_.Substring($prefix.Length) } |
               Where-Object { $_ -match '^\d+$' } |
               ForEach-Object { [int]$_ }
-          $nextPatch = if ($existingPatches) { ($existingPatches | Measure-Object -Maximum).Maximum + 1 } else { 0 }
+          # Patch 0 is a valid existing release.  Testing the value directly treats it as
+          # false in PowerShell and would reuse v<major>.<minor>.0 rather than incrementing.
+          $nextPatch = if ($null -ne $existingPatches) { ($existingPatches | Measure-Object -Maximum).Maximum + 1 } else { 0 }
 
           "RELEASE_TAG=$prefix$nextPatch" >> $env:GITHUB_ENV
           "RELEASE_VERSION=$minorVersion.$nextPatch" >> $env:GITHUB_ENV
