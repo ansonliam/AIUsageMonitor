@@ -233,6 +233,11 @@ public partial class App : System.Windows.Application, IApplicationController
         {
             MainWindow = null;
         }
+
+        if (!IsExiting)
+        {
+            MemoryReclaimer.ReclaimAfterWindowClose(Dispatcher);
+        }
     }
 
     public void SetTaskbarWidgetVisibility(bool isVisible)
