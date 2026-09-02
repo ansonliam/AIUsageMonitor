@@ -158,8 +158,26 @@ public partial class App : System.Windows.Application, IApplicationController
             dashboardSettings.Stage5MaxPercent);
         taskbarWidgetWindow.ApplyStartupVisibility();
         await PromptForHookSetupAsync();
+
+        // Hooked before the polling service starts so the very first completion is caught. Waiting
+        // for a refresh rather than reclaiming here is deliberate: the log scan is still running on
+        // background threads at this point, so its allocations are not garbage yet and collecting
+        // now would just be paid for twice.
+        var refreshService = _services.GetRequiredService<UsageRefreshService>();
+        refreshService.RefreshCompleted += OnFirstRefreshCompleted;
+
         _ = _services.GetRequiredService<CodexApiCostService>().RefreshAsync("Startup");
         await _services.GetRequiredService<UsagePollingService>().StartAsync();
+    }
+
+    private void OnFirstRefreshCompleted(ProviderKind provider)
+    {
+        if (_services?.GetService<UsageRefreshService>() is { } refreshService)
+        {
+            refreshService.RefreshCompleted -= OnFirstRefreshCompleted;
+        }
+
+        MemoryReclaimer.ReclaimAfterStartup(Dispatcher);
     }
 
     public void ShowMainWindow()
