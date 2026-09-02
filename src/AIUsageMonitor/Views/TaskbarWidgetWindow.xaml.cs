@@ -94,8 +94,8 @@ public partial class TaskbarWidgetWindow : Window
     private uint _taskbarCreatedMessage;
     private HwndSource? _windowSource;
 
-    // Same purpose as MainWindow.WidgetStateChanged: Settings is non-modal, and this widget's own
-    // context menu can change state (Hide) while it is open.
+    // Settings is non-modal, and this widget's own context menu can change state (Hide) while it
+    // is open, so Settings needs a notification to keep its controls current.
     public event Action? WidgetStateChanged;
 
     public bool ShowTaskbarWidget { get; private set; } = true;

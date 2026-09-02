@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
-using System.IO;
-using System.Text.Json;
+using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -33,12 +32,7 @@ public partial class MainWindow : Window
     // grid (see FitDashboardPanelToContent). Kept near one grid row so a small board can size
     // down to its cards instead of carrying invisible window beneath them.
     private const double DashboardMinHeight = 60;
-    private static readonly string PlacementPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "AIUsageMonitor",
-        "window-placement.json");
     private readonly IApplicationController _applicationController;
-    private readonly AutoRefreshOptions _autoRefreshOptions;
     private readonly MainViewModel _viewModel;
     // A Grid whose rows are all "*" and that sits inside a ScrollViewer (which measures its
     // content with infinite available height so it can decide whether to show a scrollbar) does
@@ -48,72 +42,66 @@ public partial class MainWindow : Window
     // constant times the row count) instead makes every row exactly this many pixels tall,
     // always - which DashboardCard's drag/resize snapping math depends on to convert pixels back
     // to whole cell deltas.
-    private const double DefaultDashboardWidgetHeight = 50;
-    private const double DefaultMetricLabelWidth = 27;
-    private const double DefaultProgressBarHeight = 2;
-
     private readonly Dictionary<DashboardCardViewModel, DashboardCard> _dashboardElements = [];
+    private readonly DashboardWidgetSettings _settings;
     private HwndSource? _windowSource;
     private bool _isDraggingWindow;
+    private bool _closingForHide;
+    private bool _isClosed;
     private System.Windows.Point _dragStartPosition;
 
-    // Raised whenever widget state that Settings also displays has changed. Settings is shown
-    // non-modally, so the widget's own context menu (opacity, layout, lock, always-on-top, hide)
-    // can be used while the Settings window is open - without this, its controls would keep
-    // showing the values they were constructed with.
-    public event Action? WidgetStateChanged;
-
-    public bool IsWindowLocked { get; private set; }
-    public bool IsDashboardLayoutEnabled { get; private set; } = true;
-    public double DashboardWidgetHeight { get; private set; } = DefaultDashboardWidgetHeight;
-    public double MetricLabelWidth { get; private set; } = DefaultMetricLabelWidth;
-    public double ProgressBarHeight { get; private set; } = DefaultProgressBarHeight;
-    public bool IsHorizontalLayout { get; private set; }
-    public bool ShowDashboardWidget { get; private set; } = true;
-    public bool AlwaysOnTop { get; private set; } = true;
-    public bool ShowCodex { get; private set; } = true;
-    public bool ShowClaude { get; private set; } = true;
-    public bool ShowAntigravity { get; private set; } = true;
-    public bool ShowCursor { get; private set; } = true;
-    public string FontSizePreset { get; private set; } = "Large";
-    public string WidgetFont { get; private set; } = "Oxanium";
-    public string WidgetAppearance { get; private set; } = "Retro";
-    public string WidgetTextWeight { get; private set; } = "Regular";
-    public string GreenColorHex { get; private set; } = "#2ECC71";
-    public string LimeColorHex { get; private set; } = "#9ACD32";
-    public string YellowColorHex { get; private set; } = "#FFD21E";
-    public string OrangeColorHex { get; private set; } = "#FF9800";
-    public string RedColorHex { get; private set; } = "#FF4D4F";
-    public double Stage1MaxPercent { get; private set; } = 29;
-    public double Stage2MaxPercent { get; private set; } = 49;
-    public double Stage3MaxPercent { get; private set; } = 69;
-    public double Stage4MaxPercent { get; private set; } = 79;
-    public double Stage5MaxPercent { get; private set; } = 84;
-    public bool ShowUsageRemaining { get; private set; }
-    public bool AutoRefreshEnabled { get; private set; } = true;
-    public double CodexRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.CodexDefaultIntervalMinutes;
-    public double ClaudeRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
-    public double AntigravityRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
-    public double CursorRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.CursorDefaultIntervalMinutes;
-    public double IdleAfterMinutes { get; private set; } = AutoRefreshOptions.DefaultIdleAfterMinutes;
-    public double IdleRefreshIntervalMinutes { get; private set; } = AutoRefreshOptions.DefaultIdleRefreshIntervalMinutes;
-    public double CodexThrottleIntervalMinutes { get; private set; } = AutoRefreshOptions.CodexDefaultThrottleMinutes;
-    public double ClaudeThrottleIntervalMinutes { get; private set; } = AutoRefreshOptions.ClaudeDefaultThrottleMinutes;
-    public double AntigravityThrottleIntervalMinutes { get; private set; } = AutoRefreshOptions.AntigravityDefaultThrottleMinutes;
-    public double CursorThrottleIntervalMinutes { get; private set; } = AutoRefreshOptions.CursorDefaultThrottleMinutes;
+    public bool IsWindowLocked => _settings.IsWindowLocked;
+    public bool IsDashboardLayoutEnabled => _settings.IsDashboardLayoutEnabled;
+    public double DashboardWidgetHeight => _settings.DashboardWidgetHeight;
+    public double MetricLabelWidth => _settings.MetricLabelWidth;
+    public double ProgressBarHeight => _settings.ProgressBarHeight;
+    public bool IsHorizontalLayout => _settings.IsHorizontalLayout;
+    public bool ShowDashboardWidget => _settings.ShowDashboardWidget;
+    public bool AlwaysOnTop => _settings.AlwaysOnTop;
+    public bool ShowCodex => _settings.ShowCodex;
+    public bool ShowClaude => _settings.ShowClaude;
+    public bool ShowAntigravity => _settings.ShowAntigravity;
+    public bool ShowCursor => _settings.ShowCursor;
+    public string FontSizePreset => _settings.FontSizePreset;
+    public string WidgetFont => _settings.WidgetFont;
+    public string WidgetAppearance => _settings.WidgetAppearance;
+    public string WidgetTextWeight => _settings.WidgetTextWeight;
+    public string GreenColorHex => _settings.GreenColorHex;
+    public string LimeColorHex => _settings.LimeColorHex;
+    public string YellowColorHex => _settings.YellowColorHex;
+    public string OrangeColorHex => _settings.OrangeColorHex;
+    public string RedColorHex => _settings.RedColorHex;
+    public double Stage1MaxPercent => _settings.Stage1MaxPercent;
+    public double Stage2MaxPercent => _settings.Stage2MaxPercent;
+    public double Stage3MaxPercent => _settings.Stage3MaxPercent;
+    public double Stage4MaxPercent => _settings.Stage4MaxPercent;
+    public double Stage5MaxPercent => _settings.Stage5MaxPercent;
+    public bool ShowUsageRemaining => _settings.ShowUsageRemaining;
+    public bool AutoRefreshEnabled => _settings.AutoRefreshEnabled;
+    public double CodexRefreshIntervalMinutes => _settings.CodexRefreshIntervalMinutes;
+    public double ClaudeRefreshIntervalMinutes => _settings.ClaudeRefreshIntervalMinutes;
+    public double AntigravityRefreshIntervalMinutes => _settings.AntigravityRefreshIntervalMinutes;
+    public double CursorRefreshIntervalMinutes => _settings.CursorRefreshIntervalMinutes;
+    public double IdleAfterMinutes => _settings.IdleAfterMinutes;
+    public double IdleRefreshIntervalMinutes => _settings.IdleRefreshIntervalMinutes;
+    public double CodexThrottleIntervalMinutes => _settings.CodexThrottleIntervalMinutes;
+    public double ClaudeThrottleIntervalMinutes => _settings.ClaudeThrottleIntervalMinutes;
+    public double AntigravityThrottleIntervalMinutes => _settings.AntigravityThrottleIntervalMinutes;
+    public double CursorThrottleIntervalMinutes => _settings.CursorThrottleIntervalMinutes;
 
     public MainWindow(
         MainViewModel viewModel,
         IApplicationController applicationController,
-        AutoRefreshOptions autoRefreshOptions)
+        DashboardWidgetSettings settings)
     {
         InitializeComponent();
         DataContext = viewModel;
         _viewModel = viewModel;
         _applicationController = applicationController;
-        _autoRefreshOptions = autoRefreshOptions;
-        _viewModel.LayoutChanged += () => Dispatcher.BeginInvoke(ApplyProviderLayout);
-        _viewModel.DashboardLayout.Cards.CollectionChanged += (_, _) => Dispatcher.BeginInvoke(RebuildDashboardGrid);
+        _settings = settings;
+        _settings.Changed += DashboardWidgetSettings_Changed;
+        _viewModel.LayoutChanged += MainViewModel_LayoutChanged;
+        _viewModel.DashboardLayout.Cards.CollectionChanged += DashboardCards_CollectionChanged;
         _viewModel.DashboardLayout.PropertyChanged += DashboardLayout_PropertyChanged;
         DashboardGrid.SizeChanged += (_, _) => RenderDashboardGridLines();
         Loaded += MainWindow_Loaded;
@@ -143,7 +131,7 @@ public partial class MainWindow : Window
     protected override void OnClosing(CancelEventArgs e)
     {
         SavePlacement();
-        if (System.Windows.Application.Current is App { IsExiting: false })
+        if (!_closingForHide && System.Windows.Application.Current is App { IsExiting: false })
         {
             e.Cancel = true;
             _ = _applicationController.ExitAsync();
@@ -153,9 +141,56 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        _isClosed = true;
+        _settings.Changed -= DashboardWidgetSettings_Changed;
+        _viewModel.LayoutChanged -= MainViewModel_LayoutChanged;
+        _viewModel.DashboardLayout.Cards.CollectionChanged -= DashboardCards_CollectionChanged;
+        _viewModel.DashboardLayout.PropertyChanged -= DashboardLayout_PropertyChanged;
+        foreach (var card in _dashboardElements.Keys)
+        {
+            card.PropertyChanged -= DashboardCard_PropertyChanged;
+        }
+
+        _dashboardElements.Clear();
         _windowSource?.RemoveHook(WindowMessageHook);
         _windowSource = null;
         base.OnClosed(e);
+    }
+
+    public void CloseForHide()
+    {
+        _closingForHide = true;
+        Close();
+    }
+
+    private void MainViewModel_LayoutChanged() => QueueVisualRefresh(ApplyProviderLayout);
+
+    private void DashboardCards_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        QueueVisualRefresh(RebuildDashboardGrid);
+
+    private void DashboardWidgetSettings_Changed() => QueueVisualRefresh(ApplySettingsToWindow);
+
+    private void QueueVisualRefresh(Action action)
+    {
+        if (_isClosed)
+        {
+            return;
+        }
+
+        if (Dispatcher.CheckAccess())
+        {
+            action();
+        }
+        else
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (!_isClosed)
+                {
+                    action();
+                }
+            });
+        }
     }
 
     private void Window_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -283,14 +318,13 @@ public partial class MainWindow : Window
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        var placement = ReadPlacement();
-        if (placement is not null && IsOnVirtualDesktop(placement))
+        if (_settings.HasSavedPlacement && IsOnVirtualDesktop(_settings))
         {
-            Left = placement.Left;
-            Top = placement.Top;
-            if (double.IsFinite(placement.Width) && placement.Width >= MinWidth)
+            Left = _settings.Left;
+            Top = _settings.Top;
+            if (double.IsFinite(_settings.Width) && _settings.Width >= MinWidth)
             {
-                Width = placement.Width;
+                Width = _settings.Width;
             }
 
             // Height is restored only for the compact view, which owns it. In Dashboard Layout
@@ -298,69 +332,12 @@ public partial class MainWindow : Window
             // configured row height, recomputed by FitDashboardPanelToContent below. Deriving it
             // every start rather than trusting the file means a height measured at a bad moment
             // lasts until the next fit instead of persisting forever.
-            if (!placement.IsDashboardLayoutEnabled &&
-                double.IsFinite(placement.Height) &&
-                placement.Height >= MinHeight)
+            if (!_settings.IsDashboardLayoutEnabled &&
+                double.IsFinite(_settings.Height) &&
+                _settings.Height >= MinHeight)
             {
-                Height = placement.Height;
+                Height = _settings.Height;
             }
-
-            IsWindowLocked = placement.IsLocked;
-            IsDashboardLayoutEnabled = placement.IsDashboardLayoutEnabled;
-            DashboardWidgetHeight = double.IsFinite(placement.DashboardWidgetHeight) &&
-                                    placement.DashboardWidgetHeight >= 1
-                ? placement.DashboardWidgetHeight
-                : DefaultDashboardWidgetHeight;
-            MetricLabelWidth = double.IsFinite(placement.MetricLabelWidth) && placement.MetricLabelWidth >= 1
-                ? placement.MetricLabelWidth
-                : DefaultMetricLabelWidth;
-            ProgressBarHeight = double.IsFinite(placement.ProgressBarHeight) && placement.ProgressBarHeight >= 1
-                ? placement.ProgressBarHeight
-                : DefaultProgressBarHeight;
-            IsHorizontalLayout = placement.IsHorizontalLayout;
-            ShowDashboardWidget = placement.ShowDashboardWidget;
-            AlwaysOnTop = placement.AlwaysOnTop;
-            ShowCodex = placement.ShowCodex;
-            ShowClaude = placement.ShowClaude;
-            ShowAntigravity = placement.ShowAntigravity;
-            ShowCursor = placement.ShowCursor;
-            FontSizePreset = NormalizeFontSizePreset(placement.FontSizePreset);
-            WidgetFont = NormalizeWidgetFont(
-                placement.WidgetFont ?? ExtractWidgetFont(placement.WidgetStyle));
-            WidgetAppearance = NormalizeWidgetAppearance(
-                placement.WidgetAppearance ?? ExtractWidgetAppearance(placement.WidgetStyle));
-            WidgetTextWeight = NormalizeWidgetTextWeight(placement.WidgetTextWeight);
-            GreenColorHex = placement.GreenColorHex;
-            LimeColorHex = placement.LimeColorHex;
-            YellowColorHex = placement.YellowColorHex;
-            OrangeColorHex = placement.OrangeColorHex;
-            RedColorHex = placement.RedColorHex;
-            Stage1MaxPercent = placement.Stage1MaxPercent;
-            Stage2MaxPercent = placement.Stage2MaxPercent;
-            Stage3MaxPercent = placement.Stage3MaxPercent;
-            Stage4MaxPercent = placement.Stage4MaxPercent;
-            Stage5MaxPercent = placement.Stage5MaxPercent;
-            ShowUsageRemaining = placement.ShowUsageRemaining;
-            AutoRefreshEnabled = placement.AutoRefreshEnabled;
-            CodexRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(
-                placement.CodexRefreshIntervalMinutes);
-            ClaudeRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(
-                placement.ClaudeRefreshIntervalMinutes);
-            AntigravityRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(
-                placement.AntigravityRefreshIntervalMinutes);
-            CursorRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(
-                placement.CursorRefreshIntervalMinutes);
-            IdleAfterMinutes = AutoRefreshOptions.NormalizeInterval(placement.IdleAfterMinutes);
-            IdleRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(placement.IdleRefreshIntervalMinutes);
-            CodexThrottleIntervalMinutes = AutoRefreshOptions.NormalizeThrottle(
-                placement.CodexThrottleIntervalMinutes);
-            ClaudeThrottleIntervalMinutes = AutoRefreshOptions.NormalizeThrottle(
-                placement.ClaudeThrottleIntervalMinutes);
-            AntigravityThrottleIntervalMinutes = AutoRefreshOptions.NormalizeThrottle(
-                placement.AntigravityThrottleIntervalMinutes);
-            CursorThrottleIntervalMinutes = AutoRefreshOptions.NormalizeThrottle(
-                placement.CursorThrottleIntervalMinutes);
-            Opacity = Math.Clamp(placement.Opacity, 0.6, 1.0);
         }
         else
         {
@@ -371,20 +348,7 @@ public partial class MainWindow : Window
             }, DispatcherPriority.ContextIdle);
         }
 
-        ApplyWindowLockState();
-        ApplyAutoRefreshOptions();
-        ApplyThrottleOptions();
-        ApplySavedUsageColors();
-        _viewModel.SetUsageDisplayMode(ShowUsageRemaining);
-        ApplyWidgetPresentation();
-        ApplyFontSizePreset();
-        ApplyMetricLabelWidth();
-        ApplyProgressBarHeight();
-        ApplyProviderLayout();
-        ApplyProviderVisibility();
-        ApplyDashboardLayoutMode();
-        ApplyDashboardEditModeVisuals();
-        Topmost = AlwaysOnTop;
+        ApplySettingsToWindow();
 
         // Run once the restored size has actually been applied. A placement can be outside the
         // work area through no fault of this session - saved before this check existed, or saved
@@ -400,115 +364,72 @@ public partial class MainWindow : Window
     }
 
     public void SetWindowLocked(bool isLocked)
-    {
-        if (IsWindowLocked == isLocked)
-        {
-            return;
-        }
-
-        IsWindowLocked = isLocked;
-        ApplyWindowLockState();
-        SavePlacement();
-    }
+        => _settings.SetWindowLocked(isLocked);
 
     public void SetHorizontalLayout(bool isHorizontal)
-    {
-        if (IsHorizontalLayout == isHorizontal)
-        {
-            return;
-        }
-
-        IsHorizontalLayout = isHorizontal;
-        ApplyProviderLayout();
-        SavePlacement();
-    }
+        => _settings.SetHorizontalLayout(isHorizontal);
 
     public void SetDashboardWidgetVisible(bool isVisible)
     {
-        if (ShowDashboardWidget == isVisible)
+        if (isVisible)
         {
+            _applicationController.ShowMainWindow();
             return;
         }
 
-        ShowDashboardWidget = isVisible;
-        if (isVisible)
-        {
-            Show();
-            if (WindowState == WindowState.Minimized)
-            {
-                WindowState = WindowState.Normal;
-            }
-
-            Activate();
-        }
-        else
-        {
-            Hide();
-        }
-
-        SavePlacement();
+        _applicationController.HideMainWindow();
     }
 
     public void SetDashboardLayoutEnabled(bool enabled)
     {
-        if (IsDashboardLayoutEnabled == enabled)
-        {
-            return;
-        }
-
-        IsDashboardLayoutEnabled = enabled;
         if (!enabled)
         {
             _viewModel.DashboardLayout.IsEditMode = false;
         }
 
-        ApplyDashboardLayoutMode();
-        SavePlacement();
+        _settings.SetDashboardLayoutEnabled(enabled);
     }
 
     public void SetDashboardWidgetHeight(double height)
+        => _settings.SetDashboardWidgetHeight(height);
+
+    public void SetMetricLabelWidth(double width)
+        => _settings.SetMetricLabelWidth(width);
+
+    public void SetProgressBarHeight(double height)
+        => _settings.SetProgressBarHeight(height);
+
+    private void ApplySettingsToWindow()
     {
-        if (!double.IsFinite(height))
+        if (_isClosed || !IsLoaded)
         {
             return;
         }
 
-        DashboardWidgetHeight = Math.Max(1, Math.Round(height));
+        ApplyWindowLockState();
+        ApplySavedUsageColors();
+        ApplyWidgetPresentation();
+        ApplyFontSizePreset();
+        ApplyMetricLabelWidth();
+        ApplyProgressBarHeight();
+        ApplyProviderLayout();
+        ApplyDashboardLayoutMode();
+        ApplyDashboardEditModeVisuals();
+        Topmost = AlwaysOnTop;
+        Opacity = _settings.Opacity;
+
         if (IsDashboardLayoutEnabled)
         {
             RebuildDashboardGrid();
             Dispatcher.BeginInvoke(() =>
             {
-                RebuildDashboardGrid();
-                FitDashboardPanelToContent();
+                if (!_isClosed)
+                {
+                    RebuildDashboardGrid();
+                    FitDashboardPanelToContent();
+                }
             }, DispatcherPriority.ContextIdle);
         }
-
-        SavePlacement();
-    }
-
-    public void SetMetricLabelWidth(double width)
-    {
-        if (!double.IsFinite(width))
-        {
-            return;
-        }
-
-        MetricLabelWidth = Math.Max(1, Math.Round(width));
-        ApplyMetricLabelWidth();
-        SavePlacement();
-    }
-
-    public void SetProgressBarHeight(double height)
-    {
-        if (!double.IsFinite(height))
-        {
-            return;
-        }
-
-        ProgressBarHeight = Math.Max(1, Math.Round(height));
-        ApplyProgressBarHeight();
-        SavePlacement();
     }
 
     // Swaps between the normal compact widget content and the free-form dashboard grid. The two
@@ -797,92 +718,22 @@ public partial class MainWindow : Window
         _viewModel.DashboardLayout.ResetLayoutCommand.Execute(null);
 
     public void SetAlwaysOnTop(bool alwaysOnTop)
-    {
-        if (AlwaysOnTop == alwaysOnTop)
-        {
-            return;
-        }
-
-        AlwaysOnTop = alwaysOnTop;
-        Topmost = AlwaysOnTop;
-        SavePlacement();
-    }
+        => _settings.SetAlwaysOnTop(alwaysOnTop);
 
     public void SetProviderVisibility(ProviderKind provider, bool isVisible)
-    {
-        if (provider == ProviderKind.Codex)
-        {
-            ShowCodex = isVisible;
-        }
-        else if (provider == ProviderKind.Claude)
-        {
-            ShowClaude = isVisible;
-        }
-        else if (provider == ProviderKind.Antigravity)
-        {
-            ShowAntigravity = isVisible;
-        }
-        else
-        {
-            ShowCursor = isVisible;
-        }
-
-        ApplyProviderVisibility();
-        SavePlacement();
-    }
+        => _settings.SetProviderVisibility(provider, isVisible);
 
     public void SetFontSizePreset(string preset)
-    {
-        var normalized = NormalizeFontSizePreset(preset);
-        if (FontSizePreset == normalized)
-        {
-            return;
-        }
-
-        FontSizePreset = normalized;
-        ApplyFontSizePreset();
-        ApplyProviderLayout();
-        SavePlacement();
-    }
+        => _settings.SetFontSizePreset(preset);
 
     public void SetWidgetFont(string font)
-    {
-        var normalized = NormalizeWidgetFont(font);
-        if (WidgetFont == normalized)
-        {
-            return;
-        }
-
-        WidgetFont = normalized;
-        ApplyWidgetPresentation();
-        SavePlacement();
-    }
+        => _settings.SetWidgetFont(font);
 
     public void SetWidgetAppearance(string appearance)
-    {
-        var normalized = NormalizeWidgetAppearance(appearance);
-        if (WidgetAppearance == normalized)
-        {
-            return;
-        }
-
-        WidgetAppearance = normalized;
-        ApplyWidgetPresentation();
-        SavePlacement();
-    }
+        => _settings.SetWidgetAppearance(appearance);
 
     public void SetWidgetTextWeight(string weight)
-    {
-        var normalized = NormalizeWidgetTextWeight(weight);
-        if (WidgetTextWeight == normalized)
-        {
-            return;
-        }
-
-        WidgetTextWeight = normalized;
-        ApplyWidgetPresentation();
-        SavePlacement();
-    }
+        => _settings.SetWidgetTextWeight(weight);
 
     private void ApplyWidgetPresentation()
     {
@@ -933,168 +784,29 @@ public partial class MainWindow : Window
             usesRetroRendering ? TextHintingMode.Fixed : TextHintingMode.Auto);
     }
 
-    private static string NormalizeWidgetFont(string? font) => font switch
-    {
-        "Segoe UI Variable Text" or
-        "VT323" or
-        "Pixelify Sans" or
-        "Silkscreen" or
-        "Tiny5" or
-        "Space Mono" or
-        "Chakra Petch" or
-        "IBM Plex Mono" or
-        "DotGothic16" or
-        "Handjet" or
-        "Rajdhani" or
-        "Oxanium" or
-        "Kode Mono" => font,
-        _ => "Segoe UI Variable Text"
-    };
-
-    private static string NormalizeWidgetAppearance(string? appearance) =>
-        appearance == "Retro" ? "Retro" : "Default";
-
-    private static string NormalizeWidgetTextWeight(string? weight) => weight switch
-    {
-        "SemiBold" or "Bold" => weight,
-        _ => "Regular"
-    };
-
-    private static string ExtractWidgetFont(string? combinedStyle) => combinedStyle switch
-    {
-        string value when value.StartsWith("VT323", StringComparison.Ordinal) => "VT323",
-        string value when value.StartsWith("Pixelify Sans", StringComparison.Ordinal) => "Pixelify Sans",
-        _ => "Segoe UI Variable Text"
-    };
-
-    private static string ExtractWidgetAppearance(string? combinedStyle) =>
-        combinedStyle?.EndsWith(" - Retro", StringComparison.Ordinal) == true || combinedStyle == "Retro"
-            ? "Retro"
-            : "Default";
-
     public void SetAutoRefreshEnabled(bool enabled)
-    {
-        if (AutoRefreshEnabled == enabled)
-        {
-            return;
-        }
-
-        AutoRefreshEnabled = enabled;
-        ApplyAutoRefreshOptions();
-        SavePlacement();
-    }
+        => _settings.SetAutoRefreshEnabled(enabled);
 
     public void SetRefreshInterval(ProviderKind provider, double minutes)
-    {
-        var normalized = AutoRefreshOptions.NormalizeInterval(minutes);
-        if (provider == ProviderKind.Codex)
-        {
-            CodexRefreshIntervalMinutes = normalized;
-        }
-        else if (provider == ProviderKind.Claude)
-        {
-            ClaudeRefreshIntervalMinutes = normalized;
-        }
-        else if (provider == ProviderKind.Antigravity)
-        {
-            AntigravityRefreshIntervalMinutes = normalized;
-        }
-        else
-        {
-            CursorRefreshIntervalMinutes = normalized;
-        }
-
-        ApplyAutoRefreshOptions();
-        SavePlacement();
-    }
+        => _settings.SetRefreshInterval(provider, minutes);
 
     public void SetIdleRefreshOptions(double idleAfterMinutes, double idleRefreshIntervalMinutes)
-    {
-        IdleAfterMinutes = AutoRefreshOptions.NormalizeInterval(idleAfterMinutes);
-        IdleRefreshIntervalMinutes = AutoRefreshOptions.NormalizeInterval(idleRefreshIntervalMinutes);
-        ApplyAutoRefreshOptions();
-        SavePlacement();
-    }
+        => _settings.SetIdleRefreshOptions(idleAfterMinutes, idleRefreshIntervalMinutes);
 
     public void SetThrottleInterval(ProviderKind provider, double minutes)
-    {
-        var normalized = AutoRefreshOptions.NormalizeThrottle(minutes);
-        if (provider == ProviderKind.Codex)
-        {
-            CodexThrottleIntervalMinutes = normalized;
-        }
-        else if (provider == ProviderKind.Claude)
-        {
-            ClaudeThrottleIntervalMinutes = normalized;
-        }
-        else if (provider == ProviderKind.Antigravity)
-        {
-            AntigravityThrottleIntervalMinutes = normalized;
-        }
-        else
-        {
-            CursorThrottleIntervalMinutes = normalized;
-        }
-
-        ApplyThrottleOptions();
-        SavePlacement();
-    }
+        => _settings.SetThrottleInterval(provider, minutes);
 
     public void ResetScheduledIntervalsToDefault()
-    {
-        CodexRefreshIntervalMinutes = AutoRefreshOptions.CodexDefaultIntervalMinutes;
-        ClaudeRefreshIntervalMinutes = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
-        AntigravityRefreshIntervalMinutes = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
-        CursorRefreshIntervalMinutes = AutoRefreshOptions.CursorDefaultIntervalMinutes;
-        IdleAfterMinutes = AutoRefreshOptions.DefaultIdleAfterMinutes;
-        IdleRefreshIntervalMinutes = AutoRefreshOptions.DefaultIdleRefreshIntervalMinutes;
-        ApplyAutoRefreshOptions();
-        SavePlacement();
-    }
+        => _settings.ResetScheduledIntervalsToDefault();
 
     public void ResetThrottleIntervalsToDefault()
-    {
-        CodexThrottleIntervalMinutes = AutoRefreshOptions.CodexDefaultThrottleMinutes;
-        ClaudeThrottleIntervalMinutes = AutoRefreshOptions.ClaudeDefaultThrottleMinutes;
-        AntigravityThrottleIntervalMinutes = AutoRefreshOptions.AntigravityDefaultThrottleMinutes;
-        CursorThrottleIntervalMinutes = AutoRefreshOptions.CursorDefaultThrottleMinutes;
-        ApplyThrottleOptions();
-        SavePlacement();
-    }
+        => _settings.ResetThrottleIntervalsToDefault();
 
     public void ResetUsageColorsToDefault()
-    {
-        TrySetUsageColors("#2ECC71", "#9ACD32", "#FFD21E", "#FF9800", "#FF4D4F", 29, 49, 69, 79, 84);
-    }
+        => _settings.ResetUsageColorsToDefault();
 
     public void SetShowUsageRemaining(bool showRemaining)
-    {
-        if (ShowUsageRemaining == showRemaining)
-        {
-            return;
-        }
-
-        ShowUsageRemaining = showRemaining;
-        _viewModel.SetUsageDisplayMode(showRemaining);
-        SavePlacement();
-    }
-
-    private void ApplyAutoRefreshOptions() =>
-        _autoRefreshOptions.Update(
-            AutoRefreshEnabled,
-            CodexRefreshIntervalMinutes,
-            ClaudeRefreshIntervalMinutes,
-            AntigravityRefreshIntervalMinutes,
-            CursorRefreshIntervalMinutes,
-            IdleAfterMinutes,
-            IdleRefreshIntervalMinutes);
-
-    private void ApplyThrottleOptions() =>
-        _autoRefreshOptions.UpdateThrottle(
-            CodexThrottleIntervalMinutes,
-            ClaudeThrottleIntervalMinutes,
-            AntigravityThrottleIntervalMinutes,
-            CursorThrottleIntervalMinutes);
+        => _settings.SetShowUsageRemaining(showRemaining);
 
     public bool TrySetUsageColors(
         string green,
@@ -1108,63 +820,21 @@ public partial class MainWindow : Window
         double stage4Maximum,
         double stage5Maximum)
     {
-        if (!TryConfigureUsageColors(
-                green,
-                lime,
-                yellow,
-                orange,
-                red,
-                stage1Maximum,
-                stage2Maximum,
-                stage3Maximum,
-                stage4Maximum,
-                stage5Maximum))
-        {
-            return false;
-        }
-
-        GreenColorHex = green;
-        LimeColorHex = lime;
-        YellowColorHex = yellow;
-        OrangeColorHex = orange;
-        RedColorHex = red;
-        Stage1MaxPercent = stage1Maximum;
-        Stage2MaxPercent = stage2Maximum;
-        Stage3MaxPercent = stage3Maximum;
-        Stage4MaxPercent = stage4Maximum;
-        Stage5MaxPercent = stage5Maximum;
-        _viewModel.RefreshUsageColors();
-        SavePlacement();
-        return true;
+        return _settings.TrySetUsageColors(
+            green,
+            lime,
+            yellow,
+            orange,
+            red,
+            stage1Maximum,
+            stage2Maximum,
+            stage3Maximum,
+            stage4Maximum,
+            stage5Maximum);
     }
 
     private void ApplySavedUsageColors()
     {
-        if (TryConfigureUsageColors(
-                GreenColorHex,
-                LimeColorHex,
-                YellowColorHex,
-                OrangeColorHex,
-                RedColorHex,
-                Stage1MaxPercent,
-                Stage2MaxPercent,
-                Stage3MaxPercent,
-                Stage4MaxPercent,
-                Stage5MaxPercent))
-        {
-            return;
-        }
-
-        GreenColorHex = "#2ECC71";
-        LimeColorHex = "#9ACD32";
-        YellowColorHex = "#FFD21E";
-        OrangeColorHex = "#FF9800";
-        RedColorHex = "#FF4D4F";
-        Stage1MaxPercent = 29;
-        Stage2MaxPercent = 49;
-        Stage3MaxPercent = 69;
-        Stage4MaxPercent = 79;
-        Stage5MaxPercent = 84;
         TryConfigureUsageColors(
             GreenColorHex,
             LimeColorHex,
@@ -1227,21 +897,6 @@ public partial class MainWindow : Window
         Resources["MetricLabelWidth"] = new GridLength(MetricLabelWidth);
 
     private void ApplyProgressBarHeight() => Resources["ProgressBarHeight"] = ProgressBarHeight;
-
-    private static string NormalizeFontSizePreset(string? preset) => preset switch
-    {
-        "Compact" or "Small" or "Normal" or "Large" or "Extra Large" => preset,
-        _ => "Normal"
-    };
-
-    private void ApplyProviderVisibility()
-    {
-        _viewModel.SetProviderVisibility(ProviderKind.Codex, ShowCodex);
-        _viewModel.SetProviderVisibility(ProviderKind.Claude, ShowClaude);
-        _viewModel.SetProviderVisibility(ProviderKind.Antigravity, ShowAntigravity);
-        _viewModel.SetProviderVisibility(ProviderKind.Cursor, ShowCursor);
-        ApplyProviderLayout();
-    }
 
     private void ApplyProviderLayout()
     {
@@ -1376,8 +1031,7 @@ public partial class MainWindow : Window
     {
         if (sender is System.Windows.Controls.MenuItem item && TryGetOpacity(item, out var opacity))
         {
-            Opacity = opacity;
-            SavePlacement();
+            _settings.SetOpacity(opacity);
         }
     }
 
@@ -1531,102 +1185,12 @@ public partial class MainWindow : Window
         return changed;
     }
 
-    private static WindowPlacement? ReadPlacement()
-    {
-        try
-        {
-            return File.Exists(PlacementPath)
-                ? JsonSerializer.Deserialize<WindowPlacement>(File.ReadAllText(PlacementPath))
-                : null;
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-        catch (IOException)
-        {
-            return null;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
-
     private void SavePlacement()
     {
-        if (!double.IsFinite(Left) || !double.IsFinite(Top))
-        {
-            return;
-        }
-
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(PlacementPath)!);
-            var temporaryPath = PlacementPath + ".tmp";
-            var placement = new WindowPlacement
-            {
-                Left = Left,
-                Top = Top,
-                Width = ActualWidth,
-                Height = ActualHeight,
-                DashboardWidgetHeight = DashboardWidgetHeight,
-                MetricLabelWidth = MetricLabelWidth,
-                ProgressBarHeight = ProgressBarHeight,
-                IsLocked = IsWindowLocked,
-                IsDashboardLayoutEnabled = IsDashboardLayoutEnabled,
-                IsHorizontalLayout = IsHorizontalLayout,
-                ShowDashboardWidget = ShowDashboardWidget,
-                AlwaysOnTop = AlwaysOnTop,
-                ShowCodex = ShowCodex,
-                ShowClaude = ShowClaude,
-                ShowAntigravity = ShowAntigravity,
-                ShowCursor = ShowCursor,
-                FontSizePreset = FontSizePreset,
-                WidgetFont = WidgetFont,
-                WidgetAppearance = WidgetAppearance,
-                WidgetTextWeight = WidgetTextWeight,
-                WidgetStyle = $"{WidgetFont} - {WidgetAppearance}",
-                GreenColorHex = GreenColorHex,
-                LimeColorHex = LimeColorHex,
-                YellowColorHex = YellowColorHex,
-                OrangeColorHex = OrangeColorHex,
-                RedColorHex = RedColorHex,
-                Stage1MaxPercent = Stage1MaxPercent,
-                Stage2MaxPercent = Stage2MaxPercent,
-                Stage3MaxPercent = Stage3MaxPercent,
-                Stage4MaxPercent = Stage4MaxPercent,
-                Stage5MaxPercent = Stage5MaxPercent,
-                ShowUsageRemaining = ShowUsageRemaining,
-                AutoRefreshEnabled = AutoRefreshEnabled,
-                CodexRefreshIntervalMinutes = CodexRefreshIntervalMinutes,
-                ClaudeRefreshIntervalMinutes = ClaudeRefreshIntervalMinutes,
-                AntigravityRefreshIntervalMinutes = AntigravityRefreshIntervalMinutes,
-                CursorRefreshIntervalMinutes = CursorRefreshIntervalMinutes,
-                IdleAfterMinutes = IdleAfterMinutes,
-                IdleRefreshIntervalMinutes = IdleRefreshIntervalMinutes,
-                CodexThrottleIntervalMinutes = CodexThrottleIntervalMinutes,
-                ClaudeThrottleIntervalMinutes = ClaudeThrottleIntervalMinutes,
-                AntigravityThrottleIntervalMinutes = AntigravityThrottleIntervalMinutes,
-                CursorThrottleIntervalMinutes = CursorThrottleIntervalMinutes,
-                Opacity = Opacity
-            };
-            File.WriteAllText(temporaryPath, JsonSerializer.Serialize(placement));
-            File.Move(temporaryPath, PlacementPath, overwrite: true);
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-
-        // Every state setter routes through here, which makes this the one place that has to
-        // notify Settings - see WidgetStateChanged.
-        WidgetStateChanged?.Invoke();
+        _settings.UpdateWindowPlacement(Left, Top, ActualWidth, ActualHeight);
     }
 
-    private static bool IsOnVirtualDesktop(WindowPlacement placement)
+    private static bool IsOnVirtualDesktop(DashboardWidgetSettings placement)
     {
         if (!double.IsFinite(placement.Left) || !double.IsFinite(placement.Top))
         {
@@ -1639,54 +1203,6 @@ public partial class MainWindow : Window
                placement.Left < right &&
                placement.Top >= SystemParameters.VirtualScreenTop - 100 &&
                placement.Top < bottom;
-    }
-
-    private sealed class WindowPlacement
-    {
-        public double Left { get; init; }
-        public double Top { get; init; }
-        public double Width { get; init; } = 430;
-        public double Height { get; init; } = 320;
-        public double DashboardWidgetHeight { get; init; } = DefaultDashboardWidgetHeight;
-        public double MetricLabelWidth { get; init; } = DefaultMetricLabelWidth;
-        public double ProgressBarHeight { get; init; } = DefaultProgressBarHeight;
-        public bool IsLocked { get; init; }
-        public bool IsDashboardLayoutEnabled { get; init; } = true;
-        public bool IsHorizontalLayout { get; init; }
-        public bool ShowDashboardWidget { get; init; } = true;
-        public bool AlwaysOnTop { get; init; } = true;
-        public bool ShowCodex { get; init; } = true;
-        public bool ShowClaude { get; init; } = true;
-        public bool ShowAntigravity { get; init; } = true;
-        public bool ShowCursor { get; init; } = true;
-        public string FontSizePreset { get; init; } = "Large";
-        public string? WidgetFont { get; init; } = "Oxanium";
-        public string? WidgetAppearance { get; init; } = "Retro";
-        public string? WidgetTextWeight { get; init; } = "Regular";
-        public string? WidgetStyle { get; init; } = "Oxanium - Retro";
-        public string GreenColorHex { get; init; } = "#2ECC71";
-        public string LimeColorHex { get; init; } = "#9ACD32";
-        public string YellowColorHex { get; init; } = "#FFD21E";
-        public string OrangeColorHex { get; init; } = "#FF9800";
-        public string RedColorHex { get; init; } = "#FF4D4F";
-        public double Stage1MaxPercent { get; init; } = 29;
-        public double Stage2MaxPercent { get; init; } = 49;
-        public double Stage3MaxPercent { get; init; } = 69;
-        public double Stage4MaxPercent { get; init; } = 79;
-        public double Stage5MaxPercent { get; init; } = 84;
-        public bool ShowUsageRemaining { get; init; }
-        public bool AutoRefreshEnabled { get; init; } = true;
-        public double CodexRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.CodexDefaultIntervalMinutes;
-        public double ClaudeRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.ClaudeDefaultIntervalMinutes;
-        public double AntigravityRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.AntigravityDefaultIntervalMinutes;
-        public double CursorRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.CursorDefaultIntervalMinutes;
-        public double IdleAfterMinutes { get; init; } = AutoRefreshOptions.DefaultIdleAfterMinutes;
-        public double IdleRefreshIntervalMinutes { get; init; } = AutoRefreshOptions.DefaultIdleRefreshIntervalMinutes;
-        public double CodexThrottleIntervalMinutes { get; init; } = AutoRefreshOptions.CodexDefaultThrottleMinutes;
-        public double ClaudeThrottleIntervalMinutes { get; init; } = AutoRefreshOptions.ClaudeDefaultThrottleMinutes;
-        public double AntigravityThrottleIntervalMinutes { get; init; } = AutoRefreshOptions.AntigravityDefaultThrottleMinutes;
-        public double CursorThrottleIntervalMinutes { get; init; } = AutoRefreshOptions.CursorDefaultThrottleMinutes;
-        public double Opacity { get; init; } = 1.0;
     }
 
     private sealed record WidgetTypography(

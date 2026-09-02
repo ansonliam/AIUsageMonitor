@@ -8,7 +8,7 @@ namespace AIUsageMonitor.ViewModels;
 // the same formula converts both ways.
 //
 // Deliberately free of any WPF dependency: SettingsViewModel can only be constructed with real
-// MainWindow/TaskbarWidgetWindow instances, so keeping the whole textbox format/parse/validate
+// WPF windows, so keeping the whole textbox format/parse/validate
 // path here is what makes it unit-testable.
 internal static class UsageStagePercent
 {

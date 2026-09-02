@@ -20,6 +20,7 @@ public partial class App : System.Windows.Application, IApplicationController
     private SingleInstanceService? _singleInstance;
     private DeveloperLoggingService? _developerLogging;
     private UnhandledExceptionLog? _unhandledExceptionLog;
+    private MainWindow? _dashboardWindow;
     private bool _exitStarted;
 
     public bool IsExiting { get; private set; }
@@ -108,6 +109,8 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<GitHubReleaseService>();
         services.AddSingleton<UpdateAvailabilityMonitor>();
         services.AddSingleton<DashboardLayoutStore>();
+        services.AddSingleton<DashboardWidgetSettings>();
+        services.AddSingleton<DashboardWidgetRuntime>();
         services.AddSingleton<TaskbarWidgetSettingsStore>();
         services.AddSingleton<TaskbarMonitorService>();
         services.AddSingleton<WindowsStartupService>();
@@ -120,7 +123,7 @@ public partial class App : System.Windows.Application, IApplicationController
         services.AddSingleton<CursorHookInstaller>();
         services.AddSingleton<MainViewModel>();
         services.AddSingleton<SettingsViewModel>();
-        services.AddSingleton<MainWindow>();
+        services.AddTransient<MainWindow>();
         services.AddSingleton<TrayIconService>();
         services.AddTransient<SettingsWindow>();
         services.AddTransient<IconPreviewWindow>();
@@ -130,31 +133,29 @@ public partial class App : System.Windows.Application, IApplicationController
             "Application started | DeveloperMode={DeveloperMode} | LogFolder={LogFolder}",
             _developerLogging.IsEnabled,
             _developerLogging.LogDirectory);
-        var mainWindow = _services.GetRequiredService<MainWindow>();
-        MainWindow = mainWindow;
+        _services.GetRequiredService<DashboardWidgetRuntime>();
         _services.GetRequiredService<TrayIconService>().Initialize();
         _services.GetRequiredService<UpdateAvailabilityMonitor>().Start();
         await _services.GetRequiredService<HookNotificationListener>().StartAsync();
 
-        mainWindow.Show();
-        mainWindow.Activate();
-        if (!mainWindow.ShowDashboardWidget)
+        var dashboardSettings = _services.GetRequiredService<DashboardWidgetSettings>();
+        if (dashboardSettings.ShowDashboardWidget)
         {
-            mainWindow.Hide();
+            ShowMainWindow();
         }
 
         var taskbarWidgetWindow = _services.GetRequiredService<TaskbarWidgetWindow>();
         taskbarWidgetWindow.TrySetUsageColors(
-            mainWindow.GreenColorHex,
-            mainWindow.LimeColorHex,
-            mainWindow.YellowColorHex,
-            mainWindow.OrangeColorHex,
-            mainWindow.RedColorHex,
-            mainWindow.Stage1MaxPercent,
-            mainWindow.Stage2MaxPercent,
-            mainWindow.Stage3MaxPercent,
-            mainWindow.Stage4MaxPercent,
-            mainWindow.Stage5MaxPercent);
+            dashboardSettings.GreenColorHex,
+            dashboardSettings.LimeColorHex,
+            dashboardSettings.YellowColorHex,
+            dashboardSettings.OrangeColorHex,
+            dashboardSettings.RedColorHex,
+            dashboardSettings.Stage1MaxPercent,
+            dashboardSettings.Stage2MaxPercent,
+            dashboardSettings.Stage3MaxPercent,
+            dashboardSettings.Stage4MaxPercent,
+            dashboardSettings.Stage5MaxPercent);
         taskbarWidgetWindow.ApplyStartupVisibility();
         await PromptForHookSetupAsync();
         _ = _services.GetRequiredService<CodexApiCostService>().RefreshAsync("Startup");
@@ -165,27 +166,74 @@ public partial class App : System.Windows.Application, IApplicationController
     {
         Dispatcher.Invoke(() =>
         {
-            if (MainWindow is null)
+            if (_services is null)
             {
                 return;
             }
 
-            MainWindow.Show();
-            if (MainWindow.WindowState == WindowState.Minimized)
+            _services.GetRequiredService<DashboardWidgetSettings>().SetDashboardWidgetVisible(true);
+            if (_dashboardWindow is null)
             {
-                MainWindow.WindowState = WindowState.Normal;
+                _dashboardWindow = _services.GetRequiredService<MainWindow>();
+                _dashboardWindow.Closed += DashboardWindow_Closed;
+                MainWindow = _dashboardWindow;
             }
 
-            MainWindow.Activate();
+            _dashboardWindow.Show();
+            if (_dashboardWindow.WindowState == WindowState.Minimized)
+            {
+                _dashboardWindow.WindowState = WindowState.Normal;
+            }
+
+            _dashboardWindow.Activate();
         });
     }
 
     public void HideMainWindow()
     {
-        Dispatcher.Invoke(() => MainWindow?.Hide());
+        Dispatcher.Invoke(() =>
+        {
+            _services?.GetService<DashboardWidgetSettings>()?.SetDashboardWidgetVisible(false);
+            if (_dashboardWindow is null)
+            {
+                return;
+            }
+
+            // Closing an owner closes its owned WPF windows too. Settings must remain usable while
+            // the dashboard is released, so detach any open tools before closing the dashboard.
+            foreach (Window window in Windows)
+            {
+                if (ReferenceEquals(window.Owner, _dashboardWindow))
+                {
+                    window.Owner = null;
+                }
+            }
+
+            _dashboardWindow.CloseForHide();
+        });
     }
 
-    public bool IsMainWindowVisible() => Dispatcher.Invoke(() => MainWindow?.IsVisible == true);
+    public bool IsMainWindowVisible() => Dispatcher.Invoke(() => _dashboardWindow?.IsVisible == true);
+
+    private void DashboardWindow_Closed(object? sender, EventArgs e)
+    {
+        if (sender is not MainWindow window)
+        {
+            return;
+        }
+
+        window.Closed -= DashboardWindow_Closed;
+        if (!ReferenceEquals(_dashboardWindow, window))
+        {
+            return;
+        }
+
+        _dashboardWindow = null;
+        if (ReferenceEquals(MainWindow, window))
+        {
+            MainWindow = null;
+        }
+    }
 
     public void SetTaskbarWidgetVisibility(bool isVisible)
     {
@@ -205,8 +253,8 @@ public partial class App : System.Windows.Application, IApplicationController
             }
 
             // Shown non-modally so the widget itself stays usable (drag, resize, context menu)
-            // while Settings is open - SettingsViewModel mirrors widget-side changes back into its
-            // controls via MainWindow.WidgetStateChanged. Non-modal means a second request must
+            // while Settings is open. Its controls read and write the persistent widget state,
+            // rather than keeping the dashboard Window alive. Non-modal means a second request must
             // resurface the existing window rather than opening another copy, same as
             // ShowIconPreview below.
             var existing = Windows.OfType<SettingsWindow>().FirstOrDefault();
@@ -217,7 +265,7 @@ public partial class App : System.Windows.Application, IApplicationController
             }
 
             var window = _services.GetRequiredService<SettingsWindow>();
-            window.Owner = MainWindow?.IsVisible == true ? MainWindow : null;
+            window.Owner = _dashboardWindow?.IsVisible == true ? _dashboardWindow : null;
             window.Show();
         });
     }
@@ -239,8 +287,8 @@ public partial class App : System.Windows.Application, IApplicationController
             }
 
             var window = _services.GetRequiredService<IconPreviewWindow>();
-            window.Owner = Windows.OfType<SettingsWindow>().FirstOrDefault(candidate => candidate.IsActive)
-                ?? MainWindow;
+            window.Owner = (Window?)Windows.OfType<SettingsWindow>().FirstOrDefault(candidate => candidate.IsActive)
+                ?? _dashboardWindow;
             window.Show();
             window.Activate();
         });
@@ -300,7 +348,7 @@ public partial class App : System.Windows.Application, IApplicationController
 
     private async Task PromptForHookSetupAsync()
     {
-        if (_services is null || MainWindow is null)
+        if (_services is null)
         {
             return;
         }
@@ -330,7 +378,7 @@ public partial class App : System.Windows.Application, IApplicationController
         IReadOnlyCollection<string> selectedKeys = Array.Empty<string>();
         if (options.Length > 0)
         {
-            var window = new HookSetupWindow(options) { Owner = MainWindow };
+            var window = new HookSetupWindow(options) { Owner = _dashboardWindow };
             if (window.ShowDialog() == true)
             {
                 selectedKeys = window.SelectedKeys;
@@ -347,8 +395,24 @@ public partial class App : System.Windows.Application, IApplicationController
         SaveHookSetupState(settingsStore, installers);
         if (failures.Count > 0)
         {
-            System.Windows.MessageBox.Show(MainWindow, $"Could not set up {string.Join(" and ", failures)}. You can repair it from Settings.",
-                "Hook setup incomplete", MessageBoxButton.OK, MessageBoxImage.Warning);
+            var message = $"Could not set up {string.Join(" and ", failures)}. You can repair it from Settings.";
+            if (_dashboardWindow is not null)
+            {
+                System.Windows.MessageBox.Show(
+                    _dashboardWindow,
+                    message,
+                    "Hook setup incomplete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+            else
+            {
+                System.Windows.MessageBox.Show(
+                    message,
+                    "Hook setup incomplete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
         }
     }
 

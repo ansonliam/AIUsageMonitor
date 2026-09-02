@@ -23,7 +23,7 @@ public sealed class SettingsViewModel : ObservableObject
     private readonly AntigravityHookInstaller _antigravityHookInstaller;
     private readonly CursorHookInstaller _cursorHookInstaller;
     private readonly IApplicationController _applicationController;
-    private readonly MainWindow _mainWindow;
+    private readonly DashboardWidgetSettings _dashboardWidgetSettings;
     private readonly TaskbarWidgetWindow _taskbarWidgetWindow;
     private readonly WindowsStartupService _windowsStartupService;
     private readonly CodexApiCostSettingsStore _codexApiCostSettingsStore;
@@ -102,7 +102,7 @@ public sealed class SettingsViewModel : ObservableObject
         ClaudeAuthentication claudeAuthentication,
         AntigravityHookInstaller antigravityHookInstaller,
         CursorHookInstaller cursorHookInstaller,
-        MainWindow mainWindow,
+        DashboardWidgetSettings dashboardWidgetSettings,
         TaskbarWidgetWindow taskbarWidgetWindow,
         WindowsStartupService windowsStartupService,
         IApplicationController applicationController,
@@ -118,7 +118,7 @@ public sealed class SettingsViewModel : ObservableObject
         _claudeAuthentication = claudeAuthentication;
         _antigravityHookInstaller = antigravityHookInstaller;
         _cursorHookInstaller = cursorHookInstaller;
-        _mainWindow = mainWindow;
+        _dashboardWidgetSettings = dashboardWidgetSettings;
         _taskbarWidgetWindow = taskbarWidgetWindow;
         _windowsStartupService = windowsStartupService;
         _applicationController = applicationController;
@@ -130,16 +130,16 @@ public sealed class SettingsViewModel : ObservableObject
         _updateAvailabilityMonitor = updateAvailabilityMonitor;
         CodexApiEndpoints = [];
         LoadCodexApiEndpoints();
-        _isWindowLocked = mainWindow.IsWindowLocked;
-        _dashboardWidgetHeight = mainWindow.DashboardWidgetHeight;
-        _metricLabelWidth = mainWindow.MetricLabelWidth;
-        _progressBarHeight = mainWindow.ProgressBarHeight;
-        _showDashboardWidget = mainWindow.ShowDashboardWidget;
-        _alwaysOnTop = mainWindow.AlwaysOnTop;
-        _showCodex = mainWindow.ShowCodex;
-        _showClaude = mainWindow.ShowClaude;
-        _showAntigravity = mainWindow.ShowAntigravity;
-        _showCursor = mainWindow.ShowCursor;
+        _isWindowLocked = dashboardWidgetSettings.IsWindowLocked;
+        _dashboardWidgetHeight = dashboardWidgetSettings.DashboardWidgetHeight;
+        _metricLabelWidth = dashboardWidgetSettings.MetricLabelWidth;
+        _progressBarHeight = dashboardWidgetSettings.ProgressBarHeight;
+        _showDashboardWidget = dashboardWidgetSettings.ShowDashboardWidget;
+        _alwaysOnTop = dashboardWidgetSettings.AlwaysOnTop;
+        _showCodex = dashboardWidgetSettings.ShowCodex;
+        _showClaude = dashboardWidgetSettings.ShowClaude;
+        _showAntigravity = dashboardWidgetSettings.ShowAntigravity;
+        _showCursor = dashboardWidgetSettings.ShowCursor;
         _showTaskbarWidget = taskbarWidgetWindow.ShowTaskbarWidget;
         _showCodexOnTaskbar = taskbarWidgetWindow.ShowCodexOnTaskbar;
         _showClaudeOnTaskbar = taskbarWidgetWindow.ShowClaudeOnTaskbar;
@@ -154,28 +154,27 @@ public sealed class SettingsViewModel : ObservableObject
         _taskbarFont = taskbarWidgetWindow.TaskbarFont;
         _taskbarTextWeight = taskbarWidgetWindow.TaskbarTextWeight;
         _taskbarTextVerticalOffset = taskbarWidgetWindow.TaskbarTextVerticalOffset;
-        _autoRefreshEnabled = mainWindow.AutoRefreshEnabled;
+        _autoRefreshEnabled = dashboardWidgetSettings.AutoRefreshEnabled;
         _developerModeEnabled = developerLoggingService.IsEnabled;
         _simulateUpdateAvailable = _developerModeEnabled && developerModeSettingsStore.LoadSimulateUpdateAvailable();
-        _codexRefreshIntervalMinutes = mainWindow.CodexRefreshIntervalMinutes;
-        _claudeRefreshIntervalMinutes = mainWindow.ClaudeRefreshIntervalMinutes;
-        _antigravityRefreshIntervalMinutes = mainWindow.AntigravityRefreshIntervalMinutes;
-        _cursorRefreshIntervalMinutes = mainWindow.CursorRefreshIntervalMinutes;
-        _idleAfterMinutes = mainWindow.IdleAfterMinutes;
-        _idleRefreshIntervalMinutes = mainWindow.IdleRefreshIntervalMinutes;
-        _codexThrottleIntervalMinutes = mainWindow.CodexThrottleIntervalMinutes;
-        _claudeThrottleIntervalMinutes = mainWindow.ClaudeThrottleIntervalMinutes;
-        _antigravityThrottleIntervalMinutes = mainWindow.AntigravityThrottleIntervalMinutes;
-        _cursorThrottleIntervalMinutes = mainWindow.CursorThrottleIntervalMinutes;
-        _fontSizePreset = mainWindow.FontSizePreset;
-        _widgetFont = mainWindow.WidgetFont;
-        _widgetAppearance = mainWindow.WidgetAppearance;
-        _widgetTextWeight = mainWindow.WidgetTextWeight;
-        _showUsageRemaining = mainWindow.ShowUsageRemaining;
-        // Settings is shown non-modally, so the widget can still be changed from its own context
-        // menu (hide, lock, always-on-top, opacity, layout) while this window is open. Mirror
-        // those changes back into these controls instead of leaving them showing stale values.
-        mainWindow.WidgetStateChanged += RefreshWindowState;
+        _codexRefreshIntervalMinutes = dashboardWidgetSettings.CodexRefreshIntervalMinutes;
+        _claudeRefreshIntervalMinutes = dashboardWidgetSettings.ClaudeRefreshIntervalMinutes;
+        _antigravityRefreshIntervalMinutes = dashboardWidgetSettings.AntigravityRefreshIntervalMinutes;
+        _cursorRefreshIntervalMinutes = dashboardWidgetSettings.CursorRefreshIntervalMinutes;
+        _idleAfterMinutes = dashboardWidgetSettings.IdleAfterMinutes;
+        _idleRefreshIntervalMinutes = dashboardWidgetSettings.IdleRefreshIntervalMinutes;
+        _codexThrottleIntervalMinutes = dashboardWidgetSettings.CodexThrottleIntervalMinutes;
+        _claudeThrottleIntervalMinutes = dashboardWidgetSettings.ClaudeThrottleIntervalMinutes;
+        _antigravityThrottleIntervalMinutes = dashboardWidgetSettings.AntigravityThrottleIntervalMinutes;
+        _cursorThrottleIntervalMinutes = dashboardWidgetSettings.CursorThrottleIntervalMinutes;
+        _fontSizePreset = dashboardWidgetSettings.FontSizePreset;
+        _widgetFont = dashboardWidgetSettings.WidgetFont;
+        _widgetAppearance = dashboardWidgetSettings.WidgetAppearance;
+        _widgetTextWeight = dashboardWidgetSettings.WidgetTextWeight;
+        _showUsageRemaining = dashboardWidgetSettings.ShowUsageRemaining;
+        // Settings is shown non-modally, so either widget can still change shared state from its
+        // context menu. Mirror those changes without retaining the dashboard Window itself.
+        dashboardWidgetSettings.Changed += RefreshWindowState;
         taskbarWidgetWindow.WidgetStateChanged += RefreshWindowState;
         RefreshUsageColorState();
         InstallCodexHookCommand = new AsyncRelayCommand(InstallCodexHookAsync);
@@ -200,19 +199,19 @@ public sealed class SettingsViewModel : ObservableObject
         OpenIconPreviewCommand = new RelayCommand(_applicationController.ShowIconPreview);
         ResetScheduledIntervalsCommand = new RelayCommand(() =>
         {
-            _mainWindow.ResetScheduledIntervalsToDefault();
+            _dashboardWidgetSettings.ResetScheduledIntervalsToDefault();
             RefreshWindowState();
             TestResult = "Scheduled refresh intervals reset to defaults.";
         });
         ResetThrottleIntervalsCommand = new RelayCommand(() =>
         {
-            _mainWindow.ResetThrottleIntervalsToDefault();
+            _dashboardWidgetSettings.ResetThrottleIntervalsToDefault();
             RefreshWindowState();
             TestResult = "Hook throttle intervals reset to defaults.";
         });
         ResetUsageColorsCommand = new RelayCommand(() =>
         {
-            _mainWindow.ResetUsageColorsToDefault();
+            _dashboardWidgetSettings.ResetUsageColorsToDefault();
             ApplyMainUsageColorsToTaskbar();
             RefreshWindowState();
             TestResult = "Usage colour stages reset to defaults for the window and taskbar.";
@@ -227,7 +226,7 @@ public sealed class SettingsViewModel : ObservableObject
         RefreshStatus();
         _ = RefreshUpdateStatusAsync();
         // Settings is a singleton that outlives its own window being closed, same as the
-        // WidgetStateChanged subscriptions above - so it can keep reflecting whatever the shared
+        // Shared-state subscriptions above let it keep reflecting whatever the widgets
         // monitor's daily re-check finds without the window needing to be reopened to see it.
         _updateAvailabilityMonitor.UpdateChecked += result => _ = ApplyUpdateStatusAsync(result);
     }
@@ -277,7 +276,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _isWindowLocked, value))
             {
-                _mainWindow.SetWindowLocked(value);
+                _dashboardWidgetSettings.SetWindowLocked(value);
             }
         }
     }
@@ -289,7 +288,7 @@ public sealed class SettingsViewModel : ObservableObject
             var normalized = Math.Max(1, Math.Round(value));
             if (SetProperty(ref _dashboardWidgetHeight, normalized))
             {
-                _mainWindow.SetDashboardWidgetHeight(normalized);
+                _dashboardWidgetSettings.SetDashboardWidgetHeight(normalized);
             }
         }
     }
@@ -301,7 +300,7 @@ public sealed class SettingsViewModel : ObservableObject
             var normalized = Math.Max(1, Math.Round(value));
             if (SetProperty(ref _metricLabelWidth, normalized))
             {
-                _mainWindow.SetMetricLabelWidth(normalized);
+                _dashboardWidgetSettings.SetMetricLabelWidth(normalized);
             }
         }
     }
@@ -313,7 +312,7 @@ public sealed class SettingsViewModel : ObservableObject
             var normalized = Math.Max(1, Math.Round(value));
             if (SetProperty(ref _progressBarHeight, normalized))
             {
-                _mainWindow.SetProgressBarHeight(normalized);
+                _dashboardWidgetSettings.SetProgressBarHeight(normalized);
             }
         }
     }
@@ -324,7 +323,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _alwaysOnTop, value))
             {
-                _mainWindow.SetAlwaysOnTop(value);
+                _dashboardWidgetSettings.SetAlwaysOnTop(value);
             }
         }
     }
@@ -335,7 +334,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _showCodex, value))
             {
-                _mainWindow.SetProviderVisibility(ProviderKind.Codex, value);
+                _dashboardWidgetSettings.SetProviderVisibility(ProviderKind.Codex, value);
             }
         }
     }
@@ -346,7 +345,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _showClaude, value))
             {
-                _mainWindow.SetProviderVisibility(ProviderKind.Claude, value);
+                _dashboardWidgetSettings.SetProviderVisibility(ProviderKind.Claude, value);
             }
         }
     }
@@ -357,7 +356,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _showAntigravity, value))
             {
-                _mainWindow.SetProviderVisibility(ProviderKind.Antigravity, value);
+                _dashboardWidgetSettings.SetProviderVisibility(ProviderKind.Antigravity, value);
             }
         }
     }
@@ -368,7 +367,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _showCursor, value))
             {
-                _mainWindow.SetProviderVisibility(ProviderKind.Cursor, value);
+                _dashboardWidgetSettings.SetProviderVisibility(ProviderKind.Cursor, value);
             }
         }
     }
@@ -379,7 +378,14 @@ public sealed class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _showDashboardWidget, value))
             {
-                _mainWindow.SetDashboardWidgetVisible(value);
+                if (value)
+                {
+                    _applicationController.ShowMainWindow();
+                }
+                else
+                {
+                    _applicationController.HideMainWindow();
+                }
             }
         }
     }
@@ -445,7 +451,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _autoRefreshEnabled, value))
             {
-                _mainWindow.SetAutoRefreshEnabled(value);
+                _dashboardWidgetSettings.SetAutoRefreshEnabled(value);
             }
         }
     }
@@ -489,7 +495,7 @@ public sealed class SettingsViewModel : ObservableObject
             var normalized = AutoRefreshOptions.NormalizeInterval(value);
             if (SetProperty(ref _codexRefreshIntervalMinutes, normalized))
             {
-                _mainWindow.SetRefreshInterval(ProviderKind.Codex, normalized);
+                _dashboardWidgetSettings.SetRefreshInterval(ProviderKind.Codex, normalized);
             }
         }
     }
@@ -501,7 +507,7 @@ public sealed class SettingsViewModel : ObservableObject
             var normalized = AutoRefreshOptions.NormalizeInterval(value);
             if (SetProperty(ref _claudeRefreshIntervalMinutes, normalized))
             {
-                _mainWindow.SetRefreshInterval(ProviderKind.Claude, normalized);
+                _dashboardWidgetSettings.SetRefreshInterval(ProviderKind.Claude, normalized);
             }
         }
     }
@@ -513,7 +519,7 @@ public sealed class SettingsViewModel : ObservableObject
             var normalized = AutoRefreshOptions.NormalizeInterval(value);
             if (SetProperty(ref _antigravityRefreshIntervalMinutes, normalized))
             {
-                _mainWindow.SetRefreshInterval(ProviderKind.Antigravity, normalized);
+                _dashboardWidgetSettings.SetRefreshInterval(ProviderKind.Antigravity, normalized);
             }
         }
     }
@@ -525,7 +531,7 @@ public sealed class SettingsViewModel : ObservableObject
             var normalized = AutoRefreshOptions.NormalizeInterval(value);
             if (SetProperty(ref _cursorRefreshIntervalMinutes, normalized))
             {
-                _mainWindow.SetRefreshInterval(ProviderKind.Cursor, normalized);
+                _dashboardWidgetSettings.SetRefreshInterval(ProviderKind.Cursor, normalized);
             }
         }
     }
@@ -537,7 +543,7 @@ public sealed class SettingsViewModel : ObservableObject
             var normalized = AutoRefreshOptions.NormalizeThrottle(value);
             if (SetProperty(ref _codexThrottleIntervalMinutes, normalized))
             {
-                _mainWindow.SetThrottleInterval(ProviderKind.Codex, normalized);
+                _dashboardWidgetSettings.SetThrottleInterval(ProviderKind.Codex, normalized);
             }
         }
     }
@@ -549,7 +555,7 @@ public sealed class SettingsViewModel : ObservableObject
             var normalized = AutoRefreshOptions.NormalizeThrottle(value);
             if (SetProperty(ref _claudeThrottleIntervalMinutes, normalized))
             {
-                _mainWindow.SetThrottleInterval(ProviderKind.Claude, normalized);
+                _dashboardWidgetSettings.SetThrottleInterval(ProviderKind.Claude, normalized);
             }
         }
     }
@@ -561,7 +567,7 @@ public sealed class SettingsViewModel : ObservableObject
             var normalized = AutoRefreshOptions.NormalizeThrottle(value);
             if (SetProperty(ref _antigravityThrottleIntervalMinutes, normalized))
             {
-                _mainWindow.SetThrottleInterval(ProviderKind.Antigravity, normalized);
+                _dashboardWidgetSettings.SetThrottleInterval(ProviderKind.Antigravity, normalized);
             }
         }
     }
@@ -573,7 +579,7 @@ public sealed class SettingsViewModel : ObservableObject
             var normalized = AutoRefreshOptions.NormalizeThrottle(value);
             if (SetProperty(ref _cursorThrottleIntervalMinutes, normalized))
             {
-                _mainWindow.SetThrottleInterval(ProviderKind.Cursor, normalized);
+                _dashboardWidgetSettings.SetThrottleInterval(ProviderKind.Cursor, normalized);
             }
         }
     }
@@ -586,7 +592,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _fontSizePreset, value))
             {
-                _mainWindow.SetFontSizePreset(value);
+                _dashboardWidgetSettings.SetFontSizePreset(value);
             }
         }
     }
@@ -616,7 +622,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _widgetFont, value))
             {
-                _mainWindow.SetWidgetFont(value);
+                _dashboardWidgetSettings.SetWidgetFont(value);
             }
         }
     }
@@ -628,7 +634,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _widgetAppearance, value))
             {
-                _mainWindow.SetWidgetAppearance(value);
+                _dashboardWidgetSettings.SetWidgetAppearance(value);
             }
         }
     }
@@ -640,7 +646,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _widgetTextWeight, value))
             {
-                _mainWindow.SetWidgetTextWeight(value);
+                _dashboardWidgetSettings.SetWidgetTextWeight(value);
             }
         }
     }
@@ -663,7 +669,7 @@ public sealed class SettingsViewModel : ObservableObject
         {
             if (SetProperty(ref _showUsageRemaining, value))
             {
-                _mainWindow.SetShowUsageRemaining(value);
+                _dashboardWidgetSettings.SetShowUsageRemaining(value);
                 // Re-derive the stage textboxes on the new scale (e.g. used 20% <-> remaining
                 // 80%) instead of leaving them showing numbers from the old scale.
                 RefreshUsageColorState();
@@ -813,7 +819,7 @@ public sealed class SettingsViewModel : ObservableObject
             var normalized = AutoRefreshOptions.NormalizeInterval(value);
             if (SetProperty(ref _idleAfterMinutes, normalized))
             {
-                _mainWindow.SetIdleRefreshOptions(normalized, _idleRefreshIntervalMinutes);
+                _dashboardWidgetSettings.SetIdleRefreshOptions(normalized, _idleRefreshIntervalMinutes);
             }
         }
     }
@@ -825,7 +831,7 @@ public sealed class SettingsViewModel : ObservableObject
             var normalized = AutoRefreshOptions.NormalizeInterval(value);
             if (SetProperty(ref _idleRefreshIntervalMinutes, normalized))
             {
-                _mainWindow.SetIdleRefreshOptions(_idleAfterMinutes, normalized);
+                _dashboardWidgetSettings.SetIdleRefreshOptions(_idleAfterMinutes, normalized);
             }
         }
     }
@@ -1025,16 +1031,16 @@ public sealed class SettingsViewModel : ObservableObject
 
     public void RefreshWindowState()
     {
-        SetProperty(ref _isWindowLocked, _mainWindow.IsWindowLocked, nameof(IsWindowLocked));
-        SetProperty(ref _dashboardWidgetHeight, _mainWindow.DashboardWidgetHeight, nameof(DashboardWidgetHeight));
-        SetProperty(ref _metricLabelWidth, _mainWindow.MetricLabelWidth, nameof(MetricLabelWidth));
-        SetProperty(ref _progressBarHeight, _mainWindow.ProgressBarHeight, nameof(ProgressBarHeight));
-        SetProperty(ref _showDashboardWidget, _mainWindow.ShowDashboardWidget, nameof(ShowDashboardWidget));
-        SetProperty(ref _alwaysOnTop, _mainWindow.AlwaysOnTop, nameof(AlwaysOnTop));
-        SetProperty(ref _showCodex, _mainWindow.ShowCodex, nameof(ShowCodex));
-        SetProperty(ref _showClaude, _mainWindow.ShowClaude, nameof(ShowClaude));
-        SetProperty(ref _showAntigravity, _mainWindow.ShowAntigravity, nameof(ShowAntigravity));
-        SetProperty(ref _showCursor, _mainWindow.ShowCursor, nameof(ShowCursor));
+        SetProperty(ref _isWindowLocked, _dashboardWidgetSettings.IsWindowLocked, nameof(IsWindowLocked));
+        SetProperty(ref _dashboardWidgetHeight, _dashboardWidgetSettings.DashboardWidgetHeight, nameof(DashboardWidgetHeight));
+        SetProperty(ref _metricLabelWidth, _dashboardWidgetSettings.MetricLabelWidth, nameof(MetricLabelWidth));
+        SetProperty(ref _progressBarHeight, _dashboardWidgetSettings.ProgressBarHeight, nameof(ProgressBarHeight));
+        SetProperty(ref _showDashboardWidget, _dashboardWidgetSettings.ShowDashboardWidget, nameof(ShowDashboardWidget));
+        SetProperty(ref _alwaysOnTop, _dashboardWidgetSettings.AlwaysOnTop, nameof(AlwaysOnTop));
+        SetProperty(ref _showCodex, _dashboardWidgetSettings.ShowCodex, nameof(ShowCodex));
+        SetProperty(ref _showClaude, _dashboardWidgetSettings.ShowClaude, nameof(ShowClaude));
+        SetProperty(ref _showAntigravity, _dashboardWidgetSettings.ShowAntigravity, nameof(ShowAntigravity));
+        SetProperty(ref _showCursor, _dashboardWidgetSettings.ShowCursor, nameof(ShowCursor));
         SetProperty(
             ref _showTaskbarWidget,
             _taskbarWidgetWindow.ShowTaskbarWidget,
@@ -1065,49 +1071,49 @@ public sealed class SettingsViewModel : ObservableObject
         SetProperty(ref _taskbarFont, _taskbarWidgetWindow.TaskbarFont, nameof(TaskbarFont));
         SetProperty(ref _taskbarTextWeight, _taskbarWidgetWindow.TaskbarTextWeight, nameof(TaskbarTextWeight));
         SetProperty(ref _taskbarTextVerticalOffset, _taskbarWidgetWindow.TaskbarTextVerticalOffset, nameof(TaskbarTextVerticalOffset));
-        SetProperty(ref _autoRefreshEnabled, _mainWindow.AutoRefreshEnabled, nameof(AutoRefreshEnabled));
+        SetProperty(ref _autoRefreshEnabled, _dashboardWidgetSettings.AutoRefreshEnabled, nameof(AutoRefreshEnabled));
         SetProperty(
             ref _codexRefreshIntervalMinutes,
-            _mainWindow.CodexRefreshIntervalMinutes,
+            _dashboardWidgetSettings.CodexRefreshIntervalMinutes,
             nameof(CodexRefreshIntervalMinutes));
         SetProperty(
             ref _claudeRefreshIntervalMinutes,
-            _mainWindow.ClaudeRefreshIntervalMinutes,
+            _dashboardWidgetSettings.ClaudeRefreshIntervalMinutes,
             nameof(ClaudeRefreshIntervalMinutes));
         SetProperty(
             ref _antigravityRefreshIntervalMinutes,
-            _mainWindow.AntigravityRefreshIntervalMinutes,
+            _dashboardWidgetSettings.AntigravityRefreshIntervalMinutes,
             nameof(AntigravityRefreshIntervalMinutes));
         SetProperty(
             ref _cursorRefreshIntervalMinutes,
-            _mainWindow.CursorRefreshIntervalMinutes,
+            _dashboardWidgetSettings.CursorRefreshIntervalMinutes,
             nameof(CursorRefreshIntervalMinutes));
-        SetProperty(ref _idleAfterMinutes, _mainWindow.IdleAfterMinutes, nameof(IdleAfterMinutes));
+        SetProperty(ref _idleAfterMinutes, _dashboardWidgetSettings.IdleAfterMinutes, nameof(IdleAfterMinutes));
         SetProperty(
             ref _idleRefreshIntervalMinutes,
-            _mainWindow.IdleRefreshIntervalMinutes,
+            _dashboardWidgetSettings.IdleRefreshIntervalMinutes,
             nameof(IdleRefreshIntervalMinutes));
         SetProperty(
             ref _codexThrottleIntervalMinutes,
-            _mainWindow.CodexThrottleIntervalMinutes,
+            _dashboardWidgetSettings.CodexThrottleIntervalMinutes,
             nameof(CodexThrottleIntervalMinutes));
         SetProperty(
             ref _claudeThrottleIntervalMinutes,
-            _mainWindow.ClaudeThrottleIntervalMinutes,
+            _dashboardWidgetSettings.ClaudeThrottleIntervalMinutes,
             nameof(ClaudeThrottleIntervalMinutes));
         SetProperty(
             ref _antigravityThrottleIntervalMinutes,
-            _mainWindow.AntigravityThrottleIntervalMinutes,
+            _dashboardWidgetSettings.AntigravityThrottleIntervalMinutes,
             nameof(AntigravityThrottleIntervalMinutes));
         SetProperty(
             ref _cursorThrottleIntervalMinutes,
-            _mainWindow.CursorThrottleIntervalMinutes,
+            _dashboardWidgetSettings.CursorThrottleIntervalMinutes,
             nameof(CursorThrottleIntervalMinutes));
-        SetProperty(ref _fontSizePreset, _mainWindow.FontSizePreset, nameof(FontSizePreset));
-        SetProperty(ref _widgetFont, _mainWindow.WidgetFont, nameof(WidgetFont));
-        SetProperty(ref _widgetAppearance, _mainWindow.WidgetAppearance, nameof(WidgetAppearance));
-        SetProperty(ref _widgetTextWeight, _mainWindow.WidgetTextWeight, nameof(WidgetTextWeight));
-        if (SetProperty(ref _showUsageRemaining, _mainWindow.ShowUsageRemaining, nameof(ShowUsageRemaining)))
+        SetProperty(ref _fontSizePreset, _dashboardWidgetSettings.FontSizePreset, nameof(FontSizePreset));
+        SetProperty(ref _widgetFont, _dashboardWidgetSettings.WidgetFont, nameof(WidgetFont));
+        SetProperty(ref _widgetAppearance, _dashboardWidgetSettings.WidgetAppearance, nameof(WidgetAppearance));
+        SetProperty(ref _widgetTextWeight, _dashboardWidgetSettings.WidgetTextWeight, nameof(WidgetTextWeight));
+        if (SetProperty(ref _showUsageRemaining, _dashboardWidgetSettings.ShowUsageRemaining, nameof(ShowUsageRemaining)))
         {
             OnPropertyChanged(nameof(StageBoundaryLabel));
         }
@@ -1116,18 +1122,18 @@ public sealed class SettingsViewModel : ObservableObject
 
     private void RefreshUsageColorState()
     {
-        SetProperty(ref _greenColorHex, _mainWindow.GreenColorHex, nameof(GreenColorHex));
-        SetProperty(ref _limeColorHex, _mainWindow.LimeColorHex, nameof(LimeColorHex));
-        SetProperty(ref _yellowColorHex, _mainWindow.YellowColorHex, nameof(YellowColorHex));
-        SetProperty(ref _orangeColorHex, _mainWindow.OrangeColorHex, nameof(OrangeColorHex));
-        SetProperty(ref _redColorHex, _mainWindow.RedColorHex, nameof(RedColorHex));
-        SetProperty(ref _stage1MaxPercent, FormatStagePercent(_mainWindow.Stage1MaxPercent), nameof(Stage1MaxPercent));
-        SetProperty(ref _stage2MaxPercent, FormatStagePercent(_mainWindow.Stage2MaxPercent), nameof(Stage2MaxPercent));
-        SetProperty(ref _stage3MaxPercent, FormatStagePercent(_mainWindow.Stage3MaxPercent), nameof(Stage3MaxPercent));
-        SetProperty(ref _stage4MaxPercent, FormatStagePercent(_mainWindow.Stage4MaxPercent), nameof(Stage4MaxPercent));
+        SetProperty(ref _greenColorHex, _dashboardWidgetSettings.GreenColorHex, nameof(GreenColorHex));
+        SetProperty(ref _limeColorHex, _dashboardWidgetSettings.LimeColorHex, nameof(LimeColorHex));
+        SetProperty(ref _yellowColorHex, _dashboardWidgetSettings.YellowColorHex, nameof(YellowColorHex));
+        SetProperty(ref _orangeColorHex, _dashboardWidgetSettings.OrangeColorHex, nameof(OrangeColorHex));
+        SetProperty(ref _redColorHex, _dashboardWidgetSettings.RedColorHex, nameof(RedColorHex));
+        SetProperty(ref _stage1MaxPercent, FormatStagePercent(_dashboardWidgetSettings.Stage1MaxPercent), nameof(Stage1MaxPercent));
+        SetProperty(ref _stage2MaxPercent, FormatStagePercent(_dashboardWidgetSettings.Stage2MaxPercent), nameof(Stage2MaxPercent));
+        SetProperty(ref _stage3MaxPercent, FormatStagePercent(_dashboardWidgetSettings.Stage3MaxPercent), nameof(Stage3MaxPercent));
+        SetProperty(ref _stage4MaxPercent, FormatStagePercent(_dashboardWidgetSettings.Stage4MaxPercent), nameof(Stage4MaxPercent));
         SetProperty(
             ref _stage5RangeText,
-            UsageStagePercent.OpenEndedStageText(_mainWindow.Stage4MaxPercent, _showUsageRemaining),
+            UsageStagePercent.OpenEndedStageText(_dashboardWidgetSettings.Stage4MaxPercent, _showUsageRemaining),
             nameof(Stage5RangeText));
     }
 
@@ -1142,7 +1148,7 @@ public sealed class SettingsViewModel : ObservableObject
             return;
         }
 
-        var mainSucceeded = _mainWindow.TrySetUsageColors(
+        var mainSucceeded = _dashboardWidgetSettings.TrySetUsageColors(
             GreenColorHex,
             LimeColorHex,
             YellowColorHex,
@@ -1212,16 +1218,16 @@ public sealed class SettingsViewModel : ObservableObject
 
     private bool ApplyMainUsageColorsToTaskbar() =>
         _taskbarWidgetWindow.TrySetUsageColors(
-            _mainWindow.GreenColorHex,
-            _mainWindow.LimeColorHex,
-            _mainWindow.YellowColorHex,
-            _mainWindow.OrangeColorHex,
-            _mainWindow.RedColorHex,
-            _mainWindow.Stage1MaxPercent,
-            _mainWindow.Stage2MaxPercent,
-            _mainWindow.Stage3MaxPercent,
-            _mainWindow.Stage4MaxPercent,
-            _mainWindow.Stage5MaxPercent);
+            _dashboardWidgetSettings.GreenColorHex,
+            _dashboardWidgetSettings.LimeColorHex,
+            _dashboardWidgetSettings.YellowColorHex,
+            _dashboardWidgetSettings.OrangeColorHex,
+            _dashboardWidgetSettings.RedColorHex,
+            _dashboardWidgetSettings.Stage1MaxPercent,
+            _dashboardWidgetSettings.Stage2MaxPercent,
+            _dashboardWidgetSettings.Stage3MaxPercent,
+            _dashboardWidgetSettings.Stage4MaxPercent,
+            _dashboardWidgetSettings.Stage5MaxPercent);
 
     // Stage textboxes always show/accept values on the current display scale (used or
     // remaining), while stage storage/validation always stays in "used%" terms. The conversion

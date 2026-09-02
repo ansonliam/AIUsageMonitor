@@ -1,11 +1,12 @@
 using AIUsageMonitor.Converters;
+using AIUsageMonitor.Services;
 using AIUsageMonitor.ViewModels;
 
 namespace AIUsageMonitor.Views;
 
 public partial class IconPreviewWindow
 {
-    public IconPreviewWindow(MainViewModel viewModel, MainWindow mainWindow)
+    public IconPreviewWindow(MainViewModel viewModel, DashboardWidgetSettings dashboardWidgetSettings)
     {
         InitializeComponent();
         DataContext = viewModel;
@@ -13,16 +14,16 @@ public partial class IconPreviewWindow
         if (Resources["UsageColorConverter"] is UsageColorConverter converter)
         {
             converter.TryConfigure(
-                mainWindow.GreenColorHex,
-                mainWindow.LimeColorHex,
-                mainWindow.YellowColorHex,
-                mainWindow.OrangeColorHex,
-                mainWindow.RedColorHex,
-                mainWindow.Stage1MaxPercent,
-                mainWindow.Stage2MaxPercent,
-                mainWindow.Stage3MaxPercent,
-                mainWindow.Stage4MaxPercent,
-                mainWindow.Stage5MaxPercent);
+                dashboardWidgetSettings.GreenColorHex,
+                dashboardWidgetSettings.LimeColorHex,
+                dashboardWidgetSettings.YellowColorHex,
+                dashboardWidgetSettings.OrangeColorHex,
+                dashboardWidgetSettings.RedColorHex,
+                dashboardWidgetSettings.Stage1MaxPercent,
+                dashboardWidgetSettings.Stage2MaxPercent,
+                dashboardWidgetSettings.Stage3MaxPercent,
+                dashboardWidgetSettings.Stage4MaxPercent,
+                dashboardWidgetSettings.Stage5MaxPercent);
         }
     }
 
