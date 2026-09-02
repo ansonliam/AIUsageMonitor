@@ -165,6 +165,7 @@ public partial class App : System.Windows.Application, IApplicationController
         // now would just be paid for twice.
         var refreshService = _services.GetRequiredService<UsageRefreshService>();
         refreshService.RefreshCompleted += OnFirstRefreshCompleted;
+        MemoryReclaimer.StartPeriodicReclaim(Dispatcher);
 
         _ = _services.GetRequiredService<CodexApiCostService>().RefreshAsync("Startup");
         await _services.GetRequiredService<UsagePollingService>().StartAsync();
