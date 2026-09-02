@@ -168,8 +168,18 @@ public partial class MainWindow : Window
         // Raised here rather than only on drag-start: WS_EX_NOACTIVATE (see
         // TaskbarInterop.ApplyNonActivatingToolWindowStyle) means this window is barred from ever
         // activating, so any click - even one landing on a button rather than starting a drag -
-        // still needs this explicit nudge to come to the top of the (non-topmost) z-order.
-        TaskbarInterop.RaiseZOrderWithoutActivating(new WindowInteropHelper(this).Handle);
+        // still needs an explicit z-order nudge. Keep an always-on-top widget in the topmost band;
+        // RaiseZOrderWithoutActivating deliberately ends in the non-topmost band and would make
+        // the widget coverable immediately after a move while leaving the setting checked.
+        var handle = new WindowInteropHelper(this).Handle;
+        if (AlwaysOnTop)
+        {
+            TaskbarInterop.ForceTopMost(handle);
+        }
+        else
+        {
+            TaskbarInterop.RaiseZOrderWithoutActivating(handle);
+        }
 
         if (IsInsideButton(e.OriginalSource as DependencyObject) ||
             IsInsideThumb(e.OriginalSource as DependencyObject))
