@@ -32,6 +32,10 @@ public partial class MainWindow : Window
     // grid (see FitDashboardPanelToContent). Kept near one grid row so a small board can size
     // down to its cards instead of carrying invisible window beneath them.
     private const double DashboardMinHeight = 60;
+    // How much of the widget has to stay on the monitor for a saved position to count as
+    // deliberate rather than lost. Roughly a grab-sized strip: enough that the user can still see
+    // and drag the thing.
+    private const double MinVisibleExtent = 80;
     private readonly IApplicationController _applicationController;
     private readonly MainViewModel _viewModel;
     // A Grid whose rows are all "*" and that sits inside a ScrollViewer (which measures its
@@ -109,7 +113,11 @@ public partial class MainWindow : Window
 
         IsVisibleChanged += (_, e) =>
         {
-            if (e.NewValue is not true)
+            // IsVisibleChanged runs ahead of Loaded on a window being shown for the first time,
+            // and the saved placement is not restored until Loaded. Measuring or - worse -
+            // saving here would work off wherever Windows happened to create the HWND. Loaded
+            // does both itself, so there is nothing to do on that first pass.
+            if (e.NewValue is not true || !IsLoaded)
             {
                 return;
             }
@@ -121,7 +129,7 @@ public partial class MainWindow : Window
 
             // Showing the widget again from the tray is also the moment Windows would quietly
             // move a window that is off the display; keep our saved position in step with it.
-            if (EnsureOnScreen())
+            if (EnsureOnScreen(ScreenFit.PreservePlacement))
             {
                 SavePlacement();
             }
@@ -356,7 +364,7 @@ public partial class MainWindow : Window
         // than leaving Windows to do it at some unrelated moment later.
         Dispatcher.BeginInvoke(() =>
         {
-            if (EnsureOnScreen())
+            if (EnsureOnScreen(ScreenFit.PreservePlacement))
             {
                 SavePlacement();
             }
@@ -1119,6 +1127,17 @@ public partial class MainWindow : Window
         Top = bottomRight.Y - ActualHeight - margin;
     }
 
+    private enum ScreenFit
+    {
+        // The window just grew under its own steam, so put it back fully on screen - the user did
+        // not ask for the new content to land off the bottom edge.
+        KeepFullyVisible,
+
+        // The position came from the user, so leave it alone unless the widget is effectively
+        // lost - see MinVisibleExtent.
+        PreservePlacement,
+    }
+
     // Keeps the widget on the screen it is on - screen *bounds*, deliberately not the work area,
     // so parking it against or partly beneath the taskbar stays possible. This only rescues a
     // widget that has ended up genuinely off the display, which Windows would otherwise do at the
@@ -1128,7 +1147,7 @@ public partial class MainWindow : Window
     //
     // Not called for user drags or resizes: where the user puts it is where it stays.
     // Callers save when this returns true.
-    private bool EnsureOnScreen()
+    private bool EnsureOnScreen(ScreenFit fit = ScreenFit.KeepFullyVisible)
     {
         var handle = new WindowInteropHelper(this).Handle;
         if (handle == IntPtr.Zero || !double.IsFinite(Left) || !double.IsFinite(Top))
@@ -1165,6 +1184,20 @@ public partial class MainWindow : Window
             width = Math.Max(MinWidth, bottomRight.X - topLeft.X);
             Width = width;
             changed = true;
+        }
+
+        // Parking the widget so an edge of it runs off the screen - a few pixels past the bottom,
+        // or tucked behind the taskbar - is a deliberate and perfectly ordinary thing to do with
+        // something this small. Dragging it there does not correct it, so neither should reopening
+        // it: a placement that still shows this much of the widget is the user's, not a mistake to
+        // undo. Only one that has left almost nothing on screen - a monitor unplugged, a
+        // resolution change, a placement saved before any of this existed - is worth moving, and
+        // moving that one fully back on screen is the whole point.
+        if (fit == ScreenFit.PreservePlacement &&
+            Math.Min(Left + width, bottomRight.X) - Math.Max(Left, topLeft.X) >= MinVisibleExtent &&
+            Math.Min(Top + height, bottomRight.Y) - Math.Max(Top, topLeft.Y) >= MinVisibleExtent)
+        {
+            return changed;
         }
 
         var left = Math.Clamp(Left, topLeft.X, Math.Max(topLeft.X, bottomRight.X - width));
