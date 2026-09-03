@@ -39,10 +39,10 @@ public sealed class AntigravityQuotaParserTests
 
         var windows = AntigravityQuotaParser.Parse(document.RootElement);
 
-        // A group with a single active bucket collapses to just the group name, since the
-        // bucket's own name (e.g. "Session 5h") adds no disambiguating information.
         Assert.HasCount(1, windows);
-        Assert.AreEqual("Gemini Pro", windows[0].Label);
+        Assert.AreEqual("Gemini Pro · 5H", windows[0].Label);
+        Assert.AreEqual("Gemini Pro", windows[0].GroupName);
+        Assert.AreEqual("5H", windows[0].WindowLabel);
         Assert.AreEqual(73d, windows[0].RemainingPercent!.Value, 0.001);
         Assert.AreEqual(
             new DateTimeOffset(2026, 8, 22, 1, 2, 3, TimeSpan.Zero),
@@ -50,7 +50,7 @@ public sealed class AntigravityQuotaParserTests
     }
 
     [TestMethod]
-    public void Parse_RealAntigravityGroupShape_UsesGroupNameAsLabel()
+    public void Parse_RealWeeklyOnlyResponse_PreservesGroupAndPeriodWithoutInventingFiveHourUsage()
     {
         using var document = JsonDocument.Parse("""
             {
@@ -90,12 +90,13 @@ public sealed class AntigravityQuotaParserTests
         var windows = AntigravityQuotaParser.Parse(document.RootElement);
 
         Assert.HasCount(2, windows);
-        Assert.AreEqual("Gemini Models", windows[0].Label);
-        Assert.AreEqual("Claude and GPT models", windows[1].Label);
+        Assert.AreEqual("Gemini Models · W", windows[0].Label);
+        Assert.AreEqual("Claude and GPT models · W", windows[1].Label);
+        Assert.IsTrue(windows.All(window => window.WindowLabel == "W"));
     }
 
     [TestMethod]
-    public void Parse_MultipleBucketsInGroup_KeepsBucketNameForDisambiguation()
+    public void Parse_MultipleBucketsInGroup_DistinguishesPeriods()
     {
         using var document = JsonDocument.Parse("""
             {
@@ -116,8 +117,39 @@ public sealed class AntigravityQuotaParserTests
         var windows = AntigravityQuotaParser.Parse(document.RootElement);
 
         Assert.HasCount(2, windows);
-        Assert.AreEqual("Gemini Models · Session 5h", windows[0].Label);
-        Assert.AreEqual("Gemini Models · Weekly", windows[1].Label);
+        Assert.AreEqual("Gemini Models · 5H", windows[0].Label);
+        Assert.AreEqual("Gemini Models · W", windows[1].Label);
+    }
+
+    [TestMethod]
+    public void Parse_FourBucketsInWeeklyFirstOrder_PreservesIndependentValuesAndResets()
+    {
+        using var document = JsonDocument.Parse("""
+            { "response": { "groups": [
+              { "displayName": "Gemini Models", "buckets": [
+                { "bucketId": "gemini-weekly", "window": "weekly", "remainingFraction": 0.91,
+                  "resetTime": "2026-09-10T05:37:31Z" },
+                { "bucketId": "gemini-5h", "window": "5h", "remainingFraction": 0.57,
+                  "resetTime": "2026-09-03T09:00:00Z" }
+              ] },
+              { "displayName": "Claude and GPT models", "buckets": [
+                { "bucketId": "3p-weekly", "remainingFraction": 1,
+                  "resetTime": "2026-09-10T05:40:50Z" },
+                { "bucketId": "3p-5h", "remainingFraction": 0.25,
+                  "resetTime": "2026-09-03T10:00:00Z" }
+              ] }
+            ] } }
+            """);
+
+        var windows = AntigravityQuotaParser.Parse(document.RootElement);
+
+        CollectionAssert.AreEqual(new[] { "5H", "W", "5H", "W" },
+            windows.Select(window => window.WindowLabel).ToArray());
+        CollectionAssert.AreEqual(new[] { 57d, 91d, 25d, 100d },
+            windows.Select(window => Math.Round(window.RemainingPercent!.Value)).ToArray());
+        CollectionAssert.AreEqual(new[] { "2026-09-03T09:00:00Z", "2026-09-10T05:37:31Z",
+                "2026-09-03T10:00:00Z", "2026-09-10T05:40:50Z" },
+            windows.Select(window => window.ResetAt!.Value.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'")).ToArray());
     }
 
     [TestMethod]

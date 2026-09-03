@@ -55,6 +55,8 @@ public sealed class SettingsViewModel : ObservableObject
     private bool _showCodex = true;
     private bool _showClaude = true;
     private bool _showAntigravity = true;
+    private bool _hideAntigravityClaudeAndGptModels;
+    private bool _hideAntigravityFiveHourLimits;
     private bool _showCursor = true;
     private bool _showTaskbarWidget;
     private bool _showCodexOnTaskbar = true;
@@ -139,6 +141,8 @@ public sealed class SettingsViewModel : ObservableObject
         _showCodex = dashboardWidgetSettings.ShowCodex;
         _showClaude = dashboardWidgetSettings.ShowClaude;
         _showAntigravity = dashboardWidgetSettings.ShowAntigravity;
+        _hideAntigravityClaudeAndGptModels = dashboardWidgetSettings.HideAntigravityClaudeAndGptModels;
+        _hideAntigravityFiveHourLimits = dashboardWidgetSettings.HideAntigravityFiveHourLimits;
         _showCursor = dashboardWidgetSettings.ShowCursor;
         _showTaskbarWidget = taskbarWidgetWindow.ShowTaskbarWidget;
         _showCodexOnTaskbar = taskbarWidgetWindow.ShowCodexOnTaskbar;
@@ -357,6 +361,28 @@ public sealed class SettingsViewModel : ObservableObject
             if (SetProperty(ref _showAntigravity, value))
             {
                 _dashboardWidgetSettings.SetProviderVisibility(ProviderKind.Antigravity, value);
+            }
+        }
+    }
+    public bool HideAntigravityClaudeAndGptModels
+    {
+        get => _hideAntigravityClaudeAndGptModels;
+        set
+        {
+            if (SetProperty(ref _hideAntigravityClaudeAndGptModels, value))
+            {
+                _dashboardWidgetSettings.SetHideAntigravityClaudeAndGptModels(value);
+            }
+        }
+    }
+    public bool HideAntigravityFiveHourLimits
+    {
+        get => _hideAntigravityFiveHourLimits;
+        set
+        {
+            if (SetProperty(ref _hideAntigravityFiveHourLimits, value))
+            {
+                _dashboardWidgetSettings.SetHideAntigravityFiveHourLimits(value);
             }
         }
     }
@@ -1040,6 +1066,10 @@ public sealed class SettingsViewModel : ObservableObject
         SetProperty(ref _showCodex, _dashboardWidgetSettings.ShowCodex, nameof(ShowCodex));
         SetProperty(ref _showClaude, _dashboardWidgetSettings.ShowClaude, nameof(ShowClaude));
         SetProperty(ref _showAntigravity, _dashboardWidgetSettings.ShowAntigravity, nameof(ShowAntigravity));
+        SetProperty(ref _hideAntigravityClaudeAndGptModels,
+            _dashboardWidgetSettings.HideAntigravityClaudeAndGptModels, nameof(HideAntigravityClaudeAndGptModels));
+        SetProperty(ref _hideAntigravityFiveHourLimits,
+            _dashboardWidgetSettings.HideAntigravityFiveHourLimits, nameof(HideAntigravityFiveHourLimits));
         SetProperty(ref _showCursor, _dashboardWidgetSettings.ShowCursor, nameof(ShowCursor));
         SetProperty(
             ref _showTaskbarWidget,

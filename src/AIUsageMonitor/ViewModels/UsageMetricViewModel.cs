@@ -1,6 +1,6 @@
 namespace AIUsageMonitor.ViewModels;
 
-public sealed class UsageMetricViewModel(string label) : ObservableObject
+public sealed class UsageMetricViewModel(string label, string? shortLabel = null) : ObservableObject
 {
     private double? _usedPercent;
     private double? _remainingPercent;
@@ -10,7 +10,7 @@ public sealed class UsageMetricViewModel(string label) : ObservableObject
     private bool _isStale;
 
     public string Label { get; } = label;
-    public string ShortLabel { get; } = AbbreviateLabel(label);
+    public string ShortLabel { get; } = shortLabel ?? AbbreviateLabel(label);
     public string HoverText => ResetSummary is null ? Label : $"{Label}\n{ResetSummary}";
     // Colour severity always keys off UsedPercent, regardless of display mode, so the "remaining"
     // toggle only changes what number is shown - not which stage/colour it falls into.

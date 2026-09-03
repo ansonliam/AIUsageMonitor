@@ -35,6 +35,8 @@ public sealed class DashboardWidgetSettingsTests
         settings.SetWidgetFont("Silkscreen");
         settings.SetProviderVisibility(Models.ProviderKind.Cursor, false);
         settings.SetDashboardWidgetHeight(64);
+        settings.SetHideAntigravityClaudeAndGptModels(true);
+        settings.SetHideAntigravityFiveHourLimits(true);
 
         var reloaded = new DashboardWidgetSettings(_settingsPath);
 
@@ -42,8 +44,10 @@ public sealed class DashboardWidgetSettingsTests
         Assert.AreEqual("Silkscreen", reloaded.WidgetFont);
         Assert.IsFalse(reloaded.ShowCursor);
         Assert.AreEqual(64, reloaded.DashboardWidgetHeight);
+        Assert.IsTrue(reloaded.HideAntigravityClaudeAndGptModels);
+        Assert.IsTrue(reloaded.HideAntigravityFiveHourLimits);
         Assert.IsFalse(reloaded.HasSavedPlacement);
-        Assert.AreEqual(4, changeCount);
+        Assert.AreEqual(6, changeCount);
     }
 
     [TestMethod]

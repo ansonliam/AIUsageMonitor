@@ -365,6 +365,32 @@
             </StackPanel>
         </Border>
 
+        <TextBlock FontSize="16" FontWeight="SemiBold" Text="Antigravity" />
+        <Border Margin="0,8,0,10"
+                Padding="10"
+                Background="#FFFFFFFF"
+                BorderBrush="#FFD6DBE1"
+                BorderThickness="1"
+                CornerRadius="6">
+            <StackPanel>
+                <CheckBox IsChecked="{Binding HideAntigravityClaudeAndGptModels, Mode=TwoWay}"
+                          Content="Hide Claude and ChatGPT models" />
+                <TextBlock Margin="22,4,0,0"
+                           FontSize="11"
+                           Foreground="#FF65717D"
+                           TextWrapping="Wrap"
+                           Text="Hide their Antigravity 5-hour and weekly limits in the window and taskbar widgets." />
+                <CheckBox Margin="0,12,0,0"
+                          IsChecked="{Binding HideAntigravityFiveHourLimits, Mode=TwoWay}"
+                          Content="Hide 5-hour limits" />
+                <TextBlock Margin="22,4,0,0"
+                           FontSize="11"
+                           Foreground="#FF65717D"
+                           TextWrapping="Wrap"
+                           Text="Hide Antigravity 5H rows in the window and taskbar widgets. Weekly limits stay visible." />
+            </StackPanel>
+        </Border>
+
         <TextBlock FontSize="16" FontWeight="SemiBold" Text="Window Widget" />
         <Border Margin="0,8,0,10"
                 Padding="10"

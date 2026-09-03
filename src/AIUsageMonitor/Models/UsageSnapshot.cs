@@ -16,6 +16,8 @@ public sealed record UsageSnapshot
 public sealed record UsageWindowSnapshot
 {
     public required string Label { get; init; }
+    public string? GroupName { get; init; }
+    public string? WindowLabel { get; init; }
     public double? RemainingPercent { get; init; }
     public DateTimeOffset? ResetAt { get; init; }
 }

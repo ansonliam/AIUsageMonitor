@@ -49,6 +49,8 @@ public sealed class DashboardWidgetSettings
     public bool ShowCodex { get; private set; } = true;
     public bool ShowClaude { get; private set; } = true;
     public bool ShowAntigravity { get; private set; } = true;
+    public bool HideAntigravityClaudeAndGptModels { get; private set; }
+    public bool HideAntigravityFiveHourLimits { get; private set; }
     public bool ShowCursor { get; private set; } = true;
     public string FontSizePreset { get; private set; } = "Large";
     public string WidgetFont { get; private set; } = "Oxanium";
@@ -88,6 +90,10 @@ public sealed class DashboardWidgetSettings
     public void SetAutoRefreshEnabled(bool value) => Set(AutoRefreshEnabled, value, updated => AutoRefreshEnabled = updated);
     public void SetShowUsageRemaining(bool value) =>
         Set(ShowUsageRemaining, value, updated => ShowUsageRemaining = updated);
+    public void SetHideAntigravityClaudeAndGptModels(bool value) =>
+        Set(HideAntigravityClaudeAndGptModels, value, updated => HideAntigravityClaudeAndGptModels = updated);
+    public void SetHideAntigravityFiveHourLimits(bool value) =>
+        Set(HideAntigravityFiveHourLimits, value, updated => HideAntigravityFiveHourLimits = updated);
 
     public void SetDashboardWidgetHeight(double value)
     {
@@ -306,6 +312,8 @@ public sealed class DashboardWidgetSettings
         ShowCodex = placement.ShowCodex;
         ShowClaude = placement.ShowClaude;
         ShowAntigravity = placement.ShowAntigravity;
+        HideAntigravityClaudeAndGptModels = placement.HideAntigravityClaudeAndGptModels;
+        HideAntigravityFiveHourLimits = placement.HideAntigravityFiveHourLimits;
         ShowCursor = placement.ShowCursor;
         FontSizePreset = NormalizeFontSizePreset(placement.FontSizePreset);
         WidgetFont = NormalizeWidgetFont(placement.WidgetFont ?? ExtractWidgetFont(placement.WidgetStyle));
@@ -424,6 +432,8 @@ public sealed class DashboardWidgetSettings
         ShowCodex = ShowCodex,
         ShowClaude = ShowClaude,
         ShowAntigravity = ShowAntigravity,
+        HideAntigravityClaudeAndGptModels = HideAntigravityClaudeAndGptModels,
+        HideAntigravityFiveHourLimits = HideAntigravityFiveHourLimits,
         ShowCursor = ShowCursor,
         FontSizePreset = FontSizePreset,
         WidgetFont = WidgetFont,
@@ -544,6 +554,8 @@ public sealed class DashboardWidgetSettings
         public bool ShowCodex { get; init; } = true;
         public bool ShowClaude { get; init; } = true;
         public bool ShowAntigravity { get; init; } = true;
+        public bool HideAntigravityClaudeAndGptModels { get; init; }
+        public bool HideAntigravityFiveHourLimits { get; init; }
         public bool ShowCursor { get; init; } = true;
         public string FontSizePreset { get; init; } = "Large";
         public string? WidgetFont { get; init; } = "Oxanium";

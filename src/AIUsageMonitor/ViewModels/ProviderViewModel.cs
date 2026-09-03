@@ -15,6 +15,10 @@ public sealed class ProviderViewModel : ObservableObject
     private bool _showRetry;
     private bool _hasSuccessfulData;
     private bool _showRemaining;
+    private bool _hideAntigravityClaudeAndGptModels;
+    private bool _hideAntigravityFiveHourLimits;
+    private IReadOnlyList<UsageWindowSnapshot> _dynamicWindows = [];
+    private bool _isStale;
 
     public ProviderViewModel(ProviderKind kind, string name, UsageRefreshService refreshService)
     {
@@ -121,19 +125,10 @@ public sealed class ProviderViewModel : ObservableObject
 
         if (snapshot.Status == UsageStatus.Available)
         {
-            if ((Kind == ProviderKind.Antigravity || Kind == ProviderKind.Cursor) && snapshot.Windows.Count > 0)
+            if (Kind == ProviderKind.Antigravity || Kind == ProviderKind.Cursor)
             {
-                UsageWindows.Clear();
-                foreach (var window in snapshot.Windows)
-                {
-                    var metric = new UsageMetricViewModel(window.Label);
-                    // These metrics are rebuilt on every refresh, so the current display mode has
-                    // to be re-applied here - otherwise Antigravity/Cursor silently revert to
-                    // showing used% the first time they refresh after the user picks "remaining".
-                    metric.SetShowRemaining(_showRemaining);
-                    metric.SetUsage(window.RemainingPercent, window.ResetAt);
-                    UsageWindows.Add(metric);
-                }
+                _dynamicWindows = snapshot.Windows;
+                RebuildDynamicWindows();
             }
             else
             {
@@ -187,11 +182,95 @@ public sealed class ProviderViewModel : ObservableObject
 
     private void SetStale(bool stale)
     {
+        _isStale = stale;
         foreach (var metric in UsageWindows)
         {
             metric.IsStale = stale;
         }
     }
+
+    public void SetHideAntigravityClaudeAndGptModels(bool hide)
+    {
+        if (Kind != ProviderKind.Antigravity || _hideAntigravityClaudeAndGptModels == hide)
+        {
+            return;
+        }
+
+        _hideAntigravityClaudeAndGptModels = hide;
+        if (_hasSuccessfulData)
+        {
+            RebuildDynamicWindows();
+        }
+    }
+
+    public void SetHideAntigravityFiveHourLimits(bool hide)
+    {
+        if (Kind != ProviderKind.Antigravity || _hideAntigravityFiveHourLimits == hide)
+        {
+            return;
+        }
+
+        _hideAntigravityFiveHourLimits = hide;
+        if (_hasSuccessfulData)
+        {
+            RebuildDynamicWindows();
+        }
+    }
+
+    private void RebuildDynamicWindows()
+    {
+        UsageWindows.Clear();
+        var windows = Kind == ProviderKind.Antigravity ? GetAntigravityWindows() : _dynamicWindows;
+        foreach (var window in windows)
+        {
+            string? shortLabel = null;
+            if (Kind == ProviderKind.Antigravity && window.WindowLabel is not null)
+            {
+                var group = window.GroupName ?? window.Label;
+                var prefix = group.Contains("Gemini", StringComparison.OrdinalIgnoreCase) ? "G"
+                    : IsClaudeOrGpt(group) ? "C" : "";
+                shortLabel = $"{prefix}{window.WindowLabel}";
+            }
+
+            var metric = new UsageMetricViewModel(window.Label, shortLabel);
+            metric.SetShowRemaining(_showRemaining);
+            metric.SetUsage(window.RemainingPercent, window.ResetAt);
+            metric.IsStale = _isStale;
+            UsageWindows.Add(metric);
+        }
+    }
+
+    private IEnumerable<UsageWindowSnapshot> GetAntigravityWindows()
+    {
+        var visible = _dynamicWindows.Where(window =>
+            (!_hideAntigravityClaudeAndGptModels || !IsClaudeOrGpt(window.GroupName ?? window.Label)) &&
+            (!_hideAntigravityFiveHourLimits || window.WindowLabel != "5H"));
+        foreach (var group in visible.GroupBy(window => window.GroupName))
+        {
+            // Some accounts currently expose only weekly quotas. Keep the 5H slot visible
+            // as unavailable rather than misrepresenting weekly usage as a session limit.
+            if (!_hideAntigravityFiveHourLimits && group.Key is not null &&
+                group.Any(window => window.WindowLabel == "W") &&
+                !group.Any(window => window.WindowLabel == "5H"))
+            {
+                yield return new UsageWindowSnapshot
+                {
+                    Label = $"{group.Key} · 5H (not reported by Antigravity)",
+                    GroupName = group.Key,
+                    WindowLabel = "5H"
+                };
+            }
+
+            foreach (var window in group)
+            {
+                yield return window;
+            }
+        }
+    }
+
+    private static bool IsClaudeOrGpt(string value) =>
+        value.Contains("Claude", StringComparison.OrdinalIgnoreCase) ||
+        value.Contains("GPT", StringComparison.OrdinalIgnoreCase);
 
     public void RefreshUsageColors()
     {

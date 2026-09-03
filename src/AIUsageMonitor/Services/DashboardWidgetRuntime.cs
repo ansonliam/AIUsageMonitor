@@ -18,6 +18,8 @@ public sealed class DashboardWidgetRuntime : IDisposable
     private bool? _showCodex;
     private bool? _showClaude;
     private bool? _showAntigravity;
+    private bool? _hideAntigravityClaudeAndGptModels;
+    private bool? _hideAntigravityFiveHourLimits;
     private bool? _showCursor;
     private UsageColorState? _usageColorState;
 
@@ -93,6 +95,14 @@ public sealed class DashboardWidgetRuntime : IDisposable
             ref _showCursor,
             _settings.ShowCursor,
             isVisible => _mainViewModel.SetProviderVisibility(ProviderKind.Cursor, isVisible));
+        ApplyIfChanged(
+            ref _hideAntigravityClaudeAndGptModels,
+            _settings.HideAntigravityClaudeAndGptModels,
+            _mainViewModel.SetHideAntigravityClaudeAndGptModels);
+        ApplyIfChanged(
+            ref _hideAntigravityFiveHourLimits,
+            _settings.HideAntigravityFiveHourLimits,
+            _mainViewModel.SetHideAntigravityFiveHourLimits);
 
         var usageColorState = new UsageColorState(
             _settings.GreenColorHex,

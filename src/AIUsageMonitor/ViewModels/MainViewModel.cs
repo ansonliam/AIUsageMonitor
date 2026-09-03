@@ -148,6 +148,12 @@ public sealed class MainViewModel
         }
     }
 
+    public void SetHideAntigravityClaudeAndGptModels(bool hide) =>
+        _providers[ProviderKind.Antigravity].SetHideAntigravityClaudeAndGptModels(hide);
+
+    public void SetHideAntigravityFiveHourLimits(bool hide) =>
+        _providers[ProviderKind.Antigravity].SetHideAntigravityFiveHourLimits(hide);
+
     public void SetUsageDisplayMode(bool showRemaining)
     {
         _showRemaining = showRemaining;

@@ -87,14 +87,19 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock VerticalAlignment="Center"
-                               MaxWidth="150"
-                               FontSize="{DynamicResource MetricFontSize}"
-                               FontWeight="{DynamicResource MetricFontWeight}"
-                               Foreground="#F5F7FA"
-                               Text="{Binding ShortLabel}"
-                               TextTrimming="CharacterEllipsis"
-                               ToolTip="{Binding HoverText}" />
+                    <Viewbox HorizontalAlignment="Left"
+                             VerticalAlignment="Center"
+                             Stretch="Uniform"
+                             StretchDirection="DownOnly">
+                        <TextBlock VerticalAlignment="Center"
+                                   MaxWidth="150"
+                                   FontSize="{DynamicResource MetricFontSize}"
+                                   FontWeight="{DynamicResource MetricFontWeight}"
+                                   Foreground="#F5F7FA"
+                                   Text="{Binding ShortLabel}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding HoverText}" />
+                    </Viewbox>
                     <TextBlock Grid.Column="1"
                                Margin="8,0,7,0"
                                HorizontalAlignment="Left"

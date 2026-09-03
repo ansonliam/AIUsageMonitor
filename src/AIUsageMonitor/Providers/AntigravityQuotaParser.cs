@@ -69,6 +69,7 @@ internal static class AntigravityQuotaParser
             var bucketId = ReadString(bucket, "bucketId", "bucket_id");
             var displayName = ReadString(bucket, "displayName", "display_name");
             var window = ReadString(bucket, "window");
+            var windowLabel = GetWindowLabel(window, bucketId, displayName);
             var labelPart = FirstNonEmpty(displayName, window, bucketId, "Usage");
             if (!string.IsNullOrWhiteSpace(window) &&
                 !labelPart.Contains(window, StringComparison.OrdinalIgnoreCase))
@@ -80,6 +81,10 @@ internal static class AntigravityQuotaParser
                         !labelPart.Contains(groupName, StringComparison.OrdinalIgnoreCase)
                 ? $"{groupName} · {labelPart}"
                 : labelPart;
+            if (windowLabel is not null)
+            {
+                label = string.IsNullOrWhiteSpace(groupName) ? windowLabel : $"{groupName} · {windowLabel}";
+            }
             var resetAt = ReadResetAt(bucket);
             var identity = $"{groupName}|{bucketId}|{label}|{resetAt:O}";
             if (!identities.Add(identity))
@@ -90,23 +95,49 @@ internal static class AntigravityQuotaParser
             groupWindows.Add(new UsageWindowSnapshot
             {
                 Label = label,
+                GroupName = groupName,
+                WindowLabel = windowLabel,
                 RemainingPercent = Math.Clamp(remainingPercent, 0, 100),
                 ResetAt = resetAt
             });
         }
 
-        // A group with a single bucket doesn't need the bucket's own name for
-        // disambiguation, so show just the model group (e.g. "Gemini Models"
-        // instead of "Gemini Models · Weekly Limit Remaining").
-        if (groupWindows.Count == 1 && !string.IsNullOrWhiteSpace(groupName))
+        // Preserve unknown bucket labels, but always distinguish known quota periods.
+        if (groupWindows.Count == 1 && groupWindows[0].WindowLabel is null &&
+            !string.IsNullOrWhiteSpace(groupName))
         {
             groupWindows[0] = groupWindows[0] with { Label = groupName };
         }
 
-        foreach (var window in groupWindows)
+        foreach (var window in groupWindows.OrderBy(window => window.WindowLabel switch
+                 {
+                     "5H" => 0,
+                     "W" => 1,
+                     _ => 2
+                 }))
         {
             windows.Add(window);
         }
+    }
+
+    private static string? GetWindowLabel(params string?[] values)
+    {
+        foreach (var value in values.Where(value => !string.IsNullOrWhiteSpace(value)))
+        {
+            var normalized = NormalizeName(value!);
+            if (normalized.Contains("5h", StringComparison.Ordinal) ||
+                normalized.Contains("fivehour", StringComparison.Ordinal))
+            {
+                return "5H";
+            }
+
+            if (normalized.Contains("weekly", StringComparison.Ordinal) || normalized == "week")
+            {
+                return "W";
+            }
+        }
+
+        return null;
     }
 
     private static bool TryReadRemainingPercent(JsonElement bucket, out double remainingPercent)
