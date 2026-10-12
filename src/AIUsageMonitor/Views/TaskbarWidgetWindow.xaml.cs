@@ -653,6 +653,11 @@ public partial class TaskbarWidgetWindow : Window
 
     public void ApplyStartupVisibility()
     {
+        // Per-monitor settings are loaded into _monitorAppearances in the constructor, but the
+        // primary window still has its default (right-aligned) fields until an appearance change
+        // is applied. Do that before the first Show so startup uses the saved alignment/offset
+        // instead of waiting for the user to toggle a setting.
+        ApplyMonitorAppearance(this);
         SynchronizeSecondaryWindows();
         ApplyWindowVisibility();
     }
